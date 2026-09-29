@@ -118,9 +118,11 @@ export async function uploadWorkspaceBlob(
   const putRes = await fetch(presign.uploadUrl, {
     method: "PUT",
     body,
-    // Must echo the exact headers bound into the presigned URL,
-    // or S3 will reject with SignatureDoesNotMatch.
-    headers: { "Content-Type": contentType },
+    headers: {
+      "Content-Type": contentType,
+      // Same-origin PUT proxy requires the workspace token.
+      Authorization: `Bearer ${token}`,
+    },
   });
   if (!putRes.ok) {
     console.error("[blobUpload] PUT failed", putRes.status, await putRes.text().catch(() => ""));

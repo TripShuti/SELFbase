@@ -1,12 +1,5 @@
 import { NextResponse } from "next/server";
-import { PutObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import {
-  getS3PresigningClient,
-  getS3Bucket,
-  isS3Configured,
-  derivePublicS3EndpointFromRequest,
-} from "@/src/lib/s3";
+import { isS3Configured } from "@/src/lib/s3";
 import { authorizeBlobRequest } from "../_auth";
 
 /** Sanitize filename to a safe extension (e.g. ".png") or default. */
@@ -70,27 +63,10 @@ export async function POST(request: Request) {
 
   const ext = getExtension(filename) || ".bin";
   const storageKey = `pages/${pageId}/${crypto.randomUUID()}${ext}`;
-  const bucket = getS3Bucket();
 
-  const command = new PutObjectCommand({
-    Bucket: bucket,
-    Key: storageKey,
-    ContentType: contentType,
-  });
-
-  const publicEndpoint = derivePublicS3EndpointFromRequest(request);
-
-  let uploadUrl: string;
-  try {
-    const presigningClient = getS3PresigningClient(publicEndpoint);
-    uploadUrl = await getSignedUrl(presigningClient, command, { expiresIn: 900 }); // 15 min
-  } catch (err) {
-    console.error("[upload/request] presign error:", err);
-    return NextResponse.json(
-      { error: "Failed to generate upload URL" },
-      { status: 500 }
-    );
-  }
+  // Browser uploads go through the PUT proxy on this same origin (S3
+  // backends reject the CORS preflight on direct presigned PUTs).
+  const uploadUrl = `/api/upload/put?db=${encodeURIComponent(dbName)}&key=${encodeURIComponent(storageKey)}`;
 
   return NextResponse.json({ uploadUrl, storageKey });
 }
