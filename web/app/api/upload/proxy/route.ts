@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { getS3Client, getS3Bucket, isS3Configured } from "@/src/lib/s3";
+import { authorizeBlobRequest, pageIdFromKey } from "../_auth";
 
 /**
- * GET /api/upload/proxy?key=storageKey
- * Streams the file from S3 so it can be used as img src or download.
- * Use this when you need a stable URL that doesn't expire (e.g. image blocks).
+ * GET /api/upload/proxy?db=<dbName>&key=<storageKey> + Bearer stdb token.
+ * Streams the file from S3 so it can be used where a stable, non-expiring
+ * URL is needed. Requires page *read* access as the caller.
  */
 export async function GET(request: NextRequest) {
   if (!isS3Configured()) {
@@ -13,9 +14,17 @@ export async function GET(request: NextRequest) {
   }
 
   const key = request.nextUrl.searchParams.get("key");
+  const dbName = request.nextUrl.searchParams.get("db") ?? "";
   if (!key || !key.startsWith("pages/")) {
     return new NextResponse("Missing or invalid key", { status: 400 });
   }
+  const pageId = pageIdFromKey(key);
+  if (pageId === null) {
+    return new NextResponse("Invalid storage key", { status: 400 });
+  }
+
+  const denied = await authorizeBlobRequest(request, dbName, pageId, false);
+  if (denied) return denied;
 
   const client = getS3Client();
   const bucket = getS3Bucket();

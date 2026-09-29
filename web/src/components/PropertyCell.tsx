@@ -7,7 +7,7 @@ import type { PropertyDefinitionRow, PagePropertyValueRow } from "@/src/hooks/us
 import { type UserRow } from "@/src/hooks/useUser";
 import { FloatingPopup } from "./FloatingPopup";
 import { formatDateOnly } from "../lib/date-only";
-import { uploadWorkspaceBlob, usePearWorkspaceSlug } from "@/src/lib/blobUpload";
+import { uploadWorkspaceBlob, useBlobSrc, usePearWorkspaceSlug } from "@/src/lib/blobUpload";
 import {
   parseSelectConfig,
   serializeSelectConfig,
@@ -1211,11 +1211,47 @@ function PersonCell({
 
 type FileRefValue = { name: string; objectId: string; externalUrl: string };
 
-function fileHref(slug: string | null, f: FileRefValue): string | null {
-  if (f.objectId) {
-    return slug ? `/api/workspaces/${encodeURIComponent(slug)}/blobs/${f.objectId}/raw` : null;
-  }
-  return f.externalUrl || null;
+function FileRow({
+  slug,
+  file,
+  onRemove,
+}: {
+  slug: string;
+  file: FileRefValue;
+  onRemove: () => void;
+}) {
+  // `objectId` holds a `pages/{pageId}/…` storage key for fork uploads;
+  // legacy bare-UUID ids and external URLs fall back to direct links.
+  const href = useBlobSrc(
+    file.objectId.startsWith("pages/") ? file.objectId : undefined,
+    slug
+  );
+  const direct = !file.objectId ? file.externalUrl || null : null;
+  const link = href || direct;
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      {link ? (
+        <a
+          href={link}
+          target="_blank"
+          rel="noreferrer"
+          className="flex-1 truncate text-blue-600 dark:text-blue-400 hover:underline"
+        >
+          📎 {file.name}
+        </a>
+      ) : (
+        <span className="flex-1 truncate text-neutral-500">📎 {file.name}</span>
+      )}
+      <button
+        type="button"
+        onClick={onRemove}
+        className="text-neutral-400 hover:text-red-500 text-xs"
+        aria-label={`Remove ${file.name}`}
+      >
+        ✕
+      </button>
+    </div>
+  );
 }
 
 function FileCell({
@@ -1273,33 +1309,14 @@ function FileCell({
       {editing && (
         <FloatingPopup anchorRef={anchorRef} onClose={() => setEditing(false)}>
           <div className="p-2 w-72 space-y-1">
-            {value.map((f, i) => {
-              const href = fileHref(slug, f);
-              return (
-                <div key={`${f.objectId || f.externalUrl}-${i}`} className="flex items-center gap-2 text-sm">
-                  {href ? (
-                    <a
-                      href={href}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex-1 truncate text-blue-600 dark:text-blue-400 hover:underline"
-                    >
-                      📎 {f.name}
-                    </a>
-                  ) : (
-                    <span className="flex-1 truncate text-neutral-500">📎 {f.name}</span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => onSave(value.filter((_, j) => j !== i))}
-                    className="text-neutral-400 hover:text-red-500 text-xs"
-                    aria-label={`Remove ${f.name}`}
-                  >
-                    ✕
-                  </button>
-                </div>
-              );
-            })}
+            {value.map((f, i) => (
+              <FileRow
+                key={`${f.objectId || f.externalUrl}-${i}`}
+                slug={slug}
+                file={f}
+                onRemove={() => onSave(value.filter((_, j) => j !== i))}
+              />
+            ))}
             <input
               ref={fileInputRef}
               type="file"

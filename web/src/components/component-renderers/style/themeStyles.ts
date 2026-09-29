@@ -11,6 +11,7 @@
  * it is what makes the provisional choices below safe to make now.
  */
 
+import { useMemo } from "react";
 import type {
   DensityToken,
   FitToken,
@@ -20,7 +21,7 @@ import type {
   Theme,
   ToneToken,
 } from "@selfbase/pulp";
-import { workspaceBlobSrc } from "@/src/lib/blobUpload";
+import { useBlobSrc } from "@/src/lib/blobUpload";
 
 /**
  * Tone → surface **and** foreground, light **and** dark, in one entry (D11).
@@ -123,30 +124,31 @@ export function themeClasses(theme: Theme | null): string {
  * Inline style a theme contributes — accent custom properties, plus the
  * background image when there is one.
  *
- * `slug` is needed only for image backgrounds; the URL is built by
- * `workspaceBlobSrc` from an opaque object id, so no caller-supplied string
- * ever becomes a URL. `workspaceBlobSrc` returns "" for unresolvable keys, and
- * a missing blob simply yields no background rather than a broken page (D10).
+ * Image backgrounds resolve asynchronously through the authed blob URL, so
+ * this is a hook: `bgSrc` is "" until the presigned URL arrives, and a
+ * missing blob simply yields no background rather than a broken page (D10).
  */
-export function themeStyle(theme: Theme | null, slug: string): React.CSSProperties {
-  if (!theme) return {};
-  const style: React.CSSProperties = {};
+export function useThemeStyle(theme: Theme | null, slug: string): React.CSSProperties {
+  const bgKey =
+    theme?.background?.kind === "image" ? theme.background.storageKey : undefined;
+  const bgSrc = useBlobSrc(bgKey, slug);
+  return useMemo(() => {
+    if (!theme) return {};
+    const style: React.CSSProperties = {};
 
-  if (theme.accent) {
-    const vars = ACCENT_VARS[theme.accent];
-    (style as Record<string, string>)["--pear-accent"] = vars.accent;
-    (style as Record<string, string>)["--pear-accent-on"] = vars.on;
-  }
+    if (theme.accent) {
+      const vars = ACCENT_VARS[theme.accent];
+      (style as Record<string, string>)["--pear-accent"] = vars.accent;
+      (style as Record<string, string>)["--pear-accent-on"] = vars.on;
+    }
 
-  const bg = theme.background;
-  if (bg?.kind === "image") {
-    const src = workspaceBlobSrc(slug, bg.storageKey);
-    if (src) {
+    const bg = theme.background;
+    if (bg?.kind === "image" && bgSrc) {
       Object.assign(style, OBJECT_FIT[bg.fit]);
-      style.backgroundImage = `url(${JSON.stringify(src)})`;
+      style.backgroundImage = `url(${JSON.stringify(bgSrc)})`;
       if (bg.opacity < 100) style.opacity = bg.opacity / 100;
     }
-  }
 
-  return style;
+    return style;
+  }, [theme, bgSrc]);
 }

@@ -5,7 +5,7 @@
 
 use spacetimedb::{reducer, table, ReducerContext, ScheduleAt, SpacetimeType, Table, Timestamp};
 
-use crate::access_control::helpers::{can_write_page, require_page_write};
+use crate::access_control::helpers::{can_write_page, require_page_read, require_page_write};
 use crate::id_counters::alloc_id;
 use crate::pages::components::{
     component_node, next_component_node_id, ComponentNode,
@@ -389,6 +389,19 @@ pub fn update_page_icon(ctx: &ReducerContext, page_id: u64, icon: String) -> Res
         ..page
     });
     Ok(())
+}
+
+/// Authorization probe for the web app's blob routes. Performs no state
+/// changes — it exists so the HTTP layer can enforce page ACLs with the
+/// caller's own identity: the route invokes this reducer with the caller's
+/// token and maps `Err` to 403.
+#[reducer]
+pub fn authorize_blob_access(ctx: &ReducerContext, page_id: u64, write: bool) -> Result<(), String> {
+    if write {
+        require_page_write(ctx, page_id)
+    } else {
+        require_page_read(ctx, page_id)
+    }
 }
 
 /// Updates PageContent (not Page) — content is separate from metadata.

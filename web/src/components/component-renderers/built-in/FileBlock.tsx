@@ -5,9 +5,9 @@ import { usePulp, type BlockRendererProps } from "@selfbase/pulp";
 import { useAudioAttachment } from "@/src/components/AudioAttachmentContext";
 import {
   uploadWorkspaceBlob,
+  useBlobDownloadHref,
+  useBlobSrc,
   usePearWorkspaceSlug,
-  workspaceBlobDownloadHref,
-  workspaceBlobSrc,
 } from "@/src/lib/blobUpload";
 import { formatBytes } from "@/src/lib/formatBytes";
 
@@ -42,6 +42,8 @@ export function FileBlockRenderer({ node }: BlockRendererProps) {
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const resolvedSrc = useBlobSrc(props.storageKey || undefined, slug);
+  const resolvedDownload = useBlobDownloadHref(props.storageKey || undefined, slug);
 
   const patch = useCallback(
     (next: Partial<FileBlockProps>) => {
@@ -161,10 +163,8 @@ export function FileBlockRenderer({ node }: BlockRendererProps) {
   }
 
   const displayName = filename || (externalUrl ? lastPathSegment(externalUrl) : "file");
-  const openHref = storageKey ? workspaceBlobSrc(slug, storageKey) : externalUrl;
-  const downloadHref = storageKey
-    ? workspaceBlobDownloadHref(slug, storageKey, displayName)
-    : externalUrl;
+  const openHref = storageKey ? resolvedSrc : externalUrl;
+  const downloadHref = storageKey ? resolvedDownload || resolvedSrc : externalUrl;
   const sizeLabel = props.sizeBytes ? formatBytes(props.sizeBytes) : "";
   const typeLabel = shortTypeLabel(props.contentType, displayName);
   const meta = [sizeLabel, typeLabel].filter(Boolean).join(" · ");

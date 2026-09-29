@@ -87,13 +87,26 @@ spacetime start
 cd server/spacetimedb
 cargo build --release --target wasm32-unknown-unknown
 cd ..
-spacetime publish -s local selfbase-dev
-spacetime call -s local --yes selfbase-dev run_pending_migrations
+spacetime publish -s local selfbase
+spacetime call -s local --yes selfbase run_pending_migrations
 
 # new shell, repo root:
 pnpm install
 pnpm --filter @selfbase/web dev   # → http://localhost:3001
 ```
+
+Point the dev web at your database in `web/.env.local`:
+
+```env
+NEXT_PUBLIC_SPACETIMEDB_URI=ws://localhost:3000
+NEXT_PUBLIC_SPACETIMEDB_DB_NAME=selfbase
+```
+
+Notes for native runs:
+
+- Blob routes call SpacetimeDB over HTTP for auth checks — set
+  `SPACETIMEDB_INTERNAL_URL=http://localhost:3000` in the web process env.
+- Without S3 (`S3_*` unset) uploads answer 503; everything else works.
 
 After any change under `server/spacetimedb/src/`, regenerate bindings:
 

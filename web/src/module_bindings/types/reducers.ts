@@ -8,6 +8,7 @@ import { type Infer as __Infer } from "spacetimedb";
 // Import all reducer arg schemas
 import AddPropertyReducer from "../add_property_reducer";
 import AppendPageDocReducer from "../append_page_doc_reducer";
+import AuthorizeBlobAccessReducer from "../authorize_blob_access_reducer";
 import ClearBlockAccessRuleReducer from "../clear_block_access_rule_reducer";
 import ClearPageAccessRuleReducer from "../clear_page_access_rule_reducer";
 import ClearPropertyValueReducer from "../clear_property_value_reducer";
@@ -91,6 +92,7 @@ import UpdateViewConfigReducer from "../update_view_config_reducer";
 
 export type AddPropertyParams = __Infer<typeof AddPropertyReducer>;
 export type AppendPageDocParams = __Infer<typeof AppendPageDocReducer>;
+export type AuthorizeBlobAccessParams = __Infer<typeof AuthorizeBlobAccessReducer>;
 export type ClearBlockAccessRuleParams = __Infer<typeof ClearBlockAccessRuleReducer>;
 export type ClearPageAccessRuleParams = __Infer<typeof ClearPageAccessRuleReducer>;
 export type ClearPropertyValueParams = __Infer<typeof ClearPropertyValueReducer>;

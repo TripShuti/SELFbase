@@ -15,7 +15,7 @@ import {
 import { styleClasses } from "@/src/components/component-renderers/style/spaceClasses";
 import {
   themeClasses,
-  themeStyle,
+  useThemeStyle,
 } from "@/src/components/component-renderers/style/themeStyles";
 import { usePearWorkspaceSlug } from "@/src/lib/blobUpload";
 
@@ -71,7 +71,7 @@ export function ContainerRenderer({ node, def, tree, children }: BlockRendererPr
   const slug = usePearWorkspaceSlug();
   const theme = useMemo(() => parseTheme(props.theme), [props.theme]);
   const themeClassNames = themeClasses(theme);
-  const themeInlineStyle = useMemo(() => themeStyle(theme, slug), [theme, slug]);
+  const themeInlineStyle = useThemeStyle(theme, slug);
   const { insertBlock } = usePulp();
   const focus = useSurfaceFocus();
   const acceptsChildren = def.acceptsChildren;

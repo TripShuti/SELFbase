@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { useTable } from "spacetimedb/react";
 import { tables } from "@/src/module_bindings";
-import { usePearWorkspaceSlug, workspaceBlobSrc } from "@/src/lib/blobUpload";
+import { usePearWorkspaceSlug, useBlobSrc } from "@/src/lib/blobUpload";
 import type { BlockRendererProps } from "@selfbase/pulp";
 
 /**
@@ -38,6 +38,7 @@ export function ImageRenderer({ node }: BlockRendererProps) {
   const attachment = attachmentId != null
     ? attachments.find((a) => a.id === attachmentId)
     : undefined;
+  const src = useBlobSrc(attachment?.storageKey, slug);
 
   if (!attachment) {
     return (
@@ -51,7 +52,6 @@ export function ImageRenderer({ node }: BlockRendererProps) {
     );
   }
 
-  const src = workspaceBlobSrc(slug, attachment.storageKey);
   const style: React.CSSProperties = {};
   if (typeof props.width === "number") style.width = `${props.width}px`;
   if (typeof props.height === "number") style.height = `${props.height}px`;

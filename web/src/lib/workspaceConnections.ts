@@ -156,6 +156,22 @@ export function setActiveWorkspaceId(activeId: string): void {
 }
 
 /**
+ * Read the active workspace's SpacetimeDB identity token outside React
+ * (event handlers). Returns null when signed out or in SSR.
+ */
+export function readActiveWorkspaceToken(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const { list, activeId } = loadWorkspaces();
+    const current = list.find((w) => w.id === activeId) ?? list[0];
+    if (!current) return null;
+    return localStorage.getItem(tokenStorageKey(current.id));
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Pear Cloud: ensure the workspace identified by (wsUri, dbName) is the
  * active entry in localStorage. Matches existing entries by identity
  * (wsUri + dbName), inserting a new one only when absent.

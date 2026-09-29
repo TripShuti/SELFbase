@@ -5,7 +5,7 @@ import type { CreateAttachmentFn } from "@/src/components/AudioAttachmentContext
 import {
   uploadWorkspaceBlob,
   usePearWorkspaceSlug,
-  workspaceBlobSrc,
+  useBlobSrc,
 } from "@/src/lib/blobUpload";
 
 export type AudioBlockPatch = {
@@ -339,7 +339,7 @@ export function AudioBlockContent({
 
   const displayTranscript = (transcript || liveTranscript).trim();
   const hasAudio = Boolean(storageKey);
-  const src = hasAudio ? workspaceBlobSrc(workspaceSlug, storageKey) : "";
+  const src = useBlobSrc(hasAudio ? storageKey : undefined, workspaceSlug);
   const showTranscriptSection = hasAudio || isRecording || Boolean(displayTranscript);
 
   if (!attachmentCtx) {

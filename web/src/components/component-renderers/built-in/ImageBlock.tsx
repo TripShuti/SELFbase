@@ -5,8 +5,8 @@ import { usePulp, type BlockRendererProps } from "@selfbase/pulp";
 import { useAudioAttachment } from "@/src/components/AudioAttachmentContext";
 import {
   uploadWorkspaceBlob,
+  useBlobSrc,
   usePearWorkspaceSlug,
-  workspaceBlobSrc,
 } from "@/src/lib/blobUpload";
 
 /**
@@ -31,6 +31,7 @@ export function ImageBlockRenderer({ node }: BlockRendererProps) {
   const attachmentCtx = useAudioAttachment();
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const resolvedSrc = useBlobSrc(props.storageKey || undefined, slug);
 
   const patch = useCallback(
     (next: Partial<ImageBlockProps>) => {
@@ -104,7 +105,7 @@ export function ImageBlockRenderer({ node }: BlockRendererProps) {
     );
   }
 
-  const src = storageKey ? workspaceBlobSrc(slug, storageKey) : externalUrl;
+  const src = storageKey ? resolvedSrc : externalUrl;
   const caption = props.caption ?? "";
 
   return (

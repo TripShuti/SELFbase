@@ -36,6 +36,7 @@ import {
 // Import all reducer arg schemas
 import AddPropertyReducer from "./add_property_reducer";
 import AppendPageDocReducer from "./append_page_doc_reducer";
+import AuthorizeBlobAccessReducer from "./authorize_blob_access_reducer";
 import ClearBlockAccessRuleReducer from "./clear_block_access_rule_reducer";
 import ClearPageAccessRuleReducer from "./clear_page_access_rule_reducer";
 import ClearPropertyValueReducer from "./clear_property_value_reducer";
@@ -597,6 +598,7 @@ const tablesSchema = __schema({
 const reducersSchema = __reducers(
   __reducerSchema("add_property", AddPropertyReducer),
   __reducerSchema("append_page_doc", AppendPageDocReducer),
+  __reducerSchema("authorize_blob_access", AuthorizeBlobAccessReducer),
   __reducerSchema("clear_block_access_rule", ClearBlockAccessRuleReducer),
   __reducerSchema("clear_page_access_rule", ClearPageAccessRuleReducer),
   __reducerSchema("clear_property_value", ClearPropertyValueReducer),

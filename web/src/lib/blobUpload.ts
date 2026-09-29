@@ -1,39 +1,66 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useWorkspace } from "@/src/providers/WorkspaceProvider";
+import {
+  readActiveWorkspaceToken,
+  tokenStorageKey,
+} from "@/src/lib/workspaceConnections";
 
 /**
- * Workspace-scoped blob upload/download helpers.
+ * Standalone blob upload/download against the local `/api/upload/*` routes.
  *
- * Pear Cloud exposes blobs under `/api/workspaces/{slug}/blobs/*`:
- *   1. POST /upload-url     → presigned PUT URL + objectId
- *   2. PUT  <uploadUrl>     → actual bytes (client → S3)
- *   3. POST /complete       → server HEAD-confirms and registers the row
+ * Upload dance:
+ *   1. POST /api/upload/request { dbName, pageId, filename, contentType }
+ *      (+ Bearer stdb token) → { uploadUrl, storageKey }
+ *   2. PUT <uploadUrl> → actual bytes (client → S3)
  *
- * The returned `objectId` (a UUID) is stored as the attachment's
- * `storageKey` on the SpacetimeDB side. Display URLs are constructed via
- * `workspaceBlobSrc(slug, objectId)` which hits a server route that
- * 302-redirects to a short-lived presigned GET URL (safe for `<img src>`).
+ * The returned `storageKey` (`pages/{pageId}/{uuid}.ext`) is stored on the
+ * component props / property value. Display URLs are resolved through
+ * {@link useBlobSrc}, which mints a short-lived presigned GET via
+ * `/api/upload/url` (same Bearer gate) — plain `<img src>` tags cannot send
+ * Authorization headers, so the presigned URL is fetched first.
  */
 
 export type UploadWorkspaceBlobParams = {
-  /** Workspace slug (== SpacetimeDB module name in cloud mode). */
+  /** Database name of the active workspace (standalone slug). */
   slug: string;
   /** The raw file/blob to upload. */
   body: Blob;
   /** MIME type to store alongside the object. */
   contentType: string;
   pageId?: bigint;
-  conversationId?: bigint;
 };
 
 export type UploadWorkspaceBlobResult = {
   objectId: string;
   byteSize: number;
-  /** Full S3 key (`workspaces/{workspaceId}/{objectId}`) when the API provides it. */
+  /** Full S3 key (`pages/{pageId}/{uuid}.ext`). */
   storageKey?: string;
 };
+
+/** The active workspace's SpacetimeDB identity token (if signed in). */
+export function useWorkspaceToken(): string | null {
+  const { activeWorkspace } = useWorkspace();
+  const [token, setToken] = useState<string | null>(null);
+  useEffect(() => {
+    if (!activeWorkspace) {
+      setToken(null);
+      return;
+    }
+    try {
+      setToken(localStorage.getItem(tokenStorageKey(activeWorkspace.id)));
+    } catch {
+      setToken(null);
+    }
+  }, [activeWorkspace]);
+  return token;
+}
+
+function readWorkspaceToken(): string | null {
+  return readActiveWorkspaceToken();
+}
 
 async function jsonOr<T>(res: Response): Promise<T | null> {
   try {
@@ -44,126 +71,158 @@ async function jsonOr<T>(res: Response): Promise<T | null> {
 }
 
 /**
- * Full upload dance: presign → PUT → complete. Returns the objectId on
- * success, null on any failure (already logged).
+ * Full upload dance: presign → PUT. Returns storage info on success,
+ * null on any failure (already logged).
  */
 export async function uploadWorkspaceBlob(
   params: UploadWorkspaceBlobParams
 ): Promise<UploadWorkspaceBlobResult | null> {
-  const { slug, body, contentType } = params;
-  if (!slug) {
-    console.error("[blobUpload] missing workspace slug");
+  const { slug: dbName, body, contentType } = params;
+  if (!dbName) {
+    console.error("[blobUpload] missing workspace db name");
+    return null;
+  }
+  if (params.pageId === undefined) {
+    console.error("[blobUpload] missing pageId");
+    return null;
+  }
+  const token = readWorkspaceToken();
+  if (!token) {
+    console.error("[blobUpload] not signed in");
     return null;
   }
 
-  const presignRes = await fetch(
-    `/api/workspaces/${encodeURIComponent(slug)}/blobs/upload-url`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contentType,
-        contentLength: body.size,
-        resourceKind: params.conversationId !== undefined ? "conversation" : params.pageId !== undefined ? "page" : undefined,
-        resourceId: (params.conversationId ?? params.pageId)?.toString(),
-      }),
-    }
-  );
+  const presignRes = await fetch("/api/upload/request", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      dbName,
+      pageId: params.pageId.toString(),
+      filename: (body as File).name ?? "upload.bin",
+      contentType,
+    }),
+  });
   if (!presignRes.ok) {
     const err = await jsonOr<{ error?: string }>(presignRes);
     console.error("[blobUpload] presign failed", presignRes.status, err);
     return null;
   }
   const presign = (await presignRes.json()) as {
-    method: "PUT";
     uploadUrl: string;
-    objectId: string;
-    storageKey?: string;
-    headers?: Record<string, string>;
+    storageKey: string;
   };
 
   const putRes = await fetch(presign.uploadUrl, {
     method: "PUT",
     body,
-    // Must echo the exact headers that were bound into the presigned URL,
+    // Must echo the exact headers bound into the presigned URL,
     // or S3 will reject with SignatureDoesNotMatch.
-    headers: presign.headers ?? { "Content-Type": contentType },
+    headers: { "Content-Type": contentType },
   });
   if (!putRes.ok) {
     console.error("[blobUpload] PUT failed", putRes.status, await putRes.text().catch(() => ""));
     return null;
   }
 
-  const completeRes = await fetch(
-    `/api/workspaces/${encodeURIComponent(slug)}/blobs/complete`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ objectId: presign.objectId }),
-    }
-  );
-  if (!completeRes.ok) {
-    const err = await jsonOr<{ error?: string }>(completeRes);
-    console.error("[blobUpload] complete failed", completeRes.status, err);
-    return null;
-  }
-  const done = (await completeRes.json()) as { byteSize: number };
-
   return {
-    objectId: presign.objectId,
-    byteSize: done.byteSize,
+    objectId: presign.storageKey,
+    byteSize: body.size,
     storageKey: presign.storageKey,
   };
 }
 
 /**
- * Stable `<img src>` / `<audio src>` URL for a stored blob. Points at a
- * server route that validates membership and 302-redirects to a
- * short-lived presigned GET URL.
+ * Resolve a display URL for a stored blob.
  *
- * `storageKey` here is expected to be a bare UUID (an objectId). Legacy
- * Pear storageKeys shaped like `pages/<pageId>/<uuid>.ext` are handled by
- * returning an empty string (so the caller renders a placeholder).
+ * - `pages/{pageId}/…` keys (this fork's uploads): mint a short-lived
+ *   presigned GET through `/api/upload/url` with the workspace token.
+ * - Anything else (absolute http(s) URLs): returned as-is.
+ * - Empty/unknown: "" while loading or unresolvable.
  */
-export function workspaceBlobSrc(slug: string, storageKey: string): string {
-  if (!slug || !storageKey) return "";
-  // Legacy standalone-Pear keys aren't resolvable on the cloud API.
-  if (storageKey.includes("/")) return "";
-  return `/api/workspaces/${encodeURIComponent(slug)}/blobs/${encodeURIComponent(
-    storageKey
-  )}/raw`;
+export function useBlobSrc(
+  storageKey: string | undefined | null,
+  dbName: string | undefined | null
+): string {
+  const token = useWorkspaceToken();
+  const [src, setSrc] = useState("");
+  useEffect(() => {
+    if (!storageKey) {
+      setSrc("");
+      return;
+    }
+    if (/^https?:\/\//i.test(storageKey)) {
+      setSrc(storageKey);
+      return;
+    }
+    if (!storageKey.startsWith("pages/") || !dbName || !token) {
+      setSrc("");
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/upload/url?db=${encodeURIComponent(dbName)}&key=${encodeURIComponent(storageKey)}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = (await res.json()) as { getUrl?: string };
+        if (!cancelled) setSrc(data.getUrl ?? "");
+      } catch (err) {
+        console.error("[blobUpload] resolve failed", err);
+        if (!cancelled) setSrc("");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [storageKey, dbName, token]);
+  return src;
 }
 
 /**
- * Download URL for a stored blob that preserves the original filename.
- *
- * Same route as `workspaceBlobSrc` with `?download=1&filename=…`; the server
- * presigns with a `Content-Disposition: attachment` override so the browser
- * saves `filename` instead of the bare objectId. Falls back to the plain
- * inline URL when no filename is known.
+ * Download URL variant — same presigned-GET resolution as {@link useBlobSrc}.
+ * (The presigned URL honors the stored content type; for `download` with the
+ * original filename use `workspaceBlobDownloadHref`.)
  */
-export function workspaceBlobDownloadHref(
-  slug: string,
-  storageKey: string,
-  filename: string
+export function useBlobDownloadHref(
+  storageKey: string | undefined | null,
+  dbName: string | undefined | null
 ): string {
-  const base = workspaceBlobSrc(slug, storageKey);
-  if (!base) return "";
-  const name = filename.trim();
-  if (!name) return base;
-  return `${base}?download=1&filename=${encodeURIComponent(name)}`;
+  return useBlobSrc(storageKey, dbName);
+}
+
+/**
+ * Legacy cloud helpers below are intentionally inert in this fork: standalone
+ * workspaces have no `/api/workspaces/{slug}/blobs/*` routes. They are kept
+ * so old call sites keep compiling while being migrated to {@link useBlobSrc}.
+ */
+
+/** @deprecated Use {@link useBlobSrc} instead. */
+export function workspaceBlobSrc(_slug: string, _storageKey: string): string {
+  return "";
+}
+
+/** @deprecated Use {@link useBlobDownloadHref} instead. */
+export function workspaceBlobDownloadHref(
+  _slug: string,
+  _storageKey: string,
+  _filename: string
+): string {
+  return "";
 }
 
 /**
  * Resolve the current workspace slug for blob URLs.
  *
  * Priority:
- *   1. URL param `slug` (Next.js route like `/workspace/[slug]/…`). This is
- *      the authoritative source in Pear Cloud — the URL always reflects
- *      which workspace the user is viewing.
+ *   1. URL param `slug` (Next.js route like `/workspace/[slug]/…`).
  *   2. `activeWorkspace.dbName` from the WorkspaceProvider (localStorage-
- *      backed). This is the fallback for standalone Pear where there is
- *      no slug-based URL.
+ *      backed). This is the fallback for standalone workspaces where there
+ *      is no slug-based URL.
  */
 export function usePearWorkspaceSlug(): string {
   const params = useParams() as { slug?: string | string[] } | null;
