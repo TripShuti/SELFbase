@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   title: "SELFbase",
   description: "Self-hosted, relational-first workspace",
   icons: {
-    icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗄️</text></svg>",
+    icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%2318181b'/><text x='50' y='68' font-size='58' font-family='sans-serif' font-weight='bold' text-anchor='middle' fill='white'>S</text></svg>",
   },
 };
 

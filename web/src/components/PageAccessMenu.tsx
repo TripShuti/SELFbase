@@ -1,8 +1,15 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
-import { useReducer, useSpacetimeDB, useTable } from "spacetimedb/react";
+import { useReducer, useSpacetimeDB } from "spacetimedb/react";
+import { useScopedTable } from "@/src/hooks/useScopedTable";
 import { tables, reducers } from "@/src/module_bindings";
+import type {
+  ModuleInstallMeta,
+  Page,
+  PageAccessRule,
+  User,
+} from "@/src/module_bindings/types";
 import {
   pageAccessScope,
   effectivePagePermission,
@@ -74,12 +81,31 @@ function PageAccessPanel({
   onClose: () => void;
 }) {
   const { identity } = useSpacetimeDB();
-  const [pages, pagesReady] = useTable(tables.page);
-  const [rules, rulesReady] = useTable(tables.page_access_rule);
+  // Raw-SQL subscriptions (not the SDK typed path): the typed path silently
+  // stalls on some tables in this setup, leaving the panel at "Loading…".
+  const { rows: pages, ready: pagesReady } = useScopedTable<Page>(
+    tables.page,
+    "SELECT * FROM page",
+    () => true
+  );
+  const { rows: rules, ready: rulesReady } = useScopedTable<PageAccessRule>(
+    tables.page_access_rule,
+    "SELECT * FROM page_access_rule",
+    () => true
+  );
   // Permissions belong to identities; email-deduplicated rows can hide grants
   // held by another session belonging to the same person.
-  const [users, usersReady] = useTable(tables.user);
-  const [install, installReady] = useTable(tables.module_install_meta);
+  // NOTE: "user" is reserved in SQL — quote it like the SDK does.
+  const { rows: users, ready: usersReady } = useScopedTable<User>(
+    tables.user,
+    'SELECT * FROM "user"',
+    () => true
+  );
+  const { rows: install, ready: installReady } = useScopedTable<ModuleInstallMeta>(
+    tables.module_install_meta,
+    "SELECT * FROM module_install_meta",
+    () => true
+  );
   const setRule = useReducer(reducers.setPageAccessRule);
   const clearRule = useReducer(reducers.clearPageAccessRule);
   const [selected, setSelected] = useState("");

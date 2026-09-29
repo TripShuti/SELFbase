@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo, useCallback, type RefObject } from "react";
+import { useRouter } from "next/navigation";
 import { useTable, useSpacetimeDB } from "spacetimedb/react";
 import { tables } from "@/src/module_bindings";
 import {
@@ -15,6 +16,8 @@ import {
 } from "@/src/hooks/usePages";
 import type { PageRow } from "@/src/hooks/usePages";
 import { useUsers, type UserRow } from "@/src/hooks/useUser";
+import { useOpenCommentCounts } from "@/src/hooks/useBlockComments";
+import { CommentIcon } from "./CommentIcon";
 import {
   useDatabaseSchema,
   useDatabaseViews,
@@ -50,7 +53,6 @@ import {
   getFormulaHints,
   resolveDefault,
 } from "@/src/lib/propertyDefaults";
-import { RowDetailModal } from "./RowDetailModal";
 import { BoardView } from "./BoardView";
 import {
   PropertyTypePicker,
@@ -322,6 +324,12 @@ export function GridView({ page }: GridViewProps) {
   const { identity } = useSpacetimeDB();
 
   const createPage = useCreatePage();
+  const commentCounts = useOpenCommentCounts();
+  const router = useRouter();
+  const openComments = useCallback(
+    (row: PageRow) => router.push(`/workspace/${String(row.id)}?comments=1`),
+    [router]
+  );
   const addProperty = useAddProperty();
   const createSchema = useCreateDatabaseSchema();
   const createView = useCreateView();
@@ -545,8 +553,6 @@ export function GridView({ page }: GridViewProps) {
       document.removeEventListener("mouseup",   onMouseUp);
     };
   }, []);
-
-  const [selectedRow, setSelectedRow] = useState<PageRow | null>(null);
 
   // Two-phase seed for brand-new databases.
   // Phase 1: detect no schema → create schema + view.
@@ -1322,8 +1328,10 @@ export function GridView({ page }: GridViewProps) {
           valuesByPage={valuesByPage}
           selectedRowIds={selectedRowIds}
           anyRowsSelected={selectedRowIds.size > 0}
+          commentCounts={commentCounts}
+          onOpenComments={openComments}
           onRowSelect={toggleRowSelect}
-          onOpenRow={(r) => { clearRowSelection(); setSelectedRow(r); }}
+          onOpenRow={(r) => { clearRowSelection(); router.push(`/workspace/${String(r.id)}`); }}
         />
       )}
       {viewMode === "kanban" && (
@@ -1339,7 +1347,7 @@ export function GridView({ page }: GridViewProps) {
             cfg.boardGroupByPropertyId = id ?? undefined;
             updateViewConfig({ viewId: view.id, config: serializeViewConfig(cfg) });
           }}
-          onOpenRow={(row) => { clearRowSelection(); setSelectedRow(row); }}
+          onOpenRow={(row) => { clearRowSelection(); router.push(`/workspace/${String(row.id)}`); }}
         />
       )}
       <div className={`overflow-x-auto${viewMode === "list" || viewMode === "kanban" ? " hidden" : ""}${isResizing || draggingColKey ? " select-none" : ""}${isResizing ? " cursor-col-resize" : ""}${draggingColKey ? " cursor-grabbing" : ""}`}>
@@ -1531,11 +1539,13 @@ export function GridView({ page }: GridViewProps) {
                 isDraggingFill={fillSource !== null}
                 onFillDragStart={handleFillDragStart}
                 onFillDragEnter={handleFillDragEnter}
+                commentCount={commentCounts.get(String(row.id)) ?? 0}
+                onOpenComments={() => openComments(row)}
                 onOpenRow={(r) => {
                   setSelectedCells(new Set());
                   setEditingCell(null);
                   clearRowSelection();
-                  setSelectedRow(r);
+                  router.push(`/workspace/${String(r.id)}`);
                 }}
                 onRenameRow={(pageId, title) => updatePageTitle({ pageId, title })}
                 onRowContextMenu={(e) => {
@@ -1596,14 +1606,6 @@ export function GridView({ page }: GridViewProps) {
           + New row
         </button>
       </div>
-
-      {selectedRow && (
-        <RowDetailModal
-          page={selectedRow}
-          parentPage={page}
-          onClose={() => setSelectedRow(null)}
-        />
-      )}
 
       {/* Column drag ghost */}
       {ghostPos && draggingColKey && (
@@ -2497,6 +2499,8 @@ function ListView({
   valuesByPage,
   selectedRowIds,
   anyRowsSelected,
+  commentCounts,
+  onOpenComments,
   onRowSelect,
   onOpenRow,
 }: {
@@ -2505,6 +2509,8 @@ function ListView({
   valuesByPage: ReadonlyMap<bigint, RowPropertyValues>;
   selectedRowIds: Set<bigint>;
   anyRowsSelected: boolean;
+  commentCounts: ReadonlyMap<string, number>;
+  onOpenComments: (row: PageRow) => void;
   onRowSelect: (rowId: bigint, rowIdx: number, shiftKey: boolean) => void;
   onOpenRow: (r: PageRow) => void;
 }) {
@@ -2535,6 +2541,19 @@ function ListView({
             <span className="flex-1 text-sm text-neutral-800 dark:text-neutral-200 truncate">
               {row.title || "Untitled"}
             </span>
+            {(commentCounts.get(String(row.id)) ?? 0) > 0 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenComments(row);
+                }}
+                className="flex-shrink-0 flex items-center gap-1 text-xs text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors"
+                title={`${commentCounts.get(String(row.id))} open comment${commentCounts.get(String(row.id)) === 1 ? "" : "s"}`}
+              >
+                <CommentIcon size={13} />
+                <span>{commentCounts.get(String(row.id))}</span>
+              </button>
+            )}
             {/* Inline chips for first few select/multi-select properties */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
               {properties.slice(0, 4).map((prop) => (
@@ -2624,6 +2643,8 @@ function GridRow({
   isDraggingFill,
   onFillDragStart,
   onFillDragEnter,
+  commentCount,
+  onOpenComments,
 }: {
   row: PageRow;
   rowIdx: number;
@@ -2651,6 +2672,9 @@ function GridRow({
   isDraggingFill: boolean;
   onFillDragStart: (rowId: bigint, propId: bigint) => void;
   onFillDragEnter: (rowId: bigint, propId: bigint) => void;
+  /** Open (unresolved) comment threads on this row, 0 when none. */
+  commentCount: number;
+  onOpenComments: () => void;
 }) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(row.title);
@@ -2735,6 +2759,19 @@ function GridRow({
           >
             ↗
           </button>
+          {commentCount > 0 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenComments();
+              }}
+              className="flex-shrink-0 flex items-center gap-1 text-xs text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors"
+              title={`${commentCount} open comment${commentCount === 1 ? "" : "s"}`}
+            >
+              <CommentIcon size={13} />
+              <span>{commentCount}</span>
+            </button>
+          )}
         </div>
       </td>
       {properties.map((prop) => {

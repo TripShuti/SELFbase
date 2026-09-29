@@ -9,12 +9,14 @@ import { useScopedTable } from "@/src/hooks/useScopedTable";
 import { useUpdatePageTitle, useUpdatePageIcon, useDeletePageSubtree, useChildPages } from "@/src/hooks/usePages";
 import type { PageRow } from "@/src/hooks/usePages";
 import { EmojiPicker } from "./EmojiPicker";
+import { CommentIcon } from "./CommentIcon";
 import { PageEditorSurface } from "./PageEditorSurface";
 import { PageMoreMenu } from "./PageMoreMenu";
 import { PageAccessMenu } from "./PageAccessMenu";
 import { PageHistoryPanel } from "./PageHistoryPanel";
-import { CommentsPanel } from "./CommentsPanel";
+import { CommentsSection } from "./CommentsSection";
 import { useBlockComments } from "@/src/hooks/useBlockComments";
+import { useSearchParams } from "next/navigation";
 import { PagePropertiesPanel } from "./PagePropertiesPanel";
 import { Breadcrumb } from "./Breadcrumb";
 import { useDatabaseSchema, usePropertyDefinitions } from "@/src/hooks/useDatabase";
@@ -59,9 +61,21 @@ export function DocPage({ page }: DocPageProps) {
   const ancestors = usePageAncestors(page.id);
   const [title, setTitle] = useState(page.title);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [commentsOpen, setCommentsOpen] = useState(false);
+  const searchParams = useSearchParams();
+  const commentsSectionRef = useRef<HTMLDivElement>(null);
   const [commentAnchor, setCommentAnchor] = useState<string | null>(null);
   const { openCount: openComments } = useBlockComments(page.id);
+
+  function scrollToComments() {
+    commentsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  useEffect(() => {
+    if (searchParams.get("comments") === "1") {
+      const t = window.setTimeout(scrollToComments, 400);
+      return () => window.clearTimeout(t);
+    }
+  }, [searchParams]);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Track whether the title input is focused so we can ignore server echoes
   // that would overwrite characters the user is still typing.
@@ -85,7 +99,7 @@ export function DocPage({ page }: DocPageProps) {
     <div className="flex h-full overflow-hidden">
       {process.env.NODE_ENV !== "production" && (
         <div
-          className="fixed bottom-3 right-3 z-50 rounded-md border border-neutral-200
+          className="fixed bottom-3 left-3 z-50 rounded-md border border-neutral-200
                      dark:border-neutral-700 bg-white/90 dark:bg-neutral-900/90
                      px-2 py-1 text-[10px] font-mono text-neutral-500 dark:text-neutral-400
                      shadow-sm backdrop-blur-sm pointer-events-none"
@@ -144,21 +158,12 @@ export function DocPage({ page }: DocPageProps) {
             </svg>
           </button>
           <button
-            onClick={() => {
-              setCommentAnchor(null);
-              setCommentsOpen((o) => !o);
-            }}
+            onClick={scrollToComments}
             title="Comments"
             aria-label="Comments"
-            className={`relative shrink-0 p-1.5 rounded transition-colors ${
-              commentsOpen
-                ? "text-neutral-900 dark:text-white bg-neutral-200 dark:bg-neutral-700"
-                : "text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-            }`}
+            className="relative shrink-0 p-1.5 rounded transition-colors text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-            </svg>
+            <CommentIcon size={16} />
             {openComments > 0 && (
               <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 rounded-full bg-blue-600 text-white text-[10px] leading-4 text-center">
                 {openComments}
@@ -207,9 +212,16 @@ export function DocPage({ page }: DocPageProps) {
           content={content}
           onCommentBlock={(blockId) => {
             setCommentAnchor(blockId);
-            setCommentsOpen(true);
+            scrollToComments();
           }}
         />
+        <div ref={commentsSectionRef} className="scroll-mt-4">
+          <CommentsSection
+            pageId={page.id}
+            anchorBlockId={commentAnchor}
+            onClearAnchor={() => setCommentAnchor(null)}
+          />
+        </div>
       </div>
       </div>
       {historyOpen && (
@@ -217,19 +229,6 @@ export function DocPage({ page }: DocPageProps) {
           <PageHistoryPanel
             pageId={page.id}
             onClose={() => setHistoryOpen(false)}
-          />
-        </div>
-      )}
-      {commentsOpen && (
-        <div className="w-80 shrink-0 border-l border-neutral-200 dark:border-neutral-800">
-          <CommentsPanel
-            pageId={page.id}
-            onClose={() => {
-              setCommentsOpen(false);
-              setCommentAnchor(null);
-            }}
-            anchorBlockId={commentAnchor}
-            onClearAnchor={() => setCommentAnchor(null)}
           />
         </div>
       )}

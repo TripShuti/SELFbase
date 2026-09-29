@@ -654,7 +654,7 @@ export function Sidebar() {
       <div className="px-4 py-3 border-b border-neutral-200 dark:border-neutral-800">
         <div className="flex items-center gap-2">
           <span className="text-lg font-semibold text-neutral-900 dark:text-white tracking-tight">
-            🗄️ SELFbase
+            SELFbase
           </span>
           {!isActive && (
             <span className="ml-auto text-xs text-yellow-600 dark:text-yellow-500">connecting…</span>
@@ -688,6 +688,24 @@ export function Sidebar() {
         </select>
       </div>
 
+      {/* Create actions */}
+      <div className="px-2 py-2 border-b border-neutral-200 dark:border-neutral-800 space-y-1">
+        <button
+          onClick={() => handleNewPage(undefined, "Doc")}
+          disabled={isCreating || !isActive}
+          className="w-full text-left px-2 py-1.5 rounded text-xs text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-900 hover:text-neutral-900 dark:hover:text-white transition-colors disabled:opacity-40"
+        >
+          + New page
+        </button>
+        <button
+          onClick={() => handleNewPage(undefined, "Database")}
+          disabled={isCreating || !isActive}
+          className="w-full text-left px-2 py-1.5 rounded text-xs text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-900 hover:text-neutral-900 dark:hover:text-white transition-colors disabled:opacity-40"
+        >
+          + New database
+        </button>
+      </div>
+
       {/* Page tree */}
       <nav className="flex-1 overflow-y-auto px-2 py-2">
         {repeaterSidebar ? (
@@ -699,7 +717,7 @@ export function Sidebar() {
           <div className="px-2 py-1 text-xs text-neutral-400 dark:text-neutral-500">Loading…</div>
         ) : roots.length === 0 ? (
           <div className="px-2 py-2 text-xs text-neutral-400 dark:text-neutral-500 italic">
-            No pages yet — create one below
+            No pages yet — create one above
           </div>
         ) : (
           <div>
@@ -782,24 +800,6 @@ export function Sidebar() {
           </button>
         </div>
       )}
-
-      {/* New page buttons */}
-      <div className="px-2 py-2 border-t border-neutral-200 dark:border-neutral-800 space-y-1">
-        <button
-          onClick={() => handleNewPage(undefined, "Doc")}
-          disabled={isCreating || !isActive}
-          className="w-full text-left px-2 py-1.5 rounded text-xs text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-900 hover:text-neutral-900 dark:hover:text-white transition-colors disabled:opacity-40"
-        >
-          + New page
-        </button>
-        <button
-          onClick={() => handleNewPage(undefined, "Database")}
-          disabled={isCreating || !isActive}
-          className="w-full text-left px-2 py-1.5 rounded text-xs text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-900 hover:text-neutral-900 dark:hover:text-white transition-colors disabled:opacity-40"
-        >
-          + New database
-        </button>
-      </div>
 
       {/* User widget */}
       {user && (

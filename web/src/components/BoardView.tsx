@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useTable } from "spacetimedb/react";
 import { tables } from "@/src/module_bindings";
 import { useSetPropertyValue, useCreatePage } from "@/src/hooks/usePages";
+import { useOpenCommentCounts } from "@/src/hooks/useBlockComments";
+import { CommentIcon } from "./CommentIcon";
 import type { PageRow } from "@/src/hooks/usePages";
 import type { DatabaseSchemaRow, PropertyDefinitionRow } from "@/src/hooks/useDatabase";
 import { parseSelectConfig, getOptionColorClass } from "@/src/lib/formulaEval";
@@ -96,6 +99,8 @@ function BoardCard({
   properties,
   groupByPropId,
   allValues,
+  commentCount,
+  onOpenComments,
   onOpenRow,
   onDragStart,
 }: {
@@ -103,6 +108,8 @@ function BoardCard({
   properties: PropertyDefinitionRow[];
   groupByPropId: bigint;
   allValues: PropValRow[];
+  commentCount: number;
+  onOpenComments: () => void;
   onOpenRow: (row: PageRow) => void;
   onDragStart: (rowId: bigint) => void;
 }) {
@@ -124,6 +131,19 @@ function BoardCard({
       {/* Title */}
       <div className="text-sm font-medium text-neutral-800 dark:text-neutral-100 mb-1.5 leading-snug break-words">
         {row.title || "Untitled"}
+        {commentCount > 0 && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenComments();
+            }}
+            className="ml-1.5 inline-flex items-center gap-1 text-xs font-normal text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
+            title={`${commentCount} open comment${commentCount === 1 ? "" : "s"}`}
+          >
+            <CommentIcon size={13} />
+            <span>{commentCount}</span>
+          </button>
+        )}
       </div>
 
       {/* Property snippets */}
@@ -188,6 +208,8 @@ export function BoardView({
   const [allValues] = useTable(tables.page_property_value);
   const setPropertyValue = useSetPropertyValue();
   const createPage = useCreatePage();
+  const commentCounts = useOpenCommentCounts();
+  const router = useRouter();
 
   const [draggedRowId, setDraggedRowId] = useState<bigint | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
@@ -399,6 +421,8 @@ export function BoardView({
                     properties={properties}
                     groupByPropId={groupByProperty.id}
                     allValues={typedValues}
+                    commentCount={commentCounts.get(String(row.id)) ?? 0}
+                    onOpenComments={() => router.push(`/workspace/${String(row.id)}?comments=1`)}
                     onOpenRow={onOpenRow}
                     onDragStart={(rowId) => {
                       setDraggedRowId(rowId);

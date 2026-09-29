@@ -23,7 +23,7 @@ services:
       - ./server/docker/garage.toml:/etc/garage.toml:ro
     restart: unless-stopped
     networks:
-      - pear
+      - selfbase
 
   # One-shot provisioner: layout + bucket + key import via the admin API.
   garage-init:
@@ -41,7 +41,7 @@ services:
       - ./server/docker/garage-init.sh:/garage-init.sh:ro
     restart: "no"
     networks:
-      - pear
+      - selfbase
 
   # ── SpacetimeDB ────────────────────────────────────────────────────────────
   # Pre-build the module before starting: cd server && spacetime build
@@ -66,7 +66,7 @@ services:
     user: root
     restart: unless-stopped
     networks:
-      - pear
+      - selfbase
 
   # ── Next.js web client ──────────────────────────────────────────────────────
   web:
@@ -113,10 +113,10 @@ services:
       S3_REGION: ${S3_REGION:-us-east-1}
     restart: unless-stopped
     networks:
-      - pear
+      - selfbase
 
 networks:
-  pear:
+  selfbase:
     driver: bridge
 
 volumes:

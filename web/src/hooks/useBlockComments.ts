@@ -68,6 +68,23 @@ export function useCreateBlockComment() {
   return useReducer(reducers.createBlockComment);
 }
 
+/**
+ * Open (unresolved) root-comment counts per page, for list/grid badges.
+ * One shared subscription; RLS already scopes rows to readable pages.
+ */
+export function useOpenCommentCounts(): ReadonlyMap<string, number> {
+  const [rows] = useTable(tables.block_comment);
+  return useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const r of rows) {
+      if (r.parentId != null || r.resolved) continue;
+      const key = String(r.pageId);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return counts;
+  }, [rows]);
+}
+
 export function useUpdateBlockComment() {
   return useReducer(reducers.updateBlockComment);
 }
