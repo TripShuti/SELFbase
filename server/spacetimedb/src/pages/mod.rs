@@ -6,7 +6,6 @@
 use spacetimedb::{reducer, table, ReducerContext, ScheduleAt, SpacetimeType, Table, Timestamp};
 
 use crate::access_control::helpers::{can_write_page, require_page_write};
-use crate::automations::{enqueue_page_created, enqueue_page_deleted, enqueue_page_updated};
 use crate::id_counters::alloc_id;
 use crate::pages::components::{
     component_node, next_component_node_id, ComponentNode,
@@ -206,7 +205,7 @@ pub fn create_page(
     });
     // Access is inherited dynamically from ancestors. Copying grants here
     // would leave stale child permissions after a parent grant is revoked.
-    enqueue_page_created(ctx, page.id);
+
     Ok(())
 }
 
@@ -241,7 +240,7 @@ pub(crate) fn create_component_tree_page_inner(
 
     // Access is inherited dynamically from ancestors. Copying grants here
     // would leave stale child permissions after a parent grant is revoked.
-    enqueue_page_created(ctx, page.id);
+
     Ok(page.id)
 }
 
@@ -372,7 +371,7 @@ pub fn update_page_title(ctx: &ReducerContext, page_id: u64, title: String) -> R
         updated_at: ctx.timestamp,
         ..page
     });
-    enqueue_page_updated(ctx, page_id);
+
     Ok(())
 }
 
@@ -464,7 +463,7 @@ pub fn update_page_content(
             ..page
         });
     }
-    enqueue_page_updated(ctx, page_id);
+
     Ok(())
 }
 
@@ -520,7 +519,7 @@ pub fn delete_page(ctx: &ReducerContext, page_id: u64) -> Result<(), String> {
         ..page
     });
     ensure_trash_purge_tick(ctx);
-    enqueue_page_deleted(ctx, page_id);
+
     Ok(())
 }
 
@@ -556,7 +555,7 @@ pub fn delete_page_subtree(ctx: &ReducerContext, page_id: u64) -> Result<(), Str
         }
     }
     ensure_trash_purge_tick(ctx);
-    enqueue_page_deleted(ctx, page_id);
+
     Ok(())
 }
 
@@ -569,7 +568,7 @@ pub fn restore_page(ctx: &ReducerContext, page_id: u64) -> Result<(), String> {
         updated_at: ctx.timestamp,
         ..page
     });
-    enqueue_page_updated(ctx, page_id);
+
     Ok(())
 }
 

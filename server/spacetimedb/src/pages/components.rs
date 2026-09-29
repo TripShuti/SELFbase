@@ -32,7 +32,6 @@ use spacetimedb::{reducer, table, Identity, ReducerContext, SpacetimeType, Table
 
 use crate::access_control::helpers::require_page_write;
 use crate::auth::user;
-use crate::automations::enqueue_page_updated;
 use crate::id_counters::alloc_id;
 use crate::module_install::module_install_meta;
 use crate::pages::{page, Page};
@@ -1123,16 +1122,14 @@ fn renumber_with_gap(
     (insert_index as u32 + 1) * 1000
 }
 
-/// Touch `Page.updated_at` and enqueue page-updated automation. Called by
-/// every mutation reducer so the sidebar reflects edits and downstream
-/// observers fire.
+/// Touch `Page.updated_at`. Called by every mutation reducer so the sidebar
+/// reflects edits.
 fn touch_page(ctx: &ReducerContext, page: Page) {
-    let page_id = page.id;
     ctx.db.page().id().update(Page {
         updated_at: ctx.timestamp,
         ..page
     });
-    enqueue_page_updated(ctx, page_id);
+
 }
 
 /// Debounce window for content-autosave page touches. Matches the client's
@@ -1569,7 +1566,7 @@ pub fn migrate_page_to_component_tree(
         ..page
     });
 
-    enqueue_page_updated(ctx, page_id);
+
     Ok(())
 }
 

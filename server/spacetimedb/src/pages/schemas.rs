@@ -5,7 +5,6 @@
 use spacetimedb::{reducer, table, ReducerContext, SpacetimeType, Table, Timestamp};
 
 use crate::access_control::helpers::require_page_write;
-use crate::automations::enqueue_property_changed;
 use crate::id_counters::alloc_id;
 use crate::pages::{page, ActorType};
 
@@ -713,7 +712,6 @@ pub(crate) fn set_property_value_inner(
         }
     }
 
-    enqueue_property_changed(ctx, page_id, property_definition_id);
     Ok(())
 }
 
@@ -733,7 +731,6 @@ pub fn clear_property_value(
 
     if let Some(row) = existing {
         ctx.db.page_property_value().id().delete(row.id);
-        enqueue_property_changed(ctx, page_id, property_definition_id);
     }
     Ok(())
 }

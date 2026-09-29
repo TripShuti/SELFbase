@@ -50,8 +50,8 @@ pub(crate) fn next_page_access_request_id(ctx: &ReducerContext) -> u64 {
 /// only listed principals (with the appropriate `Permission`) plus
 /// workspace admins may act on it.
 ///
-/// `principal` is an `Identity`, which generalises across human and AI
-/// users — both are first-class principals per `FEATURE_ai_users.md`.
+/// `principal` is an `Identity` of a workspace member with a
+/// page-level grant.
 #[table(accessor = page_access_rule, public)]
 pub struct PageAccessRule {
     #[primary_key]
@@ -73,10 +73,8 @@ pub struct PageAccessRule {
 /// a block within a page; `block_id` is the BlockNote block id (a string,
 /// since BlockNote uses uuid-style ids).
 ///
-/// Block-level enforcement against the live Yjs blob is partial — see the
-/// Phase A discussion in `FEATURE_ai_users.md`. The MVP enforcement point
-/// is the context payload assembled for AI users; the field exists in
-/// schema today so we can subscribe and query against it from clients.
+/// Block-level enforcement against the live Yjs blob is partial: the field
+/// exists in schema today so clients can subscribe and query against it.
 #[table(
     accessor = block_access_rule,
     public,
@@ -103,16 +101,14 @@ pub enum AccessRequestStatus {
     Denied,
 }
 
-/// A chat-originated request for a human to grant page access to the
-/// requesting principal. The eventual grant is still a normal
-/// `PageAccessRule`; this row is only the conversation/approval workflow.
+/// A request for a human to grant page access to the requesting principal.
+/// The eventual grant is still a normal `PageAccessRule`; this row is only
+/// the request/approval workflow.
 #[table(accessor = page_access_request, public)]
 pub struct PageAccessRequest {
     #[primary_key]
     #[auto_inc]
     pub id: u64,
-    #[index(btree)]
-    pub conversation_id: u64,
     #[index(btree)]
     pub page_id: u64,
     pub principal: Principal,

@@ -12,9 +12,6 @@ use crate::api_endpoints::{
     validate_field_name, validate_slug, ApiCallLog, ApiEndpoint, ApiEndpointKey, ApiFieldMapping,
     DatabaseRowMarker, HttpMethod, PropertyValueInput,
 };
-use crate::automations::{
-    enqueue_page_created, enqueue_page_deleted, enqueue_page_updated, enqueue_property_changed,
-};
 use crate::pages::schemas::{
     database_schema, effective_property_definitions, next_page_property_value_history_id,
     next_page_property_value_id, page_property_value, page_property_value_history,
@@ -518,7 +515,6 @@ pub fn create_database_row(
         updated_at: ctx.timestamp,
     });
 
-    let mut changed_properties: Vec<u64> = Vec::new();
     for PropertyValueInput {
         property_definition_id,
         value,
@@ -541,7 +537,6 @@ pub fn create_database_row(
             property_definition_id,
             value,
         });
-        changed_properties.push(property_definition_id);
     }
 
     ctx.db.database_row_marker().insert(DatabaseRowMarker {
@@ -550,11 +545,6 @@ pub fn create_database_row(
         page_id: row.id,
         created_at: ctx.timestamp,
     });
-
-    enqueue_page_created(ctx, row.id);
-    for property_definition_id in changed_properties {
-        enqueue_property_changed(ctx, row.id, property_definition_id);
-    }
 
     Ok(())
 }
@@ -593,14 +583,12 @@ pub fn update_database_row(
         None => row.title.clone(),
     };
 
-    let title_changed = new_title != row.title;
     ctx.db.page().id().update(Page {
         title: new_title,
         updated_at: ctx.timestamp,
         ..row
     });
 
-    let mut changed_properties: Vec<u64> = Vec::new();
     for PropertyValueInput {
         property_definition_id,
         value,
@@ -656,7 +644,6 @@ pub fn update_database_row(
                 });
             }
         }
-        changed_properties.push(property_definition_id);
     }
 
     for property_definition_id in clear_values {
@@ -668,15 +655,7 @@ pub fn update_database_row(
             .find(|v| v.property_definition_id == property_definition_id);
         if let Some(pv) = existing {
             ctx.db.page_property_value().id().delete(pv.id);
-            changed_properties.push(property_definition_id);
         }
-    }
-
-    if title_changed {
-        enqueue_page_updated(ctx, page_id);
-    }
-    for property_definition_id in changed_properties {
-        enqueue_property_changed(ctx, page_id, property_definition_id);
     }
 
     Ok(())
@@ -700,7 +679,6 @@ pub fn delete_database_row(ctx: &ReducerContext, page_id: u64) -> Result<(), Str
         updated_at: ctx.timestamp,
         ..row
     });
-    enqueue_page_deleted(ctx, page_id);
     Ok(())
 }
 

@@ -13,7 +13,6 @@ use std::collections::HashSet;
 use spacetimedb::{Identity, ReducerContext};
 
 use crate::access_control::{block_access_rule, page_access_rule, BlockAccessRule};
-use crate::ai::ai_user_profile;
 use crate::auth::{sender_is_admin, user};
 use crate::module_install::sender_is_module_publisher;
 use crate::pages::page;
@@ -72,7 +71,7 @@ pub(crate) fn explicit_page_access_rule_allows(
     false
 }
 
-/// Authenticated human, provisioned AI identity, or the module publisher.
+/// Authenticated human or the module publisher.
 /// A bare SpacetimeDB identity is not workspace membership.
 pub(crate) fn is_workspace_principal(ctx: &ReducerContext, identity: Identity) -> bool {
     use crate::module_install::module_install_meta;
@@ -87,7 +86,6 @@ pub(crate) fn is_workspace_principal(ctx: &ReducerContext, identity: Identity) -
             .identity()
             .find(identity)
             .is_some_and(|u| u.is_authenticated)
-        || ctx.db.ai_user_profile().identity().find(identity).is_some()
 }
 
 pub(crate) fn require_workspace_principal(ctx: &ReducerContext) -> Result<(), String> {

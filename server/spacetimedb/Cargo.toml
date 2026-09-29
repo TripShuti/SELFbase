@@ -18,7 +18,3 @@ hex = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 base64 = "0.22"
-chrono = { version = "0.4", default-features = false, features = ["alloc"] }
-# IANA timezone evaluation for cron schedules (routines + automations). No
-# default features: keep the module deterministic (no system clock/locale).
-chrono-tz = { version = "0.10", default-features = false }

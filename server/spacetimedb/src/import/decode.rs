@@ -1,25 +1,16 @@
-//! Shared JSON decode helpers for the snapshot importers ([`super::pear_v1`],
-//! [`super::pear_v2`]).
+//! Shared JSON decode helpers for the snapshot importer ([`super::pear_v2`]).
 //!
 //! Snapshot rows arrive in the web client's encoding: camelCase keys (the TS
 //! SDK's field names), `__pear`-tagged wrappers for bigints / identities /
 //! timestamps / bytes, and enums as `{tag: "Variant"}` (or `{tag, value}` for
 //! payload-carrying variants).
-//!
-//! Everything here is shared **verbatim** by both formats. Decoders whose
-//! behavior differs between v1 and v2 (e.g. `decode_page`, which reads
-//! `contentFormat` only in v2) live in their respective format modules.
 
 use crate::{
-    ActorType, AiUserMemory, AiUserProfile, ApiEndpoint, ApiEndpointKey, ApiFieldMapping,
-    Attachment, AutoApplyBinding, AutoApplyContext, BlockAccessRule, ConversationMessage,
-    ConversationParticipant, ConversationStatus, DatabaseSchema, DatabaseView, HarnessTemplate,
-    HarnessTemplateSource, HttpMethod, InferenceProvider, InstalledExtension, MessageSender,
-    MessageStatus, OrchaAgent, OrchaSharedContext, PageAccessRule, PageContent, PagePropertyValue,
-    PagePropertyValueHistory, PageSnapshot, PageType, PageYjsState, ParticipantRole, Permission,
-    Principal, PropertyDefinition, PropertyType, PropertyValue, ReviewAgentBinding,
-    ReviewAnnotation, ReviewMode, ReviewSeverity, ReviewSubject, SnapshotType, User,
-    UserPreference, ViewType, WorkspaceSetting,
+    ActorType, ApiEndpoint, ApiEndpointKey, ApiFieldMapping, Attachment, BlockAccessRule,
+    DatabaseSchema, DatabaseView, HttpMethod, PageAccessRule, PageContent, PagePropertyValue,
+    PagePropertyValueHistory, PageSnapshot, PageType, PageYjsState, Permission, Principal,
+    PropertyDefinition, PropertyType, PropertyValue, SnapshotType, User, UserPreference, ViewType,
+    WorkspaceSetting,
 };
 use serde_json::Value;
 use spacetimedb::{Identity, Timestamp};
@@ -208,27 +199,6 @@ pub(super) fn decode_opt_f32_vec(v: Option<&Value>) -> Result<Option<Vec<f32>>, 
     }
 }
 
-pub(super) fn decode_opt_string_vec(
-    m: &serde_json::Map<String, Value>,
-    key: &str,
-) -> Result<Option<Vec<String>>, String> {
-    match m.get(key) {
-        None | Some(Value::Null) => Ok(None),
-        Some(Value::Array(a)) => {
-            let mut out = Vec::with_capacity(a.len());
-            for x in a {
-                out.push(
-                    x.as_str()
-                        .ok_or_else(|| format!("{key}: expected string"))?
-                        .to_string(),
-                );
-            }
-            Ok(Some(out))
-        }
-        _ => Err(format!("{key}: expected array or null")),
-    }
-}
-
 // ── Shared semantic decoders ──────────────────────────────────────────────────
 
 pub(super) fn decode_actor_type(v: &Value) -> Result<ActorType, String> {
@@ -287,18 +257,6 @@ pub(super) fn decode_page_type(v: &Value) -> Result<PageType, String> {
     )
 }
 
-pub(super) fn decode_inference_provider(v: &Value) -> Result<InferenceProvider, String> {
-    decode_enum_tag2(
-        v,
-        &[
-            ("Anthropic", InferenceProvider::Anthropic),
-            ("OpenAI", InferenceProvider::OpenAI),
-            ("Ollama", InferenceProvider::Ollama),
-            ("OpenAICompatible", InferenceProvider::OpenAICompatible),
-        ],
-        "InferenceProvider",
-    )
-}
 
 pub(super) fn decode_http_method(v: &Value) -> Result<HttpMethod, String> {
     decode_enum_tag2(
@@ -618,331 +576,26 @@ pub(super) fn decode_block_access_rule(v: &Value) -> Result<BlockAccessRule, Str
     })
 }
 
-pub(super) fn decode_ai_user_profile(v: &Value) -> Result<AiUserProfile, String> {
-    let m = obj(v, "ai_user_profile")?;
-    Ok(AiUserProfile {
-        ai_user_id: u64_at(m, "aiUserId")?,
-        identity: decode_identity(m.get("identity").ok_or("identity")?)?,
-        display_name: string_at(m, "displayName")?,
-        avatar_url: opt_string_at(m, "avatarUrl")?,
-        provider_name: string_at(m, "providerName")?,
-        model_name: string_at(m, "modelName")?,
-        // hasApiKey is informational only — fall back to false when absent so
-        // older snapshots can still decode (the operator must reconfigure keys
-        // post-import anyway).
-        has_api_key: m
-            .get("hasApiKey")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false),
-        created_by: decode_identity(m.get("createdBy").ok_or("createdBy")?)?,
-        created_at: decode_timestamp(m.get("createdAt").ok_or("createdAt")?)?,
-        updated_at: decode_timestamp(m.get("updatedAt").ok_or("updatedAt")?)?,
-        system_prompt: opt_string_at(m, "systemPrompt")?,
-        inference_backend_json: opt_string_at(m, "inferenceBackendJson")?,
-    })
-}
 
-pub(super) fn decode_ai_user_memory(v: &Value) -> Result<AiUserMemory, String> {
-    let m = obj(v, "ai_user_memory")?;
-    Ok(AiUserMemory {
-        id: u64_at(m, "id")?,
-        ai_user_id: u64_at(m, "aiUserId")?,
-        root_page_id: u64_at(m, "rootPageId")?,
-        working_page_id: opt_u64_at(m, "workingPageId")?,
-        long_term_page_id: opt_u64_at(m, "longTermPageId")?,
-        created_at: decode_timestamp(m.get("createdAt").ok_or("createdAt")?)?,
-        last_consolidated_at: opt_timestamp_at(m, "lastConsolidatedAt")?,
-    })
-}
 
-pub(super) fn decode_conversation_participant(
-    v: &Value,
-) -> Result<ConversationParticipant, String> {
-    let m = obj(v, "conversation_participant")?;
-    Ok(ConversationParticipant {
-        id: u64_at(m, "id")?,
-        conversation_id: u64_at(m, "conversationId")?,
-        identity: decode_identity(m.get("identity").ok_or("identity")?)?,
-        role: decode_participant_role(m.get("role").ok_or("role")?)?,
-        joined_at: decode_timestamp(m.get("joinedAt").ok_or("joinedAt")?)?,
-        last_viewed_message_id: opt_u64_at(m, "lastViewedMessageId")?,
-        left_at: opt_timestamp_at(m, "leftAt")?,
-    })
-}
 
-pub(super) fn decode_participant_role(v: &Value) -> Result<ParticipantRole, String> {
-    decode_enum_tag2(
-        v,
-        &[
-            ("Initiator", ParticipantRole::Initiator),
-            ("Member", ParticipantRole::Member),
-        ],
-        "ParticipantRole",
-    )
-}
 
-pub(super) fn decode_conversation_status(v: &Value) -> Result<ConversationStatus, String> {
-    decode_enum_tag2(
-        v,
-        &[
-            ("Active", ConversationStatus::Active),
-            ("Closed", ConversationStatus::Closed),
-        ],
-        "ConversationStatus",
-    )
-}
 
-pub(super) fn decode_conversation_message(v: &Value) -> Result<ConversationMessage, String> {
-    let m = obj(v, "conversation_message")?;
-    Ok(ConversationMessage {
-        id: u64_at(m, "id")?,
-        conversation_id: u64_at(m, "conversationId")?,
-        sender: decode_message_sender(m.get("sender").ok_or("sender")?)?,
-        content: string_at(m, "content")?,
-        job_id: opt_u64_at(m, "jobId")?,
-        created_at: decode_timestamp(m.get("createdAt").ok_or("createdAt")?)?,
-        status: decode_message_status(m.get("status").ok_or("status")?)?,
-        thinking: opt_string_at(m, "thinking")?,
-        tool_calls_json: opt_string_at(m, "toolCallsJson")?,
-        timeline_json: opt_string_at(m, "timelineJson")?,
-        input_tokens: u64_at(m, "inputTokens")? as u32,
-        output_tokens: u64_at(m, "outputTokens")? as u32,
-        cache_creation_input_tokens: u64_at(m, "cacheCreationInputTokens")? as u32,
-        cache_read_input_tokens: u64_at(m, "cacheReadInputTokens")? as u32,
-        linked_conversation_id: opt_u64_at(m, "linkedConversationId")?,
-        component_tree_json: opt_string_at(m, "componentTreeJson")?,
-        mentions: None,
-        response_targets: None,
-    })
-}
 
-pub(super) fn decode_message_status(v: &Value) -> Result<MessageStatus, String> {
-    decode_enum_tag2(
-        v,
-        &[
-            ("Complete", MessageStatus::Complete),
-            ("Thinking", MessageStatus::Thinking),
-            ("ToolUse", MessageStatus::ToolUse),
-            ("Streaming", MessageStatus::Streaming),
-            ("Error", MessageStatus::Error),
-        ],
-        "MessageStatus",
-    )
-}
 
-pub(super) fn decode_message_sender(v: &Value) -> Result<MessageSender, String> {
-    let o = v.as_object().ok_or("MessageSender")?;
-    let tag = o
-        .get("tag")
-        .and_then(|t| t.as_str())
-        .ok_or("MessageSender.tag")?;
-    match tag {
-        "User" => Ok(MessageSender::User(decode_identity(
-            o.get("value").ok_or("User.identity")?,
-        )?)),
-        "System" => Ok(MessageSender::System(string_at(o, "value")?)),
-        // Legacy v1 snapshots distinguished Human(Identity) and AiUser(u64);
-        // accept Human here for forward compat but reject AiUser since we have
-        // no way to recover the AI user's Identity from just the legacy id.
-        "Human" => Ok(MessageSender::User(decode_identity(
-            o.get("value").ok_or("Human.identity")?,
-        )?)),
-        "AiUser" => Err(
-            "Legacy AiUser(u64) sender is not migratable: re-export the snapshot from an upgraded \
-             Pear version that emits AI user Identities."
-                .to_string(),
-        ),
-        _ => Err(format!("MessageSender::{tag}")),
-    }
-}
 
-pub(super) fn decode_harness_template_source(v: &Value) -> Result<HarnessTemplateSource, String> {
-    decode_enum_tag2(
-        v,
-        &[
-            ("Builtin", HarnessTemplateSource::Builtin),
-            ("Workspace", HarnessTemplateSource::Workspace),
-        ],
-        "HarnessTemplateSource",
-    )
-}
 
-pub(super) fn decode_harness_template(v: &Value) -> Result<HarnessTemplate, String> {
-    let m = obj(v, "harness_template")?;
-    Ok(HarnessTemplate {
-        id: u64_at(m, "id")?,
-        external_id: string_at(m, "externalId")?,
-        name: string_at(m, "name")?,
-        description: string_at(m, "description")?,
-        source: decode_harness_template_source(m.get("source").ok_or("source")?)?,
-        system_prompt: string_at(m, "systemPrompt")?,
-        default_provider: decode_inference_provider(
-            m.get("defaultProvider").ok_or("defaultProvider")?,
-        )?,
-        default_model: string_at(m, "defaultModel")?,
-        default_max_tokens: u64_at(m, "defaultMaxTokens")? as u32,
-        config_json: string_at(m, "configJson")?,
-        version: u64_at(m, "version")? as u32,
-        created_at: decode_timestamp(m.get("createdAt").ok_or("createdAt")?)?,
-        updated_at: decode_timestamp(m.get("updatedAt").ok_or("updatedAt")?)?,
-    })
-}
 
-pub(super) fn decode_review_subject(v: &Value) -> Result<ReviewSubject, String> {
-    if let Some(s) = v.as_str() {
-        if s == "Workspace" {
-            return Ok(ReviewSubject::Workspace);
-        }
-    }
-    let o = v.as_object().ok_or("ReviewSubject")?;
-    let tag = o
-        .get("tag")
-        .and_then(|t| t.as_str())
-        .ok_or("ReviewSubject.tag")?;
-    match tag {
-        "Workspace" => Ok(ReviewSubject::Workspace),
-        "AiUser" => Ok(ReviewSubject::AiUser(decode_u64(
-            o.get("value").ok_or("AiUser.value")?,
-        )?)),
-        _ => Err(format!("ReviewSubject::{tag}")),
-    }
-}
 
-pub(super) fn decode_review_mode(v: &Value) -> Result<ReviewMode, String> {
-    decode_enum_tag2(
-        v,
-        &[("Pre", ReviewMode::Pre), ("Post", ReviewMode::Post)],
-        "ReviewMode",
-    )
-}
 
-pub(super) fn decode_review_severity(v: &Value) -> Result<ReviewSeverity, String> {
-    decode_enum_tag2(
-        v,
-        &[
-            ("Pass", ReviewSeverity::Pass),
-            ("Warn", ReviewSeverity::Warn),
-            ("Fail", ReviewSeverity::Fail),
-        ],
-        "ReviewSeverity",
-    )
-}
 
-pub(super) fn decode_review_agent_binding(v: &Value) -> Result<ReviewAgentBinding, String> {
-    let m = obj(v, "review_agent_binding")?;
-    Ok(ReviewAgentBinding {
-        id: u64_at(m, "id")?,
-        reviewer_ai_user_id: u64_at(m, "reviewerAiUserId")?,
-        subject: decode_review_subject(m.get("subject").ok_or("subject")?)?,
-        mode: decode_review_mode(m.get("mode").ok_or("mode")?)?,
-        fail_open: bool_at(m, "failOpen")?,
-        created_by: decode_identity(m.get("createdBy").ok_or("createdBy")?)?,
-        created_at: decode_timestamp(m.get("createdAt").ok_or("createdAt")?)?,
-    })
-}
 
-pub(super) fn decode_review_annotation(v: &Value) -> Result<ReviewAnnotation, String> {
-    let m = obj(v, "review_annotation")?;
-    Ok(ReviewAnnotation {
-        id: u64_at(m, "id")?,
-        snapshot_id: u64_at(m, "snapshotId")?,
-        reviewer_ai_user_id: u64_at(m, "reviewerAiUserId")?,
-        severity: decode_review_severity(m.get("severity").ok_or("severity")?)?,
-        comment: string_at(m, "comment")?,
-        created_at: decode_timestamp(m.get("createdAt").ok_or("createdAt")?)?,
-    })
-}
 
-pub(super) fn decode_auto_apply_context(v: &Value) -> Result<AutoApplyContext, String> {
-    if let Some(s) = v.as_str() {
-        if s == "Workspace" {
-            return Ok(AutoApplyContext::Workspace);
-        }
-    }
-    let o = v.as_object().ok_or("AutoApplyContext")?;
-    let tag = o
-        .get("tag")
-        .and_then(|t| t.as_str())
-        .ok_or("AutoApplyContext.tag")?;
-    match tag {
-        "Workspace" => Ok(AutoApplyContext::Workspace),
-        "Page" => Ok(AutoApplyContext::Page(decode_u64(
-            o.get("value").ok_or("Page.value")?,
-        )?)),
-        _ => Err(format!("AutoApplyContext::{tag}")),
-    }
-}
 
-pub(super) fn decode_auto_apply_binding(v: &Value) -> Result<AutoApplyBinding, String> {
-    let m = obj(v, "auto_apply_binding")?;
-    Ok(AutoApplyBinding {
-        id: u64_at(m, "id")?,
-        ai_user_id: u64_at(m, "aiUserId")?,
-        context: decode_auto_apply_context(m.get("context").ok_or("context")?)?,
-        allowed_action_kinds: decode_opt_string_vec(m, "allowedActionKinds")?,
-        granted_by: decode_identity(m.get("grantedBy").ok_or("grantedBy")?)?,
-        granted_at: decode_timestamp(m.get("grantedAt").ok_or("grantedAt")?)?,
-    })
-}
 
-pub(super) fn decode_installed_extension(v: &Value) -> Result<InstalledExtension, String> {
-    let m = obj(v, "installed_extension")?;
-    Ok(InstalledExtension {
-        id: u64_at(m, "id")?,
-        manifest_id: u64_at(m, "manifestId")?,
-        installed_by: decode_identity(m.get("installedBy").ok_or("installedBy")?)?,
-        install_status: decode_install_status(m.get("installStatus").ok_or("installStatus")?)?,
-        ai_user_id: opt_u64_at(m, "aiUserId")?,
-        mcp_server_id: opt_u64_at(m, "mcpServerId")?,
-        enabled: bool_at(m, "enabled")?,
-        installed_at: decode_timestamp(m.get("installedAt").ok_or("installedAt")?)?,
-        confirmed_at: opt_timestamp_at(m, "confirmedAt")?,
-    })
-}
 
-pub(super) fn decode_install_status(v: &Value) -> Result<crate::InstallStatus, String> {
-    let o = v.as_object().ok_or("InstallStatus")?;
-    let tag = o
-        .get("tag")
-        .and_then(|t| t.as_str())
-        .ok_or("InstallStatus.tag")?;
-    match tag {
-        "PendingConfirmation" => Ok(crate::InstallStatus::PendingConfirmation),
-        "Active" => Ok(crate::InstallStatus::Active),
-        _ => Err(format!("InstallStatus::{tag}")),
-    }
-}
 
-pub(super) fn decode_orcha_agent(v: &Value) -> Result<OrchaAgent, String> {
-    let m = obj(v, "orcha_agent")?;
-    Ok(OrchaAgent {
-        id: string_at(m, "id")?,
-        capabilities: m
-            .get("capabilities")
-            .and_then(|v| v.as_array())
-            .ok_or("capabilities")?
-            .iter()
-            .map(|x| {
-                x.as_str()
-                    .map(|s| s.to_string())
-                    .ok_or_else(|| "orcha_agent.cap".to_string())
-            })
-            .collect::<Result<Vec<_>, String>>()?,
-        status: string_at(m, "status")?,
-        last_heartbeat_at: None,
-    })
-}
 
-pub(super) fn decode_orcha_shared_context(v: &Value) -> Result<OrchaSharedContext, String> {
-    let m = obj(v, "orcha_shared_context")?;
-    Ok(OrchaSharedContext {
-        id: u64_at(m, "id")?,
-        job_id: u64_at(m, "jobId")?,
-        key: string_at(m, "key")?,
-        value: string_at(m, "value")?,
-        created_by: string_at(m, "createdBy")?,
-    })
-}
 
 pub(super) fn decode_api_endpoint(v: &Value) -> Result<ApiEndpoint, String> {
     let m = obj(v, "api_endpoint")?;

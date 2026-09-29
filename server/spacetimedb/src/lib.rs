@@ -1,32 +1,21 @@
 //! Pear SpacetimeDB module: workspace persistence layer.
 //!
-//! This crate is split by subsystem (auth, pages, conversations, AI users,
-//! harness templates, structural sensors, extensions, custom API endpoints,
-//! and the Orcha coordination layer). Each subsystem owns its own tables,
-//! reducers, and helpers. Cross-cutting types live in `types`; the three
-//! module hooks (`init`, `client_connected`, `client_disconnected`)
-//! and the import bridge (`import`) are wired up here.
+//! This crate is split by subsystem (auth, pages, access control, custom API
+//! endpoints). Each subsystem owns its own tables, reducers, and helpers.
+//! Cross-cutting types live in `types`; the three module hooks (`init`,
+//! `client_connected`, `client_disconnected`) and the import bridge
+//! (`import`) are wired up here.
 
 use spacetimedb::{reducer, ReducerContext, Table};
 
 mod access_control;
-mod ai;
 mod api_endpoints;
 mod auth;
-mod automations;
-mod bridge;
-mod conversations;
-mod cron;
-mod extensions;
-mod harness;
-mod human_input;
 mod id_counters;
 mod import;
 mod migrations;
 mod module_install;
-mod orcha;
 mod pages;
-mod sensors;
 mod stable_ids;
 mod types;
 
@@ -37,12 +26,6 @@ pub use crate::access_control::{
     block_access_rule, page_access_request, page_access_rule, AccessRequestStatus, BlockAccessRule,
     PageAccessRequest, PageAccessRule,
 };
-pub use crate::ai::evaluations::{ai_evaluation, AiEvaluation};
-pub use crate::ai::memory::{ai_user_memory, AiUserMemory};
-pub use crate::ai::routines::{ai_user_routine, AiUserRoutine, RoutineScheduleKind};
-pub use crate::ai::{
-    ai_user_config, ai_user_profile, AiUserConfig, AiUserProfile, AiUserRole, InferenceProvider,
-};
 pub use crate::api_endpoints::{
     api_call_log, api_endpoint, api_endpoint_key, api_field_mapping, database_row_marker,
     ApiCallLog, ApiEndpoint, ApiEndpointKey, ApiEndpointKeyLookupRow, ApiFieldMapping,
@@ -52,48 +35,9 @@ pub use crate::auth::{
     user, user_credential, user_preference, workspace_setting, User, UserCredential,
     UserPreference, WorkspaceSetting,
 };
-pub use crate::automations::{
-    automation_action, automation_capability, automation_condition, automation_event_queue,
-    automation_primitive, automation_rule, automation_run_log, AutomationAction,
-    AutomationActionKind, AutomationCapability, AutomationCapabilityKind, AutomationCondition,
-    AutomationConditionKind, AutomationEventQueue, AutomationEventStatus, AutomationMode,
-    AutomationPrimitive, AutomationPrimitiveKind, AutomationRule, AutomationRunLog,
-    AutomationScheduleKind, AutomationTriggerKind,
-};
-pub use crate::bridge::{
-    bridge_command, bridge_command_result, bridge_device, bridge_device_allowlist,
-    bridge_device_capability, bridge_device_summary, bridge_session, BridgeCommand,
-    BridgeCommandResult, BridgeCommandStatus, BridgeDevice, BridgeDeviceAllowlist,
-    BridgeDeviceCapability, BridgeDeviceSummary, BridgeSession,
-};
-pub use crate::conversations::ConversationVisibility;
-pub use crate::conversations::{
-    conversation, conversation_attachment, conversation_message, conversation_participant,
-    AttachmentKind, AttachmentSpec, Conversation, ConversationAttachment, ConversationKind,
-    ConversationMessage, ConversationParticipant, ConversationStatus, MessageSender, MessageStatus,
-    ParticipantRole,
-};
-pub use crate::extensions::{
-    extension_manifest, extension_mcp_server, extension_permission, extension_runtime_health,
-    installed_extension, tool_call_audit_log, AiExtensionRuntimePermission, AiExtensionRuntimeRow,
-    AuthScheme, ExtensionManifest, ExtensionMcpServer, ExtensionPermission, ExtensionRuntimeHealth,
-    ExtensionRuntimeStatus, ExtensionType, InstallStatus, InstalledExtension, PermissionAction,
-    PermissionScope, ToolCallAuditLog,
-};
-pub use crate::harness::{
-    auto_apply_binding, harness_template, review_agent_binding, review_annotation,
-    AutoApplyBinding, HarnessTemplate, ReviewAgentBinding, ReviewAnnotation,
-};
-pub use crate::harness::{
-    AutoApplyContext, HarnessTemplateSource, ReviewMode, ReviewSeverity, ReviewSubject,
-};
 pub use crate::id_counters::{id_counter, IdCounter};
 pub use crate::migrations::{migration_state, MigrationState};
 pub use crate::module_install::{module_install_meta, ModuleInstallMeta};
-pub use crate::orcha::{
-    orcha_agent, orcha_job, orcha_shared_context, orcha_task, orcha_usage_event, OrchaAgent,
-    OrchaJob, OrchaSharedContext, OrchaTask, OrchaUsageEvent,
-};
 pub use crate::pages::components::{
     component_node, component_type_definition, component_yjs_state, ComponentCapability,
     ComponentNode, ComponentTypeDefinition, ComponentYjsState, PageContentFormat,
@@ -110,17 +54,11 @@ pub use crate::pages::{
     attachment, page, page_content, page_yjs_state, Attachment, Page, PageContent, PageType,
     PageYjsState,
 };
-pub use crate::sensors::{
-    sensor_registry, structural_sensor_finding, SensorRegistry, StructuralSensorFinding,
-};
 pub use crate::types::{ActorType, Permission, Principal};
 
 use crate::auth::{extract_oidc_profile, workspace_has_no_admin};
-use crate::automations::seed_automation_primitives_inner;
-use crate::extensions::seed_builtin_extensions_inner;
 use crate::module_install::ensure_publisher_identity_recorded;
 use crate::pages::components::seed_builtin_component_types;
-use crate::sensors::seed_sensor_registry_inner;
 
 // ============================================================
 // Module hooks (SpacetimeDB reducer entry points)
@@ -129,11 +67,7 @@ use crate::sensors::seed_sensor_registry_inner;
 #[reducer(init)]
 pub fn init(ctx: &ReducerContext) {
     ensure_publisher_identity_recorded(ctx);
-    seed_builtin_extensions_inner(ctx);
-    seed_sensor_registry_inner(ctx);
-    seed_automation_primitives_inner(ctx);
     seed_builtin_component_types(ctx);
-    crate::orcha::ensure_claim_reaper(ctx);
 }
 
 /// Called by SpacetimeDB whenever a client connects.
