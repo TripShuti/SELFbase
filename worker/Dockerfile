@@ -1,8 +1,8 @@
-FROM node:22-alpine
+FROM node:22-slim
 
 WORKDIR /app
 
-RUN corepack enable pnpm
+RUN npm install -g pnpm@10.6.2
 
 # Copy workspace manifests + lockfile so the install layer is cached unless
 # dependencies change.

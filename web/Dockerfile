@@ -1,5 +1,7 @@
-FROM node:22-alpine AS base
-RUN npm install -g pnpm
+FROM node:22-slim AS base
+RUN npm install -g pnpm@10.6.2
+# Pear declares no telemetry — opt out of Next.js anonymous usage collection.
+ENV NEXT_TELEMETRY_DISABLED=1
 
 # ── Install dependencies ────────────────────────────────────────────────────
 # Build context is the repo root so we can access the workspace lockfile.
@@ -7,6 +9,10 @@ FROM base AS deps
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY web/package.json ./web/
+# pulp and snapshot-core are workspace:* deps of web; their manifests must be
+# present so the install links them with their own deps (yjs, prosemirror-*…).
+COPY packages/pulp/package.json ./packages/pulp/package.json
+COPY packages/snapshot-core/package.json ./packages/snapshot-core/package.json
 RUN pnpm install --frozen-lockfile --filter web... \
  && mkdir -p /app/node_modules /app/web/node_modules
 
@@ -37,17 +43,25 @@ ENV NEXT_PUBLIC_PEAR_AI_USER_API_BASE=$NEXT_PUBLIC_PEAR_AI_USER_API_BASE
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/web/node_modules ./web/node_modules
+# pulp/snapshot-core are consumed as TS source (workspace:*); their own
+# node_modules (yjs, dnd-kit, prosemirror-*) must travel into builder too —
+# COPY . . won't bring them (.dockerignore excludes node_modules).
+# pulp/snapshot-core are consumed as TS source (workspace:*); their installed
+# node_modules (yjs, dnd-kit, prosemirror-*) must travel into builder too —
+# COPY . . won't bring them (.dockerignore excludes node_modules).
+COPY --from=deps /app/packages ./packages
 COPY . .
 # module_bindings is gitignored but must exist — run `spacetime generate` before building.
 RUN pnpm --filter web build
 
 # ── Production runtime ───────────────────────────────────────────────────────
-FROM node:22-alpine AS runner
+FROM node:22-slim AS runner
 ENV NODE_ENV=production
 ENV PORT=3001
+ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN addgroup --system --gid 1001 nodejs \
- && adduser  --system --uid 1001 nextjs
+RUN groupadd --system --gid 1001 nodejs \
+ && useradd --system --uid 1001 --gid nodejs nextjs
 
 # In a pnpm workspace the standalone output mirrors the directory structure:
 #   standalone/

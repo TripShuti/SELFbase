@@ -75,6 +75,7 @@ services:
     #   WEB_IMAGE=forgejo.yourdomain.com/kara/pear-web:latest
     # Falls back to a local tag for dev builds.
     image: ${WEB_IMAGE:-pear-web:latest}
+    pull_policy: build
     build:
       context: .
       dockerfile: web/Dockerfile
@@ -118,6 +119,7 @@ services:
   # Scale with: docker compose up --scale worker=3
   worker:
     image: ${WORKER_IMAGE:-pear-worker:latest}
+    pull_policy: build
     build:
       context: .
       dockerfile: worker/Dockerfile
@@ -148,6 +150,7 @@ services:
   # Opt-in: docker compose --profile mcp up
   mcp:
     image: ${WORKER_IMAGE:-pear-worker:latest}
+    pull_policy: build
     build:
       context: .
       dockerfile: worker/Dockerfile
