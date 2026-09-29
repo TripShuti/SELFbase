@@ -11,13 +11,7 @@
   "scripts": {
     "dev": "pnpm --filter web dev",
     "build": "pnpm --filter web build",
-    "generate": "pnpm --filter web generate",
-    "worker": "pnpm --filter @pear/worker dev",
-    "worker:generate": "pnpm --filter @pear/worker generate",
-    "mcp": "pnpm --filter @pear/worker mcp:http",
-    "mcp:provision": "pnpm --filter @pear/worker mcp:provision",
-    "desktop": "pnpm --filter @pear/desktop tauri:dev",
-    "desktop:build": "pnpm --filter @pear/desktop tauri:build"
+    "generate": "pnpm --filter web generate"
   },
   "engines": {
     "node": ">=18",

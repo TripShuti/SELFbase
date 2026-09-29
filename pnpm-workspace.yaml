@@ -1,6 +1,4 @@
 packages:
   - web
-  - desktop
-  - worker
   - packages/pulp
   - packages/snapshot-core
