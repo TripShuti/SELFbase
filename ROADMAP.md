@@ -1,5 +1,8 @@
 # Pear — Roadmap
 
+> **Fork notice (SELFbase).** Upstream roadmap; AI/agent/MCP/automation items
+> do not apply to this fork and will not be built here.
+
 > This document tracks what's shipped, what's actively being built, and what comes next.
 > For architecture decisions and data model details, see `[PEAR_MVP.md](./PEAR_MVP.md)`.
 

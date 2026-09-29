@@ -1,6 +1,6 @@
 "use client";
 
-import type { BlockRendererProps } from "@eclosion-tech/pulp";
+import type { BlockRendererProps } from "@selfbase/pulp";
 
 type Alignment = "left" | "center" | "right";
 

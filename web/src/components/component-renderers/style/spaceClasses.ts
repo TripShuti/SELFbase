@@ -20,7 +20,7 @@
  * borrowing the storage format is what we refuse.
  */
 
-import type { SpaceToken, StyleTokens } from "@eclosion-tech/pulp";
+import type { SpaceToken, StyleTokens } from "@selfbase/pulp";
 
 const PADDING: Record<SpaceToken, string> = {
   none: "p-0", xs: "p-1", sm: "p-2", md: "p-4", lg: "p-8", xl: "p-12",

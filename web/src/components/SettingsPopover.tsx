@@ -31,10 +31,10 @@ const OIDC_CONFIGURED = !!process.env.NEXT_PUBLIC_SPACETIMEAUTH_CLIENT_ID;
  * `react-oidc-context` if `NEXT_PUBLIC_SPACETIMEAUTH_CLIENT_ID` is
  * configured, otherwise the native SpacetimeDB `logout` reducer).
  *
- * Example — host sets: NEXT_PUBLIC_PEAR_HOST_LOGOUT_URL="/auth/logout"
+ * Example — host sets: NEXT_PUBLIC_SELFBASE_HOST_LOGOUT_URL="/auth/logout"
  */
 const HOST_LOGOUT_URL =
-  process.env.NEXT_PUBLIC_PEAR_HOST_LOGOUT_URL?.trim() || "";
+  process.env.NEXT_PUBLIC_SELFBASE_HOST_LOGOUT_URL?.trim() || "";
 
 /** Module-level latch so the selected sign-out mode is logged once per page load. */
 let signOutModeLogged = false;
@@ -53,7 +53,7 @@ export function SettingsPopover() {
   // Log the selected sign-out path once per page load so embedders can
   // verify their host-logout env var was baked in without sniffing the
   // network tab. Silent by default; enable with `localStorage.setItem(
-  // "pear:log", "debug")` in devtools, then refresh.
+  // "selfbase:log", "debug")` in devtools, then refresh.
   useEffect(() => {
     if (signOutModeLogged) return;
     signOutModeLogged = true;

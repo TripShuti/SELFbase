@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import type { BlockRendererProps } from "@eclosion-tech/pulp";
+import type { BlockRendererProps } from "@selfbase/pulp";
 
 /**
  * Built-in `CodeRef` component — typed pointer to code in an external

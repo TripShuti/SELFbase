@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { useTable } from "spacetimedb/react";
 import { tables } from "@/src/module_bindings";
 import { useScopedTable } from "@/src/hooks/useScopedTable";
-import type { BlockTree } from "@eclosion-tech/pulp";
+import type { BlockTree } from "@selfbase/pulp";
 import type {
   ComponentNode,
   ComponentTypeDefinition,

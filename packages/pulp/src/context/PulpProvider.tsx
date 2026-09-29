@@ -41,7 +41,7 @@ export function usePulp(): PulpContextValue {
   const ctx = useContext(PulpContext);
   if (!ctx) {
     throw new Error(
-      "[@eclosion-tech/pulp] usePulp() must be used within <PulpProvider>",
+      "[@selfbase/pulp] usePulp() must be used within <PulpProvider>",
     );
   }
   return ctx;

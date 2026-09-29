@@ -1,5 +1,5 @@
 {
-  "name": "pear",
+  "name": "selfbase",
   "version": "0.4.0",
   "private": true,
   "packageManager": "pnpm@10.6.2",

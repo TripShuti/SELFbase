@@ -22,10 +22,10 @@ import { useEffect, useState } from "react";
  *
  * - build default: `NEXT_PUBLIC_PEAR_REPEATER_SIDEBAR=1`
  * - runtime override, wins over the default:
- *   `localStorage.setItem("pear:repeater-sidebar", "1" | "0")` then reload
+ *   `localStorage.setItem("selfbase:repeater-sidebar", "1" | "0")` then reload
  */
 
-const STORAGE_KEY = "pear:repeater-sidebar";
+const STORAGE_KEY = "selfbase:repeater-sidebar";
 
 const BUILD_DEFAULT = process.env.NEXT_PUBLIC_PEAR_REPEATER_SIDEBAR === "1";
 

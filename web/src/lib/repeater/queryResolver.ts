@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useTable } from "spacetimedb/react";
 import { tables } from "@/src/module_bindings";
-import type { DataSourceConfig, QueryResolver, RepeaterRow } from "@eclosion-tech/pulp";
+import type { DataSourceConfig, QueryResolver, RepeaterRow } from "@selfbase/pulp";
 import { evaluatePagesQuery } from "./evaluatePagesQuery";
 import { DatabaseRowCache, schemaChainIds } from "./databaseRows";
 import { applyFilter, comparatorFor } from "./rowFilter";

@@ -44,7 +44,7 @@ const MAX_SAMPLES = 2000;
  */
 const MIN_SAMPLES_FOR_VERDICT = 20;
 
-const STORAGE_KEY = "pear:paint-metrics";
+const STORAGE_KEY = "selfbase:paint-metrics";
 
 type Persisted = Record<string, { samples: number[]; mounts: number }>;
 
@@ -179,7 +179,7 @@ export function report(): {
       withinBar: null,
       verdict:
         `NOT COMPARABLE — need ≥${MIN_SAMPLES_FOR_VERDICT} samples per side, short on: ${short.join(", ") || "none"}. ` +
-        "Exercise one sidebar under churn and deep nesting, flip pear:repeater-sidebar, reload, exercise the other. " +
+        "Exercise one sidebar under churn and deep nesting, flip selfbase:repeater-sidebar, reload, exercise the other. " +
         "Samples persist across reloads.",
     };
   }

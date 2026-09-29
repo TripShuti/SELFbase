@@ -24,7 +24,7 @@
  */
 
 import type { Page } from "@/src/module_bindings/types";
-import type { DataSourceConfig, RepeaterRow } from "@eclosion-tech/pulp";
+import type { DataSourceConfig, RepeaterRow } from "@selfbase/pulp";
 import { applyFilter, comparatorFor } from "./rowFilter";
 
 /** Hidden subtrees (AI-user memory roots and the like) never surface in views. */

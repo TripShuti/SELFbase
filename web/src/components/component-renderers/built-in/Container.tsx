@@ -11,7 +11,7 @@ import {
   usePulp,
   useSurfaceFocus,
   type BlockRendererProps,
-} from "@eclosion-tech/pulp";
+} from "@selfbase/pulp";
 import { styleClasses } from "@/src/components/component-renderers/style/spaceClasses";
 import {
   themeClasses,

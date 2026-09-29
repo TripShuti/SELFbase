@@ -1,5 +1,5 @@
 {
-  "name": "@eclosion-tech/pulp",
+  "name": "@selfbase/pulp",
   "version": "0.1.0",
   "private": true,
   "description": "Block editor for the web \u2014 registry, chrome, RichText, split/merge.",

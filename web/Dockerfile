@@ -1,6 +1,6 @@
 FROM node:22-slim AS base
 RUN npm install -g pnpm@10.6.2
-# Pear declares no telemetry — opt out of Next.js anonymous usage collection.
+# SELFbase declares no telemetry — opt out of Next.js anonymous usage collection.
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # ── Install dependencies ────────────────────────────────────────────────────
@@ -23,35 +23,31 @@ WORKDIR /app
 # NEXT_PUBLIC_* vars are baked into the bundle at build time.
 # Override via docker compose build args if your stack differs.
 ARG NEXT_PUBLIC_SPACETIMEDB_URI=ws://localhost:3000
-ARG NEXT_PUBLIC_SPACETIMEDB_DB_NAME=pear-dev
+ARG NEXT_PUBLIC_SPACETIMEDB_DB_NAME=selfbase
 ARG NEXT_PUBLIC_SPACETIMEAUTH_CLIENT_ID=""
 ARG NEXT_PUBLIC_SPACETIMEAUTH_AUTHORITY=""
 ARG SPACETIMEDB_PROXY_ORIGIN=""
-# Optional host-delegation hooks. When set (in pear-cloud or any host that
-# wraps pear), the web app routes auth/AI-user mutations through these URLs
-# instead of expecting a self-hosted setup.
-ARG NEXT_PUBLIC_PEAR_HOST_LOGOUT_URL=""
-ARG NEXT_PUBLIC_PEAR_AI_USER_API_BASE=""
+# Optional host-delegation hook. When set (a host app that embeds SELFbase and
+# owns authentication), the web app navigates there on sign-out instead of
+# using its built-in flows.
+ARG NEXT_PUBLIC_SELFBASE_HOST_LOGOUT_URL=""
 
 ENV NEXT_PUBLIC_SPACETIMEDB_URI=$NEXT_PUBLIC_SPACETIMEDB_URI
 ENV NEXT_PUBLIC_SPACETIMEDB_DB_NAME=$NEXT_PUBLIC_SPACETIMEDB_DB_NAME
 ENV NEXT_PUBLIC_SPACETIMEAUTH_CLIENT_ID=$NEXT_PUBLIC_SPACETIMEAUTH_CLIENT_ID
 ENV NEXT_PUBLIC_SPACETIMEAUTH_AUTHORITY=$NEXT_PUBLIC_SPACETIMEAUTH_AUTHORITY
 ENV SPACETIMEDB_PROXY_ORIGIN=$SPACETIMEDB_PROXY_ORIGIN
-ENV NEXT_PUBLIC_PEAR_HOST_LOGOUT_URL=$NEXT_PUBLIC_PEAR_HOST_LOGOUT_URL
-ENV NEXT_PUBLIC_PEAR_AI_USER_API_BASE=$NEXT_PUBLIC_PEAR_AI_USER_API_BASE
+ENV NEXT_PUBLIC_SELFBASE_HOST_LOGOUT_URL=$NEXT_PUBLIC_SELFBASE_HOST_LOGOUT_URL
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/web/node_modules ./web/node_modules
-# pulp/snapshot-core are consumed as TS source (workspace:*); their own
-# node_modules (yjs, dnd-kit, prosemirror-*) must travel into builder too —
-# COPY . . won't bring them (.dockerignore excludes node_modules).
 # pulp/snapshot-core are consumed as TS source (workspace:*); their installed
 # node_modules (yjs, dnd-kit, prosemirror-*) must travel into builder too —
 # COPY . . won't bring them (.dockerignore excludes node_modules).
 COPY --from=deps /app/packages ./packages
 COPY . .
-# module_bindings is gitignored but must exist — run `spacetime generate` before building.
+# module_bindings is tracked in git — regenerate after module changes with
+# `cd server && spacetime generate` before building.
 RUN pnpm --filter web build
 
 # ── Production runtime ───────────────────────────────────────────────────────

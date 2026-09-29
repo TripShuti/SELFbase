@@ -58,7 +58,7 @@ export default function SettingsPage() {
         <section>
           <h2 className="text-sm font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wide mb-4">About</h2>
           <p className="text-sm text-neutral-600 dark:text-neutral-400">
-            Pear — self-hosted, relational-first workspace.
+            SELFbase — self-hosted, relational-first workspace.
           </p>
         </section>
       </div>

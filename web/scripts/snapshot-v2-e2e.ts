@@ -37,7 +37,7 @@ import {
   buildPearSnapshotV2,
   chunkSnapshotV2,
   SNAPSHOT_TABLES_V2,
-} from "@eclosion-tech/snapshot-core";
+} from "@selfbase/snapshot-core";
 
 const dbName = process.argv[2];
 const uri = process.argv[3] ?? "ws://localhost:3100";

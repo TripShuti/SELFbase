@@ -654,7 +654,7 @@ export function Sidebar() {
       <div className="px-4 py-3 border-b border-neutral-200 dark:border-neutral-800">
         <div className="flex items-center gap-2">
           <span className="text-lg font-semibold text-neutral-900 dark:text-white tracking-tight">
-            🍐 Pear
+            🗄️ SELFbase
           </span>
           {!isActive && (
             <span className="ml-auto text-xs text-yellow-600 dark:text-yellow-500">connecting…</span>

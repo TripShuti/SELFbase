@@ -1,5 +1,8 @@
 # Security follow-up — 15 September 2026
 
+> **Fork notice (SELFbase).** Upstream document, kept for history; subsystem
+> references (AI, MCP, worker) do not apply to this fork.
+
 All five areas left open by the initial review now have local code changes and
 regression coverage. **They have not been deployed.** Database migrations,
 configuration, and a coordinated canary release remain necessary before these

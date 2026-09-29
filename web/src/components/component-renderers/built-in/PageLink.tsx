@@ -8,7 +8,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { useRouter } from "next/navigation";
-import { usePulp, type BlockRendererProps } from "@eclosion-tech/pulp";
+import { usePulp, type BlockRendererProps } from "@selfbase/pulp";
 import {
   filterNavVisiblePages,
   useConnection,

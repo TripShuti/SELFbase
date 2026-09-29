@@ -14,7 +14,7 @@
 import { describe, expect, test } from "vitest";
 import { DatabaseRowCache, schemaChainIds } from "./databaseRows";
 import { applyFilter, comparatorFor } from "./rowFilter";
-import type { RepeaterRow } from "@eclosion-tech/pulp";
+import type { RepeaterRow } from "@selfbase/pulp";
 
 type Page = Parameters<DatabaseRowCache["build"]>[0][number];
 type Def = Parameters<DatabaseRowCache["build"]>[1][number];

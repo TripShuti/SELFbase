@@ -4,7 +4,7 @@ import {
   SPRINT_3B_SLASH_ITEMS,
   type SlashMenuItem,
   type BlockTypeDefinition,
-} from "@eclosion-tech/pulp";
+} from "@selfbase/pulp";
 
 /**
  * Pear-only built-ins the slash menu expects in `component_type_definition`.

@@ -1,5 +1,5 @@
 /**
- * Storage-agnostic block tree types for `@eclosion-tech/pulp`.
+ * Storage-agnostic block tree types for `@selfbase/pulp`.
  *
  * Pear's SpacetimeDB `ComponentNode` rows satisfy these shapes
  * structurally — the adapter layer maps substrate rows to `BlockTree`

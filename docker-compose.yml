@@ -8,7 +8,7 @@ services:
   # keep working. Override S3_* env to use external storage (e.g. R2) instead.
   garage:
     image: dxflrs/garage:v2.3.0
-    container_name: pear-garage
+    container_name: selfbase-garage
     ports:
       - "9000:3900"   # S3 API (host 9000 preserved from the MinIO era)
     environment:
@@ -16,7 +16,7 @@ services:
       # internal (RPC/admin ports are not published); defaults are fine for
       # local self-hosting, override in .env for anything exposed.
       GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:-9dd7325b40c1f0ab926e0a35e6592f9026fda9ec7d5c0d1fa1c4c05dfa79dc44}
-      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:-pear-garage-admin}
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:-selfbase-garage-admin}
     volumes:
       - garage-meta:/var/lib/garage/meta
       - garage-data:/var/lib/garage/data
@@ -28,15 +28,15 @@ services:
   # One-shot provisioner: layout + bucket + key import via the admin API.
   garage-init:
     image: alpine:3.20
-    container_name: pear-garage-init
+    container_name: selfbase-garage-init
     depends_on:
       - garage
     entrypoint: ["/bin/sh", "/garage-init.sh"]
     environment:
-      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:-pear-garage-admin}
-      S3_BUCKET: ${S3_BUCKET:-pear-attachments}
-      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-pear-access-key}
-      S3_SECRET_KEY: ${S3_SECRET_KEY:-pear-secret-key-change-me}
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:-selfbase-garage-admin}
+      S3_BUCKET: ${S3_BUCKET:-selfbase-attachments}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-selfbase-access-key}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-selfbase-secret-key-change-me}
     volumes:
       - ./server/docker/garage-init.sh:/garage-init.sh:ro
     restart: "no"
@@ -47,7 +47,7 @@ services:
   # Pre-build the module before starting: cd server && spacetime build
   spacetimedb:
     image: clockworklabs/spacetime:v2.0.3
-    container_name: pear-spacetimedb
+    container_name: selfbase-spacetimedb
     ports:
       - "3000:3000"
     volumes:
@@ -62,7 +62,7 @@ services:
       - ./server/spacetimedb/target/wasm32-unknown-unknown/release/server.wasm:/module/server.wasm:ro
     entrypoint: ["/bin/sh", "/entrypoint.sh"]
     environment:
-      STDB_DB_NAME: ${SPACETIMEDB_DB_NAME:-pear-dev}
+      STDB_DB_NAME: ${SPACETIMEDB_DB_NAME:-selfbase}
     user: root
     restart: unless-stopped
     networks:
@@ -72,9 +72,9 @@ services:
   web:
     # Image pulled from the Forgejo container registry on the remote.
     # Set WEB_IMAGE in your .env to the full registry path, e.g.:
-    #   WEB_IMAGE=forgejo.yourdomain.com/kara/pear-web:latest
+    #   WEB_IMAGE=registry.yourdomain.com/kara/selfbase-web:latest
     # Falls back to a local tag for dev builds.
-    image: ${WEB_IMAGE:-pear-web:latest}
+    image: ${WEB_IMAGE:-selfbase-web:latest}
     pull_policy: build
     build:
       context: .
@@ -84,7 +84,7 @@ services:
         # The browser must reach these URLs directly, so use the public-facing
         # addresses (Cloudflare Tunnel hostname or exposed host port).
         NEXT_PUBLIC_SPACETIMEDB_URI: ${SPACETIMEDB_PUBLIC_URI-ws://localhost:3000}
-        NEXT_PUBLIC_SPACETIMEDB_DB_NAME: ${SPACETIMEDB_DB_NAME:-pear-dev}
+        NEXT_PUBLIC_SPACETIMEDB_DB_NAME: ${SPACETIMEDB_DB_NAME:-selfbase}
         NEXT_PUBLIC_SPACETIMEAUTH_CLIENT_ID: ${SPACETIMEAUTH_CLIENT_ID:-}
         NEXT_PUBLIC_SPACETIMEAUTH_AUTHORITY: ${SPACETIMEAUTH_AUTHORITY:-}
         # Optional same-origin proxy to SpacetimeDB via Next.js rewrites.
@@ -92,7 +92,7 @@ services:
         # SPACETIMEDB_PUBLIC_URI empty to let the browser use ws(s)://<web-host>.
         # The web app proxies /v1/* to the internal SpacetimeDB service.
         SPACETIMEDB_PROXY_ORIGIN: ${SPACETIMEDB_PROXY_ORIGIN:-}
-    container_name: pear-web
+    container_name: selfbase-web
     ports:
       - "3001:3001"
     depends_on:
@@ -104,9 +104,9 @@ services:
       S3_ENDPOINT: ${S3_ENDPOINT:-http://garage:3900}
       # Optional. Browser upload URL (presigned URLs). If unset, derived from request host + :9000 (zero config when app and Garage are on the same host — Garage's S3 API is published on host port 9000). Set only when storage is on another host/port.
       S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-}
-      S3_BUCKET: ${S3_BUCKET:-pear-attachments}
-      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-pear-access-key}
-      S3_SECRET_KEY: ${S3_SECRET_KEY:-pear-secret-key-change-me}
+      S3_BUCKET: ${S3_BUCKET:-selfbase-attachments}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-selfbase-access-key}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-selfbase-secret-key-change-me}
       S3_REGION: ${S3_REGION:-us-east-1}
     restart: unless-stopped
     networks:

@@ -5,7 +5,7 @@ import {
   RichTextRenderer,
   usePulp,
   type BlockRendererProps,
-} from "@eclosion-tech/pulp";
+} from "@selfbase/pulp";
 
 /** First-line row: marker sits in a one-line box aligned with text cap height. */
 const LIST_ROW = "grid grid-cols-[auto_1fr] gap-x-2 items-start";

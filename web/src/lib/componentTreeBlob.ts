@@ -3,7 +3,7 @@ import type {
   BlockTree,
   BlockTypeDefinition,
   BlockYjsState,
-} from "@eclosion-tech/pulp";
+} from "@selfbase/pulp";
 
 /**
  * Parse a `component_tree_v1` JSON blob (the shape produced by the server's

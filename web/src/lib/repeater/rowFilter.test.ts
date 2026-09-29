@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, test } from "vitest";
-import type { Predicate, RepeaterRow } from "@eclosion-tech/pulp";
+import type { Predicate, RepeaterRow } from "@selfbase/pulp";
 import { applyFilter, asComparable, comparatorFor, matchesPredicate } from "./rowFilter";
 
 function row(fields: Record<string, unknown>): RepeaterRow {

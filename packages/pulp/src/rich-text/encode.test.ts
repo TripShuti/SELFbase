@@ -6,7 +6,7 @@
  * the text/marks survive. This proves the worker's bytes are editor-compatible
  * without needing a running SpacetimeDB.
  *
- * Run: pulp vitest (`pnpm --filter @eclosion-tech/pulp test`).
+ * Run: pulp vitest (`pnpm --filter @selfbase/pulp test`).
  */
 
 import { test } from "vitest";

@@ -10,13 +10,13 @@ export type WorkspaceConnection = {
   dbName: string;
 };
 
-const STORAGE_KEY = "pear_workspaces_v1";
-const ACTIVE_KEY = "pear_active_workspace_id";
+const STORAGE_KEY = "selfbase_workspaces_v1";
+const ACTIVE_KEY = "selfbase_active_workspace_id";
 
-const LEGACY_TOKEN_KEY = "pear_spacetimedb_token";
+const LEGACY_TOKEN_KEY = "selfbase_spacetimedb_token";
 
 export function tokenStorageKey(connectionId: string): string {
-  return `pear_spacetimedb_token__${connectionId}`;
+  return `selfbase_spacetimedb_token__${connectionId}`;
 }
 
 function defaultWsUriFromEnv(): string {
@@ -24,7 +24,7 @@ function defaultWsUriFromEnv(): string {
 }
 
 function defaultDbNameFromEnv(): string {
-  return process.env.NEXT_PUBLIC_SPACETIMEDB_DB_NAME?.trim() || "pear-dev";
+  return process.env.NEXT_PUBLIC_SPACETIMEDB_DB_NAME?.trim() || "selfbase";
 }
 
 /** Same host WebSocket as the page (when env URI is unset). */
@@ -245,7 +245,7 @@ export async function purgePearBrowserState(): Promise<void> {
     // ignore
   }
 
-  // 2. IndexedDB — every `pear_idb_*` database (Yjs persistence).
+  // 2. IndexedDB — every `selfbase_idb_*` database (Yjs persistence).
   try {
     // indexedDB.databases() is supported in Chromium and recent Firefox.
     const anyIdb = indexedDB as unknown as {
@@ -256,7 +256,7 @@ export async function purgePearBrowserState(): Promise<void> {
       await Promise.all(
         dbs
           .map((d) => d.name)
-          .filter((n): n is string => typeof n === "string" && n.startsWith("pear_idb_"))
+          .filter((n): n is string => typeof n === "string" && n.startsWith("selfbase_idb_"))
           .map(
             (name) =>
               new Promise<void>((resolve) => {

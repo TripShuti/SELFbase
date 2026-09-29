@@ -1,6 +1,11 @@
 # Pear — Project Bible
 ## A Self-Hosted, Relational-First Notion Alternative
 
+> **Fork notice (SELFbase).** This document describes upstream Pear, including
+> subsystems removed in this fork (AI users, Orcha, extensions/MCP,
+> automations, Notion import, bridge). It is kept for the data-model and
+> philosophy sections only.
+
 **Domain:** pear.pro
 
 > **Historical document.** This is the original design document for Pear's MVP. The philosophy and data model still hold, but many implementation details have evolved — most notably, the document model is now a typed `ComponentNode` tree (not BlockNote), and several features described here as planned have shipped. For current shipped/planned status, see [`ROADMAP.md`](./ROADMAP.md); for current setup and features, see [`README.md`](./README.md).

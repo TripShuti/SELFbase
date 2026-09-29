@@ -5,7 +5,7 @@ import { useReducer, useTable } from "spacetimedb/react";
 import {
   buildMigrationPayload,
   parseBlockNotePageContent,
-} from "@eclosion-tech/pulp";
+} from "@selfbase/pulp";
 import { tables, reducers } from "@/src/module_bindings";
 import { clearIdbCacheForPage } from "@/src/lib/spacetime";
 import { useWorkspace } from "@/src/providers/WorkspaceProvider";

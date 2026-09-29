@@ -17,7 +17,7 @@
  *                  app's env config. NEXT_PUBLIC_* is baked at build
  *                  time, so this requires a redeploy.
  *   - Runtime:     in devtools console, run
- *                    sessionStorage.setItem("pear:log", "debug")
+ *                    sessionStorage.setItem("selfbase:log", "debug")
  *                  then refresh. Session storage (NOT localStorage) is
  *                  deliberate: the override auto-expires when the tab
  *                  closes, so "turned on debug months ago and forgot"
@@ -68,7 +68,7 @@ const LEVEL_ORDER: Record<Level, number> = {
 };
 
 /** sessionStorage key for the runtime override. */
-const STORAGE_KEY = "pear:log";
+const STORAGE_KEY = "selfbase:log";
 
 /** NEXT_PUBLIC_ env var consulted at build time. */
 const BUILD_LEVEL = (() => {

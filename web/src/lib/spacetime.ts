@@ -24,7 +24,7 @@ import {
   type WorkspaceConnection,
 } from "@/src/lib/workspaceConnections";
 
-const LEGACY_TOKEN_KEY = "pear_spacetimedb_token";
+const LEGACY_TOKEN_KEY = "selfbase_spacetimedb_token";
 
 export { tokenStorageKey };
 /** @deprecated Use tokenStorageKey(connectionId) */
@@ -37,13 +37,13 @@ export const LOCAL_STORAGE_TOKEN_KEY = LEGACY_TOKEN_KEY;
 export function getIdbNamespace(storedWsUri: string, storedDbName: string): string {
   const uri = resolveWorkspaceWsUri(storedWsUri);
   const db = resolveWorkspaceDbName(storedDbName);
-  return `pear_idb_${uri}_${db}`;
+  return `selfbase_idb_${uri}_${db}`;
 }
 
 /** @deprecated Use getIdbNamespace(wsUri, dbName) from the active workspace. */
 export const idbNamespace = getIdbNamespace(
   process.env.NEXT_PUBLIC_SPACETIMEDB_URI?.trim() ?? "",
-  process.env.NEXT_PUBLIC_SPACETIMEDB_DB_NAME?.trim() || "pear-dev"
+  process.env.NEXT_PUBLIC_SPACETIMEDB_DB_NAME?.trim() || "selfbase"
 );
 
 /** Promisify a single IDBOpenDBRequest from deleteDatabase(). */
@@ -60,7 +60,7 @@ function deleteIdb(name: string): Promise<void> {
 
 /**
  * Delete all Pear IndexedDB caches for the current origin.
- * Clears both the current namespace and any legacy `pear-page-*` entries
+ * Clears both the current namespace and any legacy `selfbase-page-*` entries
  * from older naming schemes.
  * Call this from the settings panel after a server reset, then reload.
  */
@@ -72,8 +72,8 @@ export async function clearIdbCache(namespace?: string): Promise<void> {
   const pearDbs = dbs.filter(
     (db) =>
       db.name?.startsWith(ns) ||
-      db.name?.startsWith("pear-page-") ||
-      db.name?.startsWith("pear_idb_")
+      db.name?.startsWith("selfbase-page-") ||
+      db.name?.startsWith("selfbase_idb_")
   );
 
   await Promise.all(pearDbs.map((db) => deleteIdb(db.name!)));

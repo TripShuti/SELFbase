@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import type { BlockTree } from "@eclosion-tech/pulp";
+import type { BlockTree } from "@selfbase/pulp";
 import type { PageRow } from "@/src/hooks/usePages";
 
 type SyncArgs = {

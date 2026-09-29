@@ -39,7 +39,7 @@ const DURATION = Number(process.env.BENCH_DURATION ?? 15);
 if (!dbName) {
   console.error(
     "Usage: pnpm --filter web bench:repeater <db-name> [<uri>]\n" +
-      "  Local: pnpm --filter web bench:repeater pear-dev ws://localhost:3000",
+      "  Local: pnpm --filter web bench:repeater selfbase ws://localhost:3000",
   );
   process.exit(1);
 }

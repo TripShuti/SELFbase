@@ -6,4 +6,4 @@ export {
   assertRegistryAgainstDefs,
   type BlockRendererProps as ComponentRendererProps,
   type BlockRenderer as ComponentRenderer,
-} from "@eclosion-tech/pulp";
+} from "@selfbase/pulp";

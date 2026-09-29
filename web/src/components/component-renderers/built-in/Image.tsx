@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { useTable } from "spacetimedb/react";
 import { tables } from "@/src/module_bindings";
 import { usePearWorkspaceSlug, workspaceBlobSrc } from "@/src/lib/blobUpload";
-import type { BlockRendererProps } from "@eclosion-tech/pulp";
+import type { BlockRendererProps } from "@selfbase/pulp";
 
 /**
  * Built-in `Image` component. References an `Attachment` row by id; the

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import { usePulp, type BlockRendererProps } from "@eclosion-tech/pulp";
+import { usePulp, type BlockRendererProps } from "@selfbase/pulp";
 import { useAudioAttachment } from "@/src/components/AudioAttachmentContext";
 import { AudioBlockContent } from "@/src/components/media/AudioBlockContent";
 

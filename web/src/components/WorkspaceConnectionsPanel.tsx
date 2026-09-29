@@ -279,7 +279,7 @@ export function WorkspaceConnectionsPanel() {
     addWorkspace({
       name: n,
       wsUri: wsUri.trim(),
-      dbName: dbName.trim() || "pear-dev",
+      dbName: dbName.trim() || "selfbase",
     });
     setName("");
     setWsUri("");
@@ -385,7 +385,7 @@ export function WorkspaceConnectionsPanel() {
           <p className="text-xs text-red-600 dark:text-red-400">{addUriError}</p>
         )}
         <input
-          placeholder="Database name (default pear-dev)"
+          placeholder="Database name (default selfbase)"
           value={dbName}
           onChange={(e) => setDbName(e.target.value)}
           className="w-full px-2 py-1.5 rounded text-sm bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700"

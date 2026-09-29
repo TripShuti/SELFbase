@@ -13,7 +13,7 @@ import {
   validateComponentProps,
   type BlockInsertEvent,
   type BlockTree,
-} from "@eclosion-tech/pulp";
+} from "@selfbase/pulp";
 import type { ComponentNode } from "@/src/module_bindings/types";
 import {
   useComponentTree,
@@ -89,7 +89,7 @@ function useHighlightNodeFromUrl(surfaceId: bigint): void {
 
 /**
  * Pear's ComponentTree page surface — wires SpacetimeDB subscriptions
- * and reducers into `@eclosion-tech/pulp`'s storage-agnostic editor.
+ * and reducers into `@selfbase/pulp`'s storage-agnostic editor.
  */
 export function ComponentTreeRenderer({
   surfaceId,
@@ -151,7 +151,7 @@ export function ComponentTreeRenderer({
     (componentId: bigint) => {
       if (typeof indexedDB === "undefined") return;
       try {
-        indexedDB.deleteDatabase(`pear:${idbNamespace}:component:${componentId}`);
+        indexedDB.deleteDatabase(`selfbase:${idbNamespace}:component:${componentId}`);
       } catch {
         // local cleanup is best-effort; ignore failures
       }
@@ -328,7 +328,7 @@ export function ComponentTreeRenderer({
 
   const config = useMemo(
     () => ({
-      idbPrefix: `pear:${idbNamespace}`,
+      idbPrefix: `selfbase:${idbNamespace}`,
       validateProps: validateComponentProps,
       slashItems: slashItemsForDefs(PEAR_SLASH_ITEMS, tree.defs),
       linkTargets,

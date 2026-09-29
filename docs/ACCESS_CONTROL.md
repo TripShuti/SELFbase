@@ -1,5 +1,8 @@
 # Page and conversation access control
 
+> **Fork notice (SELFbase).** Upstream document; conversations/AI-user sections
+> do not apply — this fork keeps pages, rules, and human-only access requests.
+
 Introduced in module `1.0.0-beta.35`, addressing Pear tasks 14437 and 333.
 
 ## Enforced boundary

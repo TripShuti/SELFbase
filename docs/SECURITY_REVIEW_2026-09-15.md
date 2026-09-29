@@ -1,5 +1,9 @@
 # Security review — 15 September 2026
 
+> **Fork notice (SELFbase).** Upstream review of pre-fork code; findings about
+> removed subsystems (AI, MCP, worker) do not apply. The upload-endpoint and
+> access-control findings are still worth reading.
+
 Status: local fixes, pending coordinated deployment. This is a targeted source
 review and regression suite, not a certification of the whole application.
 

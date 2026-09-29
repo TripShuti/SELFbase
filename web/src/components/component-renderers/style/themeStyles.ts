@@ -19,7 +19,7 @@ import type {
   RadiusToken,
   Theme,
   ToneToken,
-} from "@eclosion-tech/pulp";
+} from "@selfbase/pulp";
 import { workspaceBlobSrc } from "@/src/lib/blobUpload";
 
 /**

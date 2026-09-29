@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState, type DragEvent } from "react";
-import { usePulp, type BlockRendererProps } from "@eclosion-tech/pulp";
+import { usePulp, type BlockRendererProps } from "@selfbase/pulp";
 import { useAudioAttachment } from "@/src/components/AudioAttachmentContext";
 import {
   uploadWorkspaceBlob,

@@ -11,7 +11,7 @@ import {
   type BlockTree,
   type QueryResolver,
   type RepeaterRow,
-} from "@eclosion-tech/pulp";
+} from "@selfbase/pulp";
 import { usePagesQueryResolver } from "@/src/lib/repeater/pagesResolver";
 import { measureDelivery, recordMount } from "@/src/lib/repeater/paintMetrics";
 

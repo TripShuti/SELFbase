@@ -9,7 +9,7 @@
 
 import { describe, expect, test } from "vitest";
 import type { Page } from "@/src/module_bindings/types";
-import type { DataSourceConfig } from "@eclosion-tech/pulp";
+import type { DataSourceConfig } from "@selfbase/pulp";
 import { evaluatePagesQuery } from "./evaluatePagesQuery";
 
 function page(

@@ -1,6 +1,6 @@
 import {
   registerRenderer,
-} from "@eclosion-tech/pulp";
+} from "@selfbase/pulp";
 import { ContainerRenderer } from "./Container";
 import { ImageRenderer } from "./Image";
 import { ImageBlockRenderer } from "./ImageBlock";

@@ -25,7 +25,7 @@
  * Examples:
  *   # Local dev — no auth, anonymous identity works because there are no
  *   # access rules on the workspace.
- *   pnpm --filter web smoke pear-dev ws://localhost:3000
+ *   pnpm --filter web smoke selfbase ws://localhost:3000
  *
  *   # Remote env — the lifecycle proxy at cloud.pear.pro enforces OIDC
  *   # bearer auth on every WebSocket upgrade. Grab a session token from
@@ -60,7 +60,7 @@ const token = process.env.SPACETIMEDB_TOKEN?.trim() || undefined;
 if (!dbName) {
   console.error(
     "Usage: pnpm --filter web smoke <db-name> [<uri>]\n" +
-      "  Local : pnpm --filter web smoke pear-dev ws://localhost:3000\n" +
+      "  Local : pnpm --filter web smoke selfbase ws://localhost:3000\n" +
       "  Remote: SPACETIMEDB_TOKEN=eyJ... pnpm --filter web smoke <slug> wss://<slug>.cloud.pear.pro",
   );
   process.exit(1);

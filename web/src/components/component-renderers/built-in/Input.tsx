@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { BlockRendererProps } from "@eclosion-tech/pulp";
+import type { BlockRendererProps } from "@selfbase/pulp";
 import { useDatabaseSchema, usePropertyDefinitions } from "@/src/hooks/useDatabase";
 import { useFormContext } from "../FormContext";
 import { useGeneratedUiInteraction } from "../GeneratedUiInteractionContext";

@@ -21,7 +21,7 @@
  * its page row or one of its value rows actually changed identity.
  */
 
-import type { RepeaterRow } from "@eclosion-tech/pulp";
+import type { RepeaterRow } from "@selfbase/pulp";
 
 type PageLike = {
   id: bigint;

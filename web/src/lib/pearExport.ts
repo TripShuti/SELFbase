@@ -1,7 +1,7 @@
 "use client";
 
 // Pear portable snapshot formats now live in the shared workspace package
-// @eclosion-tech/snapshot-core (packages/snapshot-core). This module re-exports
+// @selfbase/snapshot-core (packages/snapshot-core). This module re-exports
 // them and keeps only the browser-specific download helper.
 
 export {
@@ -16,7 +16,7 @@ export {
   chunkSnapshotV2,
   resolveSnapshotTableAccessors,
   parsePearSnapshotJson,
-} from "@eclosion-tech/snapshot-core";
+} from "@selfbase/snapshot-core";
 export type {
   PearSnapshotV2,
   PearSnapshotV2Chunk,
@@ -27,9 +27,9 @@ export type {
   ParsedPearSnapshot,
   SnapshotTableRegistry,
   SnapshotTableRegistryEntry,
-} from "@eclosion-tech/snapshot-core";
+} from "@selfbase/snapshot-core";
 
-import type { PearSnapshotV2 } from "@eclosion-tech/snapshot-core";
+import type { PearSnapshotV2 } from "@selfbase/snapshot-core";
 
 /** Browser-only: serialize a snapshot and trigger a file download. */
 export function downloadPearSnapshotJson(

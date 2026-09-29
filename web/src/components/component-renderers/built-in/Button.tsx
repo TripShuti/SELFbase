@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useRouter } from "next/navigation";
-import type { BlockRendererProps } from "@eclosion-tech/pulp";
+import type { BlockRendererProps } from "@selfbase/pulp";
 import { useFormContext } from "../FormContext";
 import {
   useGeneratedUiInteraction,

@@ -42,7 +42,7 @@ function pickRecorderMimeType(): string {
 
 function getSpeechRecognitionCtor(): (new () => SpeechRecognition) | null {
   if (typeof window === "undefined") return null;
-  // @assistant-ui/core (via @eclosion-tech/chat) ships its own Web Speech
+  // Speech recognition in this block uses the browser's Web Speech API directly.
   // globals whose Window.SpeechRecognition type wins over ours in
   // src/types/speech-recognition.d.ts; both describe the same runtime
   // constructor, so bridge the declaration mismatch here.

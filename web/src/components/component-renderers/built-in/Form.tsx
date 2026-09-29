@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import type { BlockRendererProps } from "@eclosion-tech/pulp";
+import type { BlockRendererProps } from "@selfbase/pulp";
 import { useChildPages, useCreatePage, useSetPropertyValue } from "@/src/hooks/usePages";
 import { useDatabaseSchema } from "@/src/hooks/useDatabase";
 import {

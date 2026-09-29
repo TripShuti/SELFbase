@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { BlockTree } from "@eclosion-tech/pulp";
+import type { BlockTree } from "@selfbase/pulp";
 import { pageLinkIdsInTree } from "./useSyncChildPageLinks";
 
 function makeTree(

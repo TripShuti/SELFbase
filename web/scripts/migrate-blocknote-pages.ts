@@ -2,7 +2,7 @@
  * BlockNote → ComponentTree batch migrator.
  *
  * Walks every live `BlockNote`-format page in a workspace, converts
- * `PageContent.content` via `@eclosion-tech/pulp`, and calls
+ * `PageContent.content` via `@selfbase/pulp`, and calls
  * `migrate_page_to_component_tree` atomically per page.
  *
  * Usage:
@@ -13,7 +13,7 @@
  *   --page-id <id>  Migrate a single page (bigint)
  *
  * Examples:
- *   pnpm --filter web migrate-blocknote pear-dev ws://localhost:3000 --dry-run
+ *   pnpm --filter web migrate-blocknote selfbase ws://localhost:3000 --dry-run
  *   SPACETIMEDB_TOKEN=eyJ… pnpm --filter web migrate-blocknote eclosion wss://eclosion.cloud.pear.pro
  *
  * Requires module >= 0.11.6. Run against dev/staging first.
@@ -22,7 +22,7 @@
 import {
   buildMigrationPayload,
   parseBlockNotePageContent,
-} from "@eclosion-tech/pulp";
+} from "@selfbase/pulp";
 import type { DbConnection as DbConnectionType } from "../src/module_bindings/index.js";
 import { DbConnection } from "../src/module_bindings/index.js";
 import type { Page, PageContent } from "../src/module_bindings/types.js";

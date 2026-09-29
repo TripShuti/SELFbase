@@ -11,7 +11,7 @@
  * calling in, so nothing in this file knows about `Page` or `PropertyValue`.
  */
 
-import type { Predicate, RepeaterRow, SortRule } from "@eclosion-tech/pulp";
+import type { Predicate, RepeaterRow, SortRule } from "@selfbase/pulp";
 
 /**
  * Read a field for comparison.

@@ -136,7 +136,7 @@ export function WorkspaceProvider({
   }, [workspaces, activeId]);
 
   const idbNamespace = useMemo(() => {
-    if (!activeWorkspace) return "pear_idb_pending";
+    if (!activeWorkspace) return "selfbase_idb_pending";
     return getIdbNamespace(activeWorkspace.wsUri, activeWorkspace.dbName);
   }, [activeWorkspace]);
 
