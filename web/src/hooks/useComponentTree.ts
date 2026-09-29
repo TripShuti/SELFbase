@@ -69,7 +69,11 @@ export function useComponentTree(
     (row) => row.surfaceId === surfaceId,
     nodeCallbacks,
   );
-  const [defRows, defsReady] = useTable(tables.component_type_definition);
+  const { rows: defRows, ready: defsReady } = useScopedTable<ComponentTypeDefinition>(
+    tables.component_type_definition,
+    "SELECT * FROM component_type_definition",
+    () => true
+  );
   // `component_yjs_state` has no surface column, so scope it with a
   // two-table semijoin through `component_node` — the exact shape the SDK's
   // own query builder emits for semijoins (`SELECT rhs.* FROM lhs JOIN rhs

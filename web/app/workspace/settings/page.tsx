@@ -5,7 +5,6 @@ import { useTheme } from "next-themes";
 import { ApiEndpointsSettings } from "@/src/components/ApiEndpointsSettings";
 import { MembersSettings } from "@/src/components/MembersSettings";
 import { WorkspaceConnectionsPanel } from "@/src/components/WorkspaceConnectionsPanel";
-import { StorageUsagePanel } from "@/src/components/StorageUsagePanel";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -46,8 +45,6 @@ export default function SettingsPage() {
             </div>
           </div>
         </section>
-
-        <StorageUsagePanel />
 
         <WorkspaceConnectionsPanel />
 

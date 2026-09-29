@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import { useTable } from "spacetimedb/react";
 import { tables } from "@/src/module_bindings";
+import { useScopedTable } from "@/src/hooks/useScopedTable";
 import type { ComponentTypeDefinition } from "@/src/module_bindings/types";
 import {
   BlockView,
@@ -111,7 +111,11 @@ function buildStoredTree(defs: Map<string, ComponentTypeDefinition>, loading: bo
 }
 
 export function RepeaterSidebarTree() {
-  const [defRows, defsReady] = useTable(tables.component_type_definition);
+  const { rows: defRows, ready: defsReady } = useScopedTable<ComponentTypeDefinition>(
+    tables.component_type_definition,
+    "SELECT * FROM component_type_definition",
+    () => true
+  );
   const baseResolver = usePagesQueryResolver();
 
   useEffect(() => {
