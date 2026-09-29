@@ -15,7 +15,6 @@ import {
 } from "./types";
 
 export default {
-  conversationId: __t.u64(),
   pageId: __t.u64(),
   get permission() {
     return Permission;

@@ -2,7 +2,6 @@ import { describe, expect, test } from "vitest";
 import { ScheduleAt } from "spacetimedb";
 
 import {
-  PEAR_SNAPSHOT_FORMAT,
   PEAR_SNAPSHOT_FORMAT_V2,
   SNAPSHOT_TABLES_V2,
   buildPearSnapshotV2,
@@ -138,8 +137,6 @@ describe("encodePearValue", () => {
 
   test("ScheduleAt Interval variant → { tag, value: tagged bigint micros }", () => {
     // Real SDK runtime shape: { tag: "Interval", value: TimeDuration }.
-    // The v2 import reducers expect exactly this encoding for
-    // ai_user_routine.scheduledAt.
     const row = { scheduledId: 1n, scheduledAt: ScheduleAt.interval(5_000_000n) };
     expect(encodePearValue(row)).toEqual({
       scheduledId: { __pear: "bigint", v: "1" },
@@ -229,7 +226,7 @@ describe("buildPearSnapshotV2 rows, counts and blobManifest", () => {
     ]);
   });
 
-  test("blobManifest collects attachment/conversation_attachment/component_node keys, deduped", () => {
+  test("blobManifest collects attachment/component_node keys, deduped", () => {
     const componentProps = JSON.stringify({
       storageKey: "comp/3.jpg",
       nested: { deeper: { storageKey: "att/1.png" } }, // duplicate of an attachment key
@@ -244,10 +241,6 @@ describe("buildPearSnapshotV2 rows, counts and blobManifest", () => {
           { id: 2n, storageKey: "att/1.png" }, // duplicate
           { id: 3n, storageKey: "" }, // empty — ignored
         ],
-        conversation_attachment: [
-          { id: 1n, objectKey: "conv/2.pdf" },
-          { id: 2n, objectKey: undefined }, // pending upload — skipped
-        ],
         component_node: [
           { id: 1n, props: componentProps },
           { id: 2n, props: "not json {" }, // malformed — ignored
@@ -260,7 +253,6 @@ describe("buildPearSnapshotV2 rows, counts and blobManifest", () => {
       "att/1.png",
       "comp/3.jpg",
       "comp/4.png",
-      "conv/2.pdf",
     ]);
   });
 });
@@ -352,18 +344,14 @@ describe("chunkSnapshotV2", () => {
 });
 
 describe("parsePearSnapshotJson", () => {
-  test("sniffs v1", () => {
+  test("rejects legacy v1 files with a clear error", () => {
     const v1 = JSON.stringify({
-      format: PEAR_SNAPSHOT_FORMAT,
+      format: "pear-snapshot-v1",
       exportedAt: "2026-01-01T00:00:00.000Z",
       workspace: { wsUri: "ws://x", dbName: "y" },
       tables: { user: [] },
     });
-    const parsed = parsePearSnapshotJson(v1);
-    expect(parsed.format).toBe(PEAR_SNAPSHOT_FORMAT);
-    if (parsed.format === PEAR_SNAPSHOT_FORMAT) {
-      expect(parsed.snapshot.tables.user).toEqual([]);
-    }
+    expect(() => parsePearSnapshotJson(v1)).toThrowError(/Unsupported snapshot format/);
   });
 
   test("sniffs v2", () => {

@@ -23,7 +23,8 @@ import { measureDelivery, recordMount } from "@/src/lib/repeater/paintMetrics";
 import type { PageRow } from "@/src/hooks/usePages";
 import { filterNavVisiblePages } from "@/src/hooks/usePages";
 import { useWorkspace } from "@/src/providers/WorkspaceProvider";
-import { PAGE_DRAG_MIME } from "@/src/lib/chatAttachments";
+/** DataTransfer MIME type for dragged sidebar page rows. */
+const PAGE_DRAG_MIME = "application/x-pear-page";
 
 // ─── Drag state shared across the whole sidebar ───────────────────────────────
 
@@ -159,8 +160,6 @@ function SidebarItem({
         draggable
         onDragStart={(e) => {
           e.stopPropagation();
-          // Also expose the page for external drop targets (e.g. the AI chat
-          // composer, which turns it into a context attachment).
           e.dataTransfer.setData(
             PAGE_DRAG_MIME,
             JSON.stringify({ pageId: String(page.id), title: page.title }),

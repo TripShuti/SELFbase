@@ -13,7 +13,6 @@ import { EmojiPicker } from "./EmojiPicker";
 import { usePageAncestors } from "@/src/hooks/usePages";
 import { clearIdbCache, clearIdbCacheForPage } from "@/src/lib/spacetime";
 import { useWorkspace } from "@/src/providers/WorkspaceProvider";
-import { useWorkspaceAiPanel } from "@/src/components/WorkspaceShell";
 
 interface DatabasePageProps {
   page: PageRow;
@@ -21,7 +20,6 @@ interface DatabasePageProps {
 
 export function DatabasePage({ page }: DatabasePageProps) {
   const { idbNamespace } = useWorkspace();
-  const aiPanel = useWorkspaceAiPanel();
   const router = useRouter();
   const updateTitle = useUpdatePageTitle();
   const updatePageIcon = useUpdatePageIcon();
@@ -73,20 +71,6 @@ export function DatabasePage({ page }: DatabasePageProps) {
             onChange={(e) => handleTitleChange(e.target.value)}
             placeholder="Untitled Database"
           />
-          <button
-            onClick={() => aiPanel.togglePanelForPage(page.id)}
-            title="AI jobs"
-            aria-label="AI jobs"
-            className={`shrink-0 p-1.5 rounded transition-colors ${
-              aiPanel.isOpen && aiPanel.activePageId === page.id
-                ? "text-neutral-900 dark:text-white bg-neutral-200 dark:bg-neutral-700"
-                : "text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-            }`}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
-            </svg>
-          </button>
           <button
             onClick={() => setHistoryOpen((o) => !o)}
             title="Page history"

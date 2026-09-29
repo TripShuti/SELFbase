@@ -182,18 +182,6 @@ function mapBlockNoteBlock(block: BlockNoteBlock): MappedBlock | null {
         },
       };
 
-    case "conversation":
-      return {
-        componentType: "Conversation",
-        props: {
-          conversationId: String(block.props?.conversationId ?? ""),
-          collapsed: String(block.props?.collapsed ?? "true"),
-          autoCollapseThresholdMinutes: String(
-            block.props?.autoCollapseThresholdMinutes ?? "60",
-          ),
-        },
-      };
-
     case "audio":
       return {
         componentType: "Audio",

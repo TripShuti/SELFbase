@@ -3,7 +3,6 @@
 import { useId, useRef, useState } from "react";
 import { useReducer, useSpacetimeDB, useTable } from "spacetimedb/react";
 import { tables, reducers } from "@/src/module_bindings";
-import { useAiUserProfiles } from "@/src/hooks/useAiUsers";
 import {
   pageAccessScope,
   effectivePagePermission,
@@ -81,7 +80,6 @@ function PageAccessPanel({
   // held by another session belonging to the same person.
   const [users, usersReady] = useTable(tables.user);
   const [install, installReady] = useTable(tables.module_install_meta);
-  const { profiles, isReady: profilesReady } = useAiUserProfiles();
   const setRule = useReducer(reducers.setPageAccessRule);
   const clearRule = useReducer(reducers.clearPageAccessRule);
   const [selected, setSelected] = useState("");
@@ -105,7 +103,7 @@ function PageAccessPanel({
         user.isAdmin,
     );
   const ready =
-    pagesReady && rulesReady && usersReady && profilesReady && installReady;
+    pagesReady && rulesReady && usersReady && installReady;
   const members = new Map(
     users
       .filter((user) => user.isAuthenticated)
@@ -115,24 +113,13 @@ function PageAccessPanel({
           identity: user.identity,
           name:
             user.name || user.email || user.identity.toHexString().slice(0, 8),
-          detail: user.email,
-          ai: false,
         },
       ]),
   );
-  for (const profile of profiles)
-    members.set(profile.identity.toHexString(), {
-      identity: profile.identity,
-      name: profile.displayName,
-      detail: "AI member",
-      ai: true,
-    });
   if (publisher && !members.has(publisher.toHexString()))
     members.set(publisher.toHexString(), {
       identity: publisher,
       name: "Workspace service",
-      detail: "Module publisher",
-      ai: false,
     });
   for (const rule of scope.rules) {
     const principal = rule.principal.value;
@@ -140,16 +127,13 @@ function PageAccessPanel({
       members.set(principal.toHexString(), {
         identity: principal,
         name: principal.toHexString().slice(0, 12),
-        detail: "Identity with a grant; membership unverified",
-        ai: false,
       });
   }
   const hasMembership = (hex: string) =>
     hex === publisher?.toHexString() ||
     users.some(
       (user) => user.identity.toHexString() === hex && user.isAuthenticated,
-    ) ||
-    profiles.some((profile) => profile.identity.toHexString() === hex);
+    );
   const canManage =
     ready &&
     scope.complete &&
@@ -229,7 +213,7 @@ function PageAccessPanel({
             </p>
             <p className="mt-1 text-neutral-500 dark:text-neutral-400">
               {scope.open
-                ? "Includes people and AI members. Restrict access to choose who can view or edit this page and its children."
+                ? "Includes everyone in this workspace. Restrict access to choose who can view or edit this page and its children."
                 : "Grants apply to this page and its children. Parent-page grants still apply. Workspace admins always have access."}
             </p>
           </div>
@@ -244,7 +228,7 @@ function PageAccessPanel({
           )}
           <ul
             className="max-h-64 space-y-3 overflow-y-auto"
-            aria-label="People and AI members with access"
+            aria-label="People with access"
           >
             {visible.map(([hex, member]) => {
               const direct = scope.rules.find(
@@ -277,15 +261,14 @@ function PageAccessPanel({
                 <li key={hex} className="flex items-start gap-2 text-xs">
                   <span
                     aria-hidden="true"
-                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${member.ai ? "bg-violet-100 text-violet-700 dark:bg-violet-900 dark:text-violet-200" : "bg-neutral-100 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-200"}`}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-200"
                   >
                     {member.name[0]?.toUpperCase()}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium" title={member.detail}>
+                    <p className="truncate font-medium" title={member.name}>
                       {member.name}
                       {hex === me ? " (you)" : ""}
-                      {member.ai ? " · AI" : ""}
                     </p>
                     {duplicates && (
                       <p className="text-neutral-500">
@@ -365,7 +348,7 @@ function PageAccessPanel({
               onClick={() =>
                 setConfirm({
                   message:
-                    "Only you, workspace admins and the workspace service will retain access to this page and its children, alongside any grants on child pages. You can then add people or AI members.",
+                    "Only you, workspace admins and the workspace service will retain access to this page and its children, alongside any grants on child pages. You can then add people.",
                   action: () =>
                     setRule({
                       pageId,
@@ -408,11 +391,10 @@ function PageAccessPanel({
                 disabled={busy}
                 className={`${controlClass} w-full`}
               >
-                <option value="">Choose a person or AI…</option>
+                <option value="">Choose a person…</option>
                 {candidates.map(([hex, member]) => (
                   <option key={hex} value={hex}>
-                    {member.name}
-                    {member.ai ? " (AI)" : ""} · {hex.slice(0, 8)}
+                    {member.name} · {hex.slice(0, 8)}
                   </option>
                 ))}
               </select>

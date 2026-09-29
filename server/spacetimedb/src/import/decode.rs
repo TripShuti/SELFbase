@@ -185,20 +185,6 @@ pub(super) fn decode_enum_tag2<T: Clone>(
     Err("unknown enum variant".into())
 }
 
-pub(super) fn decode_opt_f32_vec(v: Option<&Value>) -> Result<Option<Vec<f32>>, String> {
-    match v {
-        None | Some(Value::Null) => Ok(None),
-        Some(Value::Array(a)) => {
-            let mut out = Vec::with_capacity(a.len());
-            for x in a {
-                out.push(x.as_f64().ok_or("f32")? as f32);
-            }
-            Ok(Some(out))
-        }
-        _ => Err("embedding: expected array or null".into()),
-    }
-}
-
 // ── Shared semantic decoders ──────────────────────────────────────────────────
 
 pub(super) fn decode_actor_type(v: &Value) -> Result<ActorType, String> {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useSpacetimeDB, useReducer } from "spacetimedb/react";
+import { useSpacetimeDB } from "spacetimedb/react";
 import { useWorkspace } from "@/src/providers/WorkspaceProvider";
 import {
   getWorkspaceUriValidationError,
@@ -94,7 +94,6 @@ export function WorkspaceConnectionsPanel() {
     idbNamespace,
   } = useWorkspace();
   const { getConnection } = useSpacetimeDB();
-  const importSnapshot = useReducer(reducers.importPearSnapshotV1);
 
   const [name, setName] = useState("");
   const [wsUri, setWsUri] = useState("");
@@ -213,11 +212,10 @@ export function WorkspaceConnectionsPanel() {
     try {
       const text = await f.text();
       const parsed = parsePearSnapshotJson(text);
-      if (parsed.format === PEAR_SNAPSHOT_FORMAT_V2) {
-        await handleImportV2(parsed.snapshot);
-      } else {
-        await importSnapshot({ snapshotJson: text });
+      if (parsed.format !== PEAR_SNAPSHOT_FORMAT_V2) {
+        throw new Error("Only pear-snapshot-v2 files are supported.");
       }
+      await handleImportV2(parsed.snapshot);
       setMsg("Import successful. Data will appear momentarily.");
     } catch (e) {
       setMsg(e instanceof Error ? e.message : `${e}`);
@@ -404,9 +402,8 @@ export function WorkspaceConnectionsPanel() {
       <div className="space-y-3">
         <p className="text-xs font-medium text-neutral-600 dark:text-neutral-400">Backup & restore</p>
         <p className="text-neutral-600 dark:text-neutral-400 text-sm">
-          Export uses the <code className="text-xs bg-neutral-100 dark:bg-neutral-800 px-1 rounded">pear-snapshot-v2</code> JSON format and now includes all workspace tables. Import accepts
-          v1 and v2 files and only works on an empty database (no pages). AI users get stub server
-          configs (re-enter API keys after import).
+          Export uses the <code className="text-xs bg-neutral-100 dark:bg-neutral-800 px-1 rounded">pear-snapshot-v2</code> JSON format and includes all workspace tables. Import accepts
+          v2 files and only works on an empty database (no pages).
         </p>
         <div className="flex flex-wrap gap-2 items-center">
           <button

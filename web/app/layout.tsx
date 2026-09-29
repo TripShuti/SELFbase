@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { Providers } from "@/src/providers/Providers";
-import { EnginesPanel } from "@/src/components/engines/EnginesPanel";
 import { WorkspaceQueryBootstrap } from "@/src/components/WorkspaceQueryBootstrap";
 import "./globals.css";
 
@@ -39,8 +38,6 @@ export default function RootLayout({
               active workspace before WorkspaceProvider reads localStorage. */}
           <WorkspaceQueryBootstrap />
           <Providers>{children}</Providers>
-          {/* Desktop-only (renders nothing in a plain browser). */}
-          <EnginesPanel />
         </ThemeProvider>
       </body>
     </html>

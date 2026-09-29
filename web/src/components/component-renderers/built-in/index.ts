@@ -9,7 +9,6 @@ import { InputRenderer } from "./Input";
 import { ButtonRenderer } from "./Button";
 import { CodeRefRenderer } from "./CodeRef";
 import { PageLinkRenderer } from "./PageLink";
-import { ConversationRenderer } from "./Conversation";
 import { AudioRenderer } from "./Audio";
 import { FormRenderer } from "./Form";
 import { DataBoundPlaceholder } from "./DataBoundPlaceholder";
@@ -38,7 +37,6 @@ export function registerPearBuiltinRenderers(): void {
   registerRenderer("Button", ButtonRenderer);
   registerRenderer("CodeRef", CodeRefRenderer);
   registerRenderer("PageLink", PageLinkRenderer);
-  registerRenderer("Conversation", ConversationRenderer);
   registerRenderer("Audio", AudioRenderer);
   registerRenderer("Form", FormRenderer);
   registerRenderer("BulletListItem", BulletListItemRenderer);

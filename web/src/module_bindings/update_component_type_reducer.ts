@@ -19,5 +19,7 @@ export default {
   displayName: __t.option(__t.string()),
   description: __t.option(__t.string()),
   propSchemaJson: __t.option(__t.string()),
-  capabilities: __t.option(__t.array(ComponentCapability)),
+  get capabilities() {
+    return __t.option(__t.array(ComponentCapability));
+  },
 };

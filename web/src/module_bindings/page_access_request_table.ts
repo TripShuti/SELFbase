@@ -18,7 +18,6 @@ import {
 
 export default __t.row({
   id: __t.u64().primaryKey(),
-  conversationId: __t.u64().name("conversation_id"),
   pageId: __t.u64().name("page_id"),
   get principal() {
     return Principal;

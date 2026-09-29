@@ -7,14 +7,13 @@ import {
   useSetUserAdmin,
   useCreateLocalUser,
 } from "@/src/hooks/useUser";
-import { isAiUserHostDelegated } from "@/src/lib/aiUserApi";
 import { useIdentityDriftRecovery } from "@/src/hooks/useIdentityDriftRecovery";
 
 const OIDC_CONFIGURED = !!process.env.NEXT_PUBLIC_SPACETIMEAUTH_CLIENT_ID;
 
 function AddUserForm({ onDone }: { onDone: () => void }) {
   const createLocalUser = useCreateLocalUser();
-  const humanUsersManagedExternally = OIDC_CONFIGURED || isAiUserHostDelegated();
+  const humanUsersManagedExternally = OIDC_CONFIGURED;
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");

@@ -42,7 +42,6 @@ pub struct Page {
     pub title: String,
     /// Position within siblings. Spaced by 1000 so insertions rarely need a renumber.
     pub sort_order: u32,
-    pub embedding: Option<Vec<f32>>,
     pub created_by: ActorType,
     pub created_at: Timestamp,
     pub updated_at: Timestamp,
@@ -70,10 +69,9 @@ pub struct Page {
     #[default(0u64)]
     pub parent_pk: u64,
     /// Excludes this page (and conventionally its subtree) from sidebar
-    /// navigation and search by default. Used to host AI-user memory
-    /// subtrees and other "infrastructure" pages users don't need to see.
-    /// Access rules still apply normally — this is a visibility hint, not
-    /// a permission.
+    /// navigation and search by default. Used to host "infrastructure" pages
+    /// users don't need to see. Access rules still apply normally — this is
+    /// a visibility hint, not a permission.
     #[default(false)]
     pub is_hidden: bool,
     /// Discriminates how this page's content is stored during the BlockNote →
@@ -189,7 +187,7 @@ pub fn create_page(
         page_type,
         title,
         icon: None,
-        embedding: None,
+
         created_by: ActorType::Human,
         created_at: ctx.timestamp,
         updated_at: ctx.timestamp,
@@ -226,7 +224,7 @@ pub(crate) fn create_component_tree_page_inner(
         page_type,
         title,
         icon: None,
-        embedding: None,
+
         created_by,
         created_at: ctx.timestamp,
         updated_at: ctx.timestamp,
@@ -387,33 +385,6 @@ pub fn update_page_icon(ctx: &ReducerContext, page_id: u64, icon: String) -> Res
     };
     ctx.db.page().id().update(Page {
         icon: new_icon,
-        updated_at: ctx.timestamp,
-        ..page
-    });
-    Ok(())
-}
-
-/// Persists a semantic embedding for the page (384-dim, `all-MiniLM-L6-v2` / Xenova ONNX).
-/// Used by the quick switcher for meaning-based search. Call after content changes (debounced).
-#[reducer]
-pub fn set_page_embedding(
-    ctx: &ReducerContext,
-    page_id: u64,
-    embedding: Vec<f32>,
-) -> Result<(), String> {
-    if embedding.is_empty() {
-        return Err("embedding must not be empty".to_string());
-    }
-    if embedding.len() != 384 {
-        return Err(format!(
-            "embedding must be 384 floats (MiniLM), got {}",
-            embedding.len()
-        ));
-    }
-    require_page_write(ctx, page_id)?;
-    let page = ctx.db.page().id().find(page_id).ok_or("Page not found")?;
-    ctx.db.page().id().update(Page {
-        embedding: Some(embedding),
         updated_at: ctx.timestamp,
         ..page
     });
@@ -881,7 +852,7 @@ pub fn promote_to_instruction(
         page_type: PageType::Doc,
         title: trimmed_title.to_string(),
         icon: Some("📌".to_string()),
-        embedding: None,
+
         created_by: ActorType::Human,
         created_at: ctx.timestamp,
         updated_at: ctx.timestamp,

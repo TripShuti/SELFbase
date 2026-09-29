@@ -7,14 +7,6 @@ export {
 } from "./tablePolicy";
 
 export {
-  PEAR_SNAPSHOT_FORMAT,
-  PEAR_SNAPSHOT_TABLES,
-  buildPearSnapshotV1,
-  parsePearSnapshotV1Json,
-} from "./v1";
-export type { PearSnapshotTableName, PearSnapshotV1 } from "./v1";
-
-export {
   PEAR_SNAPSHOT_FORMAT_V2,
   buildPearSnapshotV2,
   chunkSnapshotV2,

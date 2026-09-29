@@ -25,150 +25,12 @@ export const ActorType = __t.enum("ActorType", {
 });
 export type ActorType = __Infer<typeof ActorType>;
 
-export const AiEvaluation = __t.object("AiEvaluation", {
-  id: __t.u64(),
-  propertyDefinitionId: __t.u64(),
-  pageId: __t.u64(),
-  inputHash: __t.string(),
-  get primitive() {
-    return AiPrimitive;
-  },
-  model: __t.string(),
-  promptVersion: __t.u32(),
-  output: __t.string(),
-  inputTokens: __t.u32(),
-  outputTokens: __t.u32(),
-  costMicrocents: __t.u64(),
-  wallClockMs: __t.u32(),
-  createdAt: __t.timestamp(),
-  aiUserIdentity: __t.identity(),
-  isStale: __t.bool(),
-});
-export type AiEvaluation = __Infer<typeof AiEvaluation>;
-
-export const AiExtensionRuntimePermission = __t.object("AiExtensionRuntimePermission", {
-  get scope() {
-    return PermissionScope;
-  },
-  get action() {
-    return PermissionAction;
-  },
-  allowedDomains: __t.option(__t.string()),
-});
-export type AiExtensionRuntimePermission = __Infer<typeof AiExtensionRuntimePermission>;
-
-export const AiExtensionRuntimeRow = __t.object("AiExtensionRuntimeRow", {
-  installedExtensionId: __t.u64(),
-  serverId: __t.u64(),
-  name: __t.string(),
-  endpoint: __t.string(),
-  get authScheme() {
-    return AuthScheme;
-  },
-  apiKey: __t.option(__t.string()),
-  capabilities: __t.array(__t.string()),
-  get permissions() {
-    return __t.array(AiExtensionRuntimePermission);
-  },
-});
-export type AiExtensionRuntimeRow = __Infer<typeof AiExtensionRuntimeRow>;
-
-// The tagged union or sum type for the algebraic type `AiPrimitive`.
-export const AiPrimitive = __t.enum("AiPrimitive", {
-  Classify: __t.unit(),
-  Extract: __t.unit(),
-  Summarize: __t.unit(),
-  Sentiment: __t.unit(),
-  Translate: __t.unit(),
-});
-export type AiPrimitive = __Infer<typeof AiPrimitive>;
-
 export const AiPropertyValue = __t.object("AiPropertyValue", {
   output: __t.string(),
   evaluationId: __t.u64(),
   isStale: __t.bool(),
 });
 export type AiPropertyValue = __Infer<typeof AiPropertyValue>;
-
-export const AiUserConfig = __t.object("AiUserConfig", {
-  id: __t.u64(),
-  identity: __t.identity(),
-  createdBy: __t.identity(),
-  get provider() {
-    return InferenceProvider;
-  },
-  model: __t.string(),
-  endpoint: __t.option(__t.string()),
-  apiKey: __t.option(__t.string()),
-  systemPrompt: __t.option(__t.string()),
-  maxTokens: __t.u32(),
-  createdAt: __t.timestamp(),
-  updatedAt: __t.timestamp(),
-  monthlyTokenCap: __t.option(__t.u64()),
-  get role() {
-    return AiUserRole;
-  },
-  harnessTemplateId: __t.option(__t.u64()),
-  allowEvaluationSharing: __t.bool(),
-  toolSecretsJson: __t.option(__t.string()),
-  workerToken: __t.option(__t.string()),
-  inferenceBackendJson: __t.option(__t.string()),
-});
-export type AiUserConfig = __Infer<typeof AiUserConfig>;
-
-export const AiUserMemory = __t.object("AiUserMemory", {
-  id: __t.u64(),
-  aiUserId: __t.u64(),
-  rootPageId: __t.u64(),
-  workingPageId: __t.option(__t.u64()),
-  longTermPageId: __t.option(__t.u64()),
-  createdAt: __t.timestamp(),
-  lastConsolidatedAt: __t.option(__t.timestamp()),
-});
-export type AiUserMemory = __Infer<typeof AiUserMemory>;
-
-export const AiUserProfile = __t.object("AiUserProfile", {
-  aiUserId: __t.u64(),
-  identity: __t.identity(),
-  displayName: __t.string(),
-  avatarUrl: __t.option(__t.string()),
-  providerName: __t.string(),
-  modelName: __t.string(),
-  hasApiKey: __t.bool(),
-  createdBy: __t.identity(),
-  createdAt: __t.timestamp(),
-  updatedAt: __t.timestamp(),
-  systemPrompt: __t.option(__t.string()),
-  inferenceBackendJson: __t.option(__t.string()),
-});
-export type AiUserProfile = __Infer<typeof AiUserProfile>;
-
-// The tagged union or sum type for the algebraic type `AiUserRole`.
-export const AiUserRole = __t.enum("AiUserRole", {
-  Standard: __t.unit(),
-  Reviewer: __t.unit(),
-});
-export type AiUserRole = __Infer<typeof AiUserRole>;
-
-export const AiUserRoutine = __t.object("AiUserRoutine", {
-  scheduledId: __t.u64(),
-  scheduledAt: __t.scheduleAt(),
-  aiUserId: __t.u64(),
-  prompt: __t.string(),
-  enabled: __t.bool(),
-  createdBy: __t.identity(),
-  conversationId: __t.option(__t.u64()),
-  intervalSecs: __t.u64(),
-  lastRunAt: __t.option(__t.timestamp()),
-  lastStatus: __t.option(__t.string()),
-  createdAt: __t.timestamp(),
-  get scheduleKind() {
-    return RoutineScheduleKind;
-  },
-  cronExpression: __t.option(__t.string()),
-  timezone: __t.option(__t.string()),
-});
-export type AiUserRoutine = __Infer<typeof AiUserRoutine>;
 
 export const ApiCallLog = __t.object("ApiCallLog", {
   id: __t.u64(),
@@ -251,244 +113,6 @@ export const Attachment = __t.object("Attachment", {
 });
 export type Attachment = __Infer<typeof Attachment>;
 
-// The tagged union or sum type for the algebraic type `AttachmentKind`.
-export const AttachmentKind = __t.enum("AttachmentKind", {
-  Image: __t.unit(),
-  Page: __t.unit(),
-  Blocks: __t.unit(),
-  File: __t.unit(),
-});
-export type AttachmentKind = __Infer<typeof AttachmentKind>;
-
-export const AttachmentSpec = __t.object("AttachmentSpec", {
-  get kind() {
-    return AttachmentKind;
-  },
-  objectKey: __t.option(__t.string()),
-  mimeType: __t.option(__t.string()),
-  fileName: __t.option(__t.string()),
-  pageId: __t.option(__t.u64()),
-  contentSnapshot: __t.option(__t.string()),
-});
-export type AttachmentSpec = __Infer<typeof AttachmentSpec>;
-
-// The tagged union or sum type for the algebraic type `AuthScheme`.
-export const AuthScheme = __t.enum("AuthScheme", {
-  None: __t.unit(),
-  ApiKey: __t.unit(),
-  OAuth: __t.unit(),
-});
-export type AuthScheme = __Infer<typeof AuthScheme>;
-
-export const AutoApplyBinding = __t.object("AutoApplyBinding", {
-  id: __t.u64(),
-  aiUserId: __t.u64(),
-  get context() {
-    return AutoApplyContext;
-  },
-  allowedActionKinds: __t.option(__t.array(__t.string())),
-  grantedBy: __t.identity(),
-  grantedAt: __t.timestamp(),
-});
-export type AutoApplyBinding = __Infer<typeof AutoApplyBinding>;
-
-// The tagged union or sum type for the algebraic type `AutoApplyContext`.
-export const AutoApplyContext = __t.enum("AutoApplyContext", {
-  Page: __t.u64(),
-  Workspace: __t.unit(),
-});
-export type AutoApplyContext = __Infer<typeof AutoApplyContext>;
-
-export const AutomationAction = __t.object("AutomationAction", {
-  id: __t.u64(),
-  automationId: __t.u64(),
-  order: __t.u32(),
-  get actionKind() {
-    return AutomationActionKind;
-  },
-  config: __t.string(),
-});
-export type AutomationAction = __Infer<typeof AutomationAction>;
-
-// The tagged union or sum type for the algebraic type `AutomationActionKind`.
-export const AutomationActionKind = __t.enum("AutomationActionKind", {
-  HttpRequest: __t.unit(),
-  SendEmail: __t.unit(),
-  CreatePage: __t.unit(),
-  UpdateProperty: __t.unit(),
-  OrchaJob: __t.unit(),
-});
-export type AutomationActionKind = __Infer<typeof AutomationActionKind>;
-
-export const AutomationCapability = __t.object("AutomationCapability", {
-  id: __t.u64(),
-  automationId: __t.u64(),
-  get capabilityKind() {
-    return AutomationCapabilityKind;
-  },
-  scopeConfig: __t.string(),
-});
-export type AutomationCapability = __Infer<typeof AutomationCapability>;
-
-// The tagged union or sum type for the algebraic type `AutomationCapabilityKind`.
-export const AutomationCapabilityKind = __t.enum("AutomationCapabilityKind", {
-  ReadPage: __t.unit(),
-  WritePage: __t.unit(),
-  HttpOutbound: __t.unit(),
-  SendEmail: __t.unit(),
-  SpendAiTokens: __t.unit(),
-  SpawnOrchaJob: __t.unit(),
-});
-export type AutomationCapabilityKind = __Infer<typeof AutomationCapabilityKind>;
-
-export const AutomationCondition = __t.object("AutomationCondition", {
-  id: __t.u64(),
-  automationId: __t.u64(),
-  order: __t.u32(),
-  get conditionKind() {
-    return AutomationConditionKind;
-  },
-  config: __t.string(),
-});
-export type AutomationCondition = __Infer<typeof AutomationCondition>;
-
-// The tagged union or sum type for the algebraic type `AutomationConditionKind`.
-export const AutomationConditionKind = __t.enum("AutomationConditionKind", {
-  PayloadFieldEquals: __t.unit(),
-});
-export type AutomationConditionKind = __Infer<typeof AutomationConditionKind>;
-
-export const AutomationCronTick = __t.object("AutomationCronTick", {
-  scheduledId: __t.u64(),
-  scheduledAt: __t.scheduleAt(),
-});
-export type AutomationCronTick = __Infer<typeof AutomationCronTick>;
-
-export const AutomationEventQueue = __t.object("AutomationEventQueue", {
-  id: __t.u64(),
-  automationId: __t.u64(),
-  get triggerKind() {
-    return AutomationTriggerKind;
-  },
-  triggerPayload: __t.string(),
-  get status() {
-    return AutomationEventStatus;
-  },
-  attempts: __t.u32(),
-  claimedBy: __t.option(__t.string()),
-  error: __t.option(__t.string()),
-  createdAt: __t.timestamp(),
-  updatedAt: __t.timestamp(),
-  invokedBy: __t.option(__t.identity()),
-  idempotencyKey: __t.option(__t.string()),
-});
-export type AutomationEventQueue = __Infer<typeof AutomationEventQueue>;
-
-// The tagged union or sum type for the algebraic type `AutomationEventStatus`.
-export const AutomationEventStatus = __t.enum("AutomationEventStatus", {
-  Pending: __t.unit(),
-  Running: __t.unit(),
-  Completed: __t.unit(),
-  Failed: __t.unit(),
-  Skipped: __t.unit(),
-});
-export type AutomationEventStatus = __Infer<typeof AutomationEventStatus>;
-
-// The tagged union or sum type for the algebraic type `AutomationMode`.
-export const AutomationMode = __t.enum("AutomationMode", {
-  DryRun: __t.unit(),
-  Live: __t.unit(),
-});
-export type AutomationMode = __Infer<typeof AutomationMode>;
-
-export const AutomationPrimitive = __t.object("AutomationPrimitive", {
-  name: __t.string(),
-  get primitiveKind() {
-    return AutomationPrimitiveKind;
-  },
-  title: __t.string(),
-  description: __t.string(),
-  configSchemaJson: __t.string(),
-});
-export type AutomationPrimitive = __Infer<typeof AutomationPrimitive>;
-
-// The tagged union or sum type for the algebraic type `AutomationPrimitiveKind`.
-export const AutomationPrimitiveKind = __t.enum("AutomationPrimitiveKind", {
-  Trigger: __t.unit(),
-  Action: __t.unit(),
-  Condition: __t.unit(),
-  Capability: __t.unit(),
-});
-export type AutomationPrimitiveKind = __Infer<typeof AutomationPrimitiveKind>;
-
-export const AutomationRule = __t.object("AutomationRule", {
-  id: __t.u64(),
-  name: __t.string(),
-  enabled: __t.bool(),
-  get mode() {
-    return AutomationMode;
-  },
-  get triggerKind() {
-    return AutomationTriggerKind;
-  },
-  triggerConfig: __t.string(),
-  get scheduleKind() {
-    return AutomationScheduleKind;
-  },
-  scheduleConfig: __t.string(),
-  timezone: __t.string(),
-  nextRunAt: __t.option(__t.timestamp()),
-  lastRunAt: __t.option(__t.timestamp()),
-  maxTicks: __t.option(__t.u64()),
-  tickCount: __t.u64(),
-  expiresAt: __t.option(__t.timestamp()),
-  runAs: __t.identity(),
-  createdBy: __t.identity(),
-  createdAt: __t.timestamp(),
-  updatedAt: __t.timestamp(),
-  canonicalDescription: __t.string(),
-});
-export type AutomationRule = __Infer<typeof AutomationRule>;
-
-export const AutomationRunLog = __t.object("AutomationRunLog", {
-  id: __t.u64(),
-  queueId: __t.u64(),
-  actionId: __t.option(__t.u64()),
-  success: __t.bool(),
-  dryRun: __t.bool(),
-  message: __t.string(),
-  resultJson: __t.string(),
-  createdAt: __t.timestamp(),
-});
-export type AutomationRunLog = __Infer<typeof AutomationRunLog>;
-
-export const AutomationScheduleJob = __t.object("AutomationScheduleJob", {
-  scheduledId: __t.u64(),
-  scheduledAt: __t.scheduleAt(),
-  automationId: __t.u64(),
-});
-export type AutomationScheduleJob = __Infer<typeof AutomationScheduleJob>;
-
-// The tagged union or sum type for the algebraic type `AutomationScheduleKind`.
-export const AutomationScheduleKind = __t.enum("AutomationScheduleKind", {
-  None: __t.unit(),
-  Interval: __t.unit(),
-  OneShot: __t.unit(),
-  Cron: __t.unit(),
-});
-export type AutomationScheduleKind = __Infer<typeof AutomationScheduleKind>;
-
-// The tagged union or sum type for the algebraic type `AutomationTriggerKind`.
-export const AutomationTriggerKind = __t.enum("AutomationTriggerKind", {
-  PageCreated: __t.unit(),
-  PageUpdated: __t.unit(),
-  PageDeleted: __t.unit(),
-  PropertyChanged: __t.unit(),
-  Scheduled: __t.unit(),
-  Manual: __t.unit(),
-});
-export type AutomationTriggerKind = __Infer<typeof AutomationTriggerKind>;
-
 export const BlockAccessRule = __t.object("BlockAccessRule", {
   id: __t.u64(),
   pageId: __t.u64(),
@@ -509,169 +133,6 @@ export const BlockContentUpdateInput = __t.object("BlockContentUpdateInput", {
   data: __t.byteArray(),
 });
 export type BlockContentUpdateInput = __Infer<typeof BlockContentUpdateInput>;
-
-export const BridgeApproval = __t.object("BridgeApproval", {
-  id: __t.u64(),
-  commandId: __t.u64(),
-  requestId: __t.string(),
-  deviceId: __t.u64(),
-  ownerIdentity: __t.identity(),
-  requestedBy: __t.identity(),
-  conversationId: __t.u64(),
-  title: __t.option(__t.string()),
-  kind: __t.option(__t.string()),
-  toolCallId: __t.option(__t.string()),
-  optionsJson: __t.string(),
-  diffsJson: __t.option(__t.string()),
-  get status() {
-    return BridgeApprovalStatus;
-  },
-  decidedOptionId: __t.option(__t.string()),
-  decidedBy: __t.option(__t.identity()),
-  decidedAt: __t.option(__t.timestamp()),
-  createdAt: __t.timestamp(),
-});
-export type BridgeApproval = __Infer<typeof BridgeApproval>;
-
-// The tagged union or sum type for the algebraic type `BridgeApprovalStatus`.
-export const BridgeApprovalStatus = __t.enum("BridgeApprovalStatus", {
-  Pending: __t.unit(),
-  Decided: __t.unit(),
-  Expired: __t.unit(),
-});
-export type BridgeApprovalStatus = __Infer<typeof BridgeApprovalStatus>;
-
-export const BridgeCommand = __t.object("BridgeCommand", {
-  id: __t.u64(),
-  deviceId: __t.u64(),
-  sessionId: __t.u64(),
-  conversationId: __t.u64(),
-  jobId: __t.option(__t.u64()),
-  taskId: __t.option(__t.u64()),
-  requestedBy: __t.identity(),
-  command: __t.string(),
-  cwd: __t.option(__t.string()),
-  enqueuedAt: __t.timestamp(),
-  get status() {
-    return BridgeCommandStatus;
-  },
-  requiresConfirmation: __t.bool(),
-  confirmedAt: __t.option(__t.timestamp()),
-  confirmedBy: __t.option(__t.identity()),
-  deviceIdentity: __t.identity(),
-  ownerIdentity: __t.identity(),
-  nonce: __t.option(__t.string()),
-  kind: __t.option(__t.string()),
-  payloadJson: __t.option(__t.string()),
-});
-export type BridgeCommand = __Infer<typeof BridgeCommand>;
-
-export const BridgeCommandChunk = __t.object("BridgeCommandChunk", {
-  id: __t.u64(),
-  commandId: __t.u64(),
-  seq: __t.u32(),
-  content: __t.string(),
-  requestedBy: __t.identity(),
-  createdAt: __t.timestamp(),
-});
-export type BridgeCommandChunk = __Infer<typeof BridgeCommandChunk>;
-
-export const BridgeCommandResult = __t.object("BridgeCommandResult", {
-  commandId: __t.u64(),
-  exitCode: __t.option(__t.i32()),
-  stdout: __t.string(),
-  stderr: __t.string(),
-  rejectionReason: __t.option(__t.string()),
-  durationMs: __t.u64(),
-  completedAt: __t.timestamp(),
-  outputHash: __t.string(),
-  requestedBy: __t.identity(),
-});
-export type BridgeCommandResult = __Infer<typeof BridgeCommandResult>;
-
-// The tagged union or sum type for the algebraic type `BridgeCommandStatus`.
-export const BridgeCommandStatus = __t.enum("BridgeCommandStatus", {
-  Pending: __t.unit(),
-  AwaitingConfirmation: __t.unit(),
-  Running: __t.unit(),
-  Completed: __t.unit(),
-  Failed: __t.unit(),
-  Rejected: __t.unit(),
-  TimedOut: __t.unit(),
-});
-export type BridgeCommandStatus = __Infer<typeof BridgeCommandStatus>;
-
-export const BridgeDevice = __t.object("BridgeDevice", {
-  id: __t.u64(),
-  owner: __t.identity(),
-  name: __t.string(),
-  deviceTokenHash: __t.string(),
-  pearBridgeVersion: __t.string(),
-  platform: __t.string(),
-  pairedAt: __t.timestamp(),
-  lastSeenAt: __t.option(__t.timestamp()),
-  revokedAt: __t.option(__t.timestamp()),
-  deviceIdentity: __t.identity(),
-  deviceStdbTokenCiphertext: __t.option(__t.string()),
-});
-export type BridgeDevice = __Infer<typeof BridgeDevice>;
-
-export const BridgeDeviceAllowlist = __t.object("BridgeDeviceAllowlist", {
-  deviceId: __t.u64(),
-  allowedCommands: __t.array(__t.string()),
-  blockedPatterns: __t.array(__t.string()),
-  allowedDirectories: __t.array(__t.string()),
-  requireConfirmationFor: __t.array(__t.string()),
-  maxOutputBytes: __t.u64(),
-  maxRuntimeSeconds: __t.u64(),
-  updatedAt: __t.timestamp(),
-  updatedBy: __t.identity(),
-  get unlistedCommandPolicy() {
-    return UnlistedCommandPolicy;
-  },
-  deviceIdentity: __t.identity(),
-});
-export type BridgeDeviceAllowlist = __Infer<typeof BridgeDeviceAllowlist>;
-
-export const BridgeDeviceCapability = __t.object("BridgeDeviceCapability", {
-  id: __t.u64(),
-  deviceId: __t.u64(),
-  provider: __t.string(),
-  available: __t.bool(),
-  version: __t.option(__t.string()),
-  modelsJson: __t.option(__t.string()),
-  detectedAt: __t.timestamp(),
-});
-export type BridgeDeviceCapability = __Infer<typeof BridgeDeviceCapability>;
-
-export const BridgeDeviceGrant = __t.object("BridgeDeviceGrant", {
-  id: __t.u64(),
-  deviceId: __t.u64(),
-  aiUserIdentity: __t.identity(),
-  grantedBy: __t.identity(),
-  grantedAt: __t.timestamp(),
-});
-export type BridgeDeviceGrant = __Infer<typeof BridgeDeviceGrant>;
-
-export const BridgeDeviceSummary = __t.object("BridgeDeviceSummary", {
-  id: __t.u64(),
-  name: __t.string(),
-  platform: __t.string(),
-  connected: __t.bool(),
-  revokedAt: __t.option(__t.timestamp()),
-});
-export type BridgeDeviceSummary = __Infer<typeof BridgeDeviceSummary>;
-
-export const BridgeSession = __t.object("BridgeSession", {
-  id: __t.u64(),
-  deviceId: __t.u64(),
-  tunnelTokenHash: __t.string(),
-  tunnelTokenExpiresAt: __t.timestamp(),
-  connectedAt: __t.timestamp(),
-  disconnectedAt: __t.option(__t.timestamp()),
-  remoteAddr: __t.string(),
-});
-export type BridgeSession = __Infer<typeof BridgeSession>;
 
 // The tagged union or sum type for the algebraic type `ComponentCapability`.
 export const ComponentCapability = __t.enum("ComponentCapability", {
@@ -729,111 +190,6 @@ export const ComponentYjsState = __t.object("ComponentYjsState", {
 });
 export type ComponentYjsState = __Infer<typeof ComponentYjsState>;
 
-export const Conversation = __t.object("Conversation", {
-  id: __t.u64(),
-  pageId: __t.option(__t.u64()),
-  initiatedBy: __t.identity(),
-  get status() {
-    return ConversationStatus;
-  },
-  createdAt: __t.timestamp(),
-  updatedAt: __t.timestamp(),
-  get visibility() {
-    return ConversationVisibility;
-  },
-  get kind() {
-    return ConversationKind;
-  },
-  canonicalKey: __t.option(__t.string()),
-  blockAnchor: __t.option(__t.u64()),
-  modelOverride: __t.option(__t.string()),
-  effortOverride: __t.option(__t.string()),
-  resolvedBy: __t.option(__t.identity()),
-  resolvedAt: __t.option(__t.timestamp()),
-});
-export type Conversation = __Infer<typeof Conversation>;
-
-export const ConversationAttachment = __t.object("ConversationAttachment", {
-  id: __t.u64(),
-  messageId: __t.u64(),
-  conversationId: __t.u64(),
-  get kind() {
-    return AttachmentKind;
-  },
-  objectKey: __t.option(__t.string()),
-  mimeType: __t.option(__t.string()),
-  fileName: __t.option(__t.string()),
-  pageId: __t.option(__t.u64()),
-  contentSnapshot: __t.option(__t.string()),
-  createdAt: __t.timestamp(),
-  createdBy: __t.identity(),
-});
-export type ConversationAttachment = __Infer<typeof ConversationAttachment>;
-
-// The tagged union or sum type for the algebraic type `ConversationKind`.
-export const ConversationKind = __t.enum("ConversationKind", {
-  ContextThread: __t.unit(),
-  Dm: __t.unit(),
-  AiDm: __t.unit(),
-  GroupDm: __t.unit(),
-  SharedThread: __t.unit(),
-});
-export type ConversationKind = __Infer<typeof ConversationKind>;
-
-export const ConversationMessage = __t.object("ConversationMessage", {
-  id: __t.u64(),
-  conversationId: __t.u64(),
-  get sender() {
-    return MessageSender;
-  },
-  content: __t.string(),
-  jobId: __t.option(__t.u64()),
-  createdAt: __t.timestamp(),
-  get status() {
-    return MessageStatus;
-  },
-  thinking: __t.option(__t.string()),
-  toolCallsJson: __t.option(__t.string()),
-  inputTokens: __t.u32(),
-  outputTokens: __t.u32(),
-  cacheCreationInputTokens: __t.u32(),
-  cacheReadInputTokens: __t.u32(),
-  linkedConversationId: __t.option(__t.u64()),
-  timelineJson: __t.option(__t.string()),
-  componentTreeJson: __t.option(__t.string()),
-  mentions: __t.option(__t.array(__t.identity())),
-  responseTargets: __t.option(__t.array(__t.identity())),
-});
-export type ConversationMessage = __Infer<typeof ConversationMessage>;
-
-export const ConversationParticipant = __t.object("ConversationParticipant", {
-  id: __t.u64(),
-  conversationId: __t.u64(),
-  identity: __t.identity(),
-  get role() {
-    return ParticipantRole;
-  },
-  joinedAt: __t.timestamp(),
-  lastViewedMessageId: __t.option(__t.u64()),
-  leftAt: __t.option(__t.timestamp()),
-});
-export type ConversationParticipant = __Infer<typeof ConversationParticipant>;
-
-// The tagged union or sum type for the algebraic type `ConversationStatus`.
-export const ConversationStatus = __t.enum("ConversationStatus", {
-  Active: __t.unit(),
-  Closed: __t.unit(),
-});
-export type ConversationStatus = __Infer<typeof ConversationStatus>;
-
-// The tagged union or sum type for the algebraic type `ConversationVisibility`.
-export const ConversationVisibility = __t.enum("ConversationVisibility", {
-  Private: __t.unit(),
-  Participants: __t.unit(),
-  PageInheriting: __t.unit(),
-});
-export type ConversationVisibility = __Infer<typeof ConversationVisibility>;
-
 export const DatabaseRowMarker = __t.object("DatabaseRowMarker", {
   id: __t.u64(),
   clientRequestId: __t.string(),
@@ -876,116 +232,12 @@ export const DocBlockInput = __t.object("DocBlockInput", {
 });
 export type DocBlockInput = __Infer<typeof DocBlockInput>;
 
-export const ExtensionManifest = __t.object("ExtensionManifest", {
-  id: __t.u64(),
-  name: __t.string(),
-  description: __t.string(),
-  get extensionType() {
-    return ExtensionType;
-  },
-  version: __t.string(),
-  authorIdentity: __t.option(__t.identity()),
-  manifestJson: __t.string(),
-  sourceUrl: __t.option(__t.string()),
-  createdAt: __t.timestamp(),
-});
-export type ExtensionManifest = __Infer<typeof ExtensionManifest>;
-
-export const ExtensionMcpServer = __t.object("ExtensionMcpServer", {
-  id: __t.u64(),
-  name: __t.string(),
-  endpoint: __t.string(),
-  get authScheme() {
-    return AuthScheme;
-  },
-  apiKey: __t.option(__t.string()),
-  capabilities: __t.array(__t.string()),
-  installedBy: __t.identity(),
-  enabled: __t.bool(),
-  createdAt: __t.timestamp(),
-  updatedAt: __t.timestamp(),
-});
-export type ExtensionMcpServer = __Infer<typeof ExtensionMcpServer>;
-
-export const ExtensionPermission = __t.object("ExtensionPermission", {
-  id: __t.u64(),
-  installedExtensionId: __t.u64(),
-  get scope() {
-    return PermissionScope;
-  },
-  get action() {
-    return PermissionAction;
-  },
-  allowedDomains: __t.option(__t.string()),
-  grantedBy: __t.identity(),
-  grantedAt: __t.timestamp(),
-});
-export type ExtensionPermission = __Infer<typeof ExtensionPermission>;
-
-export const ExtensionRuntimeHealth = __t.object("ExtensionRuntimeHealth", {
-  installedExtensionId: __t.u64(),
-  get status() {
-    return ExtensionRuntimeStatus;
-  },
-  toolCount: __t.u32(),
-  detail: __t.option(__t.string()),
-  checkedAt: __t.timestamp(),
-  reportedBy: __t.identity(),
-});
-export type ExtensionRuntimeHealth = __Infer<typeof ExtensionRuntimeHealth>;
-
-// The tagged union or sum type for the algebraic type `ExtensionRuntimeStatus`.
-export const ExtensionRuntimeStatus = __t.enum("ExtensionRuntimeStatus", {
-  Connecting: __t.unit(),
-  Connected: __t.unit(),
-  Error: __t.unit(),
-  Disabled: __t.unit(),
-});
-export type ExtensionRuntimeStatus = __Infer<typeof ExtensionRuntimeStatus>;
-
-// The tagged union or sum type for the algebraic type `ExtensionType`.
-export const ExtensionType = __t.enum("ExtensionType", {
-  ConfigBundle: __t.unit(),
-  McpServer: __t.unit(),
-  Hybrid: __t.unit(),
-  Builtin: __t.unit(),
-});
-export type ExtensionType = __Infer<typeof ExtensionType>;
-
 export const FileRef = __t.object("FileRef", {
   name: __t.string(),
   objectId: __t.string(),
   externalUrl: __t.string(),
 });
 export type FileRef = __Infer<typeof FileRef>;
-
-export const HarnessTemplate = __t.object("HarnessTemplate", {
-  id: __t.u64(),
-  externalId: __t.string(),
-  name: __t.string(),
-  description: __t.string(),
-  get source() {
-    return HarnessTemplateSource;
-  },
-  systemPrompt: __t.string(),
-  get defaultProvider() {
-    return InferenceProvider;
-  },
-  defaultModel: __t.string(),
-  defaultMaxTokens: __t.u32(),
-  configJson: __t.string(),
-  version: __t.u32(),
-  createdAt: __t.timestamp(),
-  updatedAt: __t.timestamp(),
-});
-export type HarnessTemplate = __Infer<typeof HarnessTemplate>;
-
-// The tagged union or sum type for the algebraic type `HarnessTemplateSource`.
-export const HarnessTemplateSource = __t.enum("HarnessTemplateSource", {
-  Builtin: __t.unit(),
-  Workspace: __t.unit(),
-});
-export type HarnessTemplateSource = __Infer<typeof HarnessTemplateSource>;
 
 // The tagged union or sum type for the algebraic type `HttpMethod`.
 export const HttpMethod = __t.enum("HttpMethod", {
@@ -995,19 +247,6 @@ export const HttpMethod = __t.enum("HttpMethod", {
   Delete: __t.unit(),
 });
 export type HttpMethod = __Infer<typeof HttpMethod>;
-
-export const HumanInputRequest = __t.object("HumanInputRequest", {
-  id: __t.u64(),
-  conversationId: __t.u64(),
-  requester: __t.identity(),
-  recipient: __t.identity(),
-  requestKey: __t.string(),
-  question: __t.string(),
-  answer: __t.option(__t.string()),
-  createdAt: __t.timestamp(),
-  answeredAt: __t.option(__t.timestamp()),
-});
-export type HumanInputRequest = __Infer<typeof HumanInputRequest>;
 
 export const IdCounter = __t.object("IdCounter", {
   name: __t.string(),
@@ -1031,37 +270,6 @@ export const ImportSessionCount = __t.object("ImportSessionCount", {
 });
 export type ImportSessionCount = __Infer<typeof ImportSessionCount>;
 
-// The tagged union or sum type for the algebraic type `InferenceProvider`.
-export const InferenceProvider = __t.enum("InferenceProvider", {
-  Anthropic: __t.unit(),
-  OpenAi: __t.unit(),
-  Ollama: __t.unit(),
-  OpenAiCompatible: __t.unit(),
-});
-export type InferenceProvider = __Infer<typeof InferenceProvider>;
-
-// The tagged union or sum type for the algebraic type `InstallStatus`.
-export const InstallStatus = __t.enum("InstallStatus", {
-  Active: __t.unit(),
-  PendingConfirmation: __t.unit(),
-});
-export type InstallStatus = __Infer<typeof InstallStatus>;
-
-export const InstalledExtension = __t.object("InstalledExtension", {
-  id: __t.u64(),
-  manifestId: __t.u64(),
-  installedBy: __t.identity(),
-  get installStatus() {
-    return InstallStatus;
-  },
-  aiUserId: __t.option(__t.u64()),
-  mcpServerId: __t.option(__t.u64()),
-  enabled: __t.bool(),
-  installedAt: __t.timestamp(),
-  confirmedAt: __t.option(__t.timestamp()),
-});
-export type InstalledExtension = __Infer<typeof InstalledExtension>;
-
 export const LocalLoginAttempt = __t.object("LocalLoginAttempt", {
   email: __t.string(),
   windowStart: __t.i64(),
@@ -1077,44 +285,6 @@ export const LoginResult = __t.object("LoginResult", {
 });
 export type LoginResult = __Infer<typeof LoginResult>;
 
-export const MessageFeedback = __t.object("MessageFeedback", {
-  id: __t.u64(),
-  messageId: __t.u64(),
-  conversationId: __t.u64(),
-  rater: __t.identity(),
-  get rating() {
-    return MessageFeedbackRating;
-  },
-  note: __t.string(),
-  createdAt: __t.timestamp(),
-  updatedAt: __t.timestamp(),
-});
-export type MessageFeedback = __Infer<typeof MessageFeedback>;
-
-// The tagged union or sum type for the algebraic type `MessageFeedbackRating`.
-export const MessageFeedbackRating = __t.enum("MessageFeedbackRating", {
-  Up: __t.unit(),
-  Down: __t.unit(),
-});
-export type MessageFeedbackRating = __Infer<typeof MessageFeedbackRating>;
-
-// The tagged union or sum type for the algebraic type `MessageSender`.
-export const MessageSender = __t.enum("MessageSender", {
-  User: __t.identity(),
-  System: __t.string(),
-});
-export type MessageSender = __Infer<typeof MessageSender>;
-
-// The tagged union or sum type for the algebraic type `MessageStatus`.
-export const MessageStatus = __t.enum("MessageStatus", {
-  Complete: __t.unit(),
-  Thinking: __t.unit(),
-  ToolUse: __t.unit(),
-  Streaming: __t.unit(),
-  Error: __t.unit(),
-});
-export type MessageStatus = __Infer<typeof MessageStatus>;
-
 export const MigrationState = __t.object("MigrationState", {
   key: __t.string(),
   completedAt: __t.timestamp(),
@@ -1128,121 +298,12 @@ export const ModuleInstallMeta = __t.object("ModuleInstallMeta", {
 });
 export type ModuleInstallMeta = __Infer<typeof ModuleInstallMeta>;
 
-export const MyExtensionPermissionRow = __t.object("MyExtensionPermissionRow", {
-  permissionId: __t.u64(),
-  installedExtensionId: __t.u64(),
-  get scope() {
-    return PermissionScope;
-  },
-  get action() {
-    return PermissionAction;
-  },
-  allowedDomains: __t.option(__t.string()),
-  grantedAt: __t.timestamp(),
-});
-export type MyExtensionPermissionRow = __Infer<typeof MyExtensionPermissionRow>;
-
-export const NotionImportJob = __t.object("NotionImportJob", {
-  id: __t.u64(),
-  requestedBy: __t.identity(),
-  encryptedTokenB64: __t.string(),
-  sourceName: __t.string(),
-  workspaceSlug: __t.string(),
-  get status() {
-    return NotionImportJobStatus;
-  },
-  stage: __t.string(),
-  pagesDone: __t.u32(),
-  pagesTotal: __t.u32(),
-  error: __t.option(__t.string()),
-  containerPageId: __t.option(__t.u64()),
-  claimedBy: __t.option(__t.string()),
-  createdAt: __t.timestamp(),
-  updatedAt: __t.timestamp(),
-});
-export type NotionImportJob = __Infer<typeof NotionImportJob>;
-
-// The tagged union or sum type for the algebraic type `NotionImportJobStatus`.
-export const NotionImportJobStatus = __t.enum("NotionImportJobStatus", {
-  Pending: __t.unit(),
-  Running: __t.unit(),
-  Done: __t.unit(),
-  Failed: __t.unit(),
-});
-export type NotionImportJobStatus = __Infer<typeof NotionImportJobStatus>;
-
 export const OidcTrustPolicy = __t.object("OidcTrustPolicy", {
   id: __t.u8(),
   issuer: __t.string(),
   audience: __t.string(),
 });
 export type OidcTrustPolicy = __Infer<typeof OidcTrustPolicy>;
-
-export const OrchaAgent = __t.object("OrchaAgent", {
-  id: __t.string(),
-  capabilities: __t.array(__t.string()),
-  status: __t.string(),
-  lastHeartbeatAt: __t.option(__t.timestamp()),
-});
-export type OrchaAgent = __Infer<typeof OrchaAgent>;
-
-export const OrchaClaimReaper = __t.object("OrchaClaimReaper", {
-  scheduledId: __t.u64(),
-  scheduledAt: __t.scheduleAt(),
-});
-export type OrchaClaimReaper = __Infer<typeof OrchaClaimReaper>;
-
-export const OrchaJob = __t.object("OrchaJob", {
-  id: __t.u64(),
-  userId: __t.string(),
-  prompt: __t.string(),
-  pageId: __t.option(__t.u64()),
-  status: __t.string(),
-  createdAt: __t.timestamp(),
-  aiUserId: __t.option(__t.u64()),
-  tier: __t.option(__t.string()),
-  nonce: __t.option(__t.string()),
-  parentJobId: __t.option(__t.u64()),
-  spawnDepth: __t.u32(),
-  spawningPrincipal: __t.identity(),
-});
-export type OrchaJob = __Infer<typeof OrchaJob>;
-
-export const OrchaSharedContext = __t.object("OrchaSharedContext", {
-  id: __t.u64(),
-  jobId: __t.u64(),
-  key: __t.string(),
-  value: __t.string(),
-  createdBy: __t.string(),
-});
-export type OrchaSharedContext = __Infer<typeof OrchaSharedContext>;
-
-export const OrchaTask = __t.object("OrchaTask", {
-  id: __t.u64(),
-  jobId: __t.u64(),
-  description: __t.string(),
-  taskType: __t.string(),
-  status: __t.string(),
-  dependsOn: __t.array(__t.u64()),
-  requiredCapabilities: __t.array(__t.string()),
-  assignedTo: __t.option(__t.string()),
-  result: __t.option(__t.string()),
-  claimedAt: __t.option(__t.timestamp()),
-});
-export type OrchaTask = __Infer<typeof OrchaTask>;
-
-export const OrchaUsageEvent = __t.object("OrchaUsageEvent", {
-  id: __t.u64(),
-  taskId: __t.u64(),
-  taskType: __t.string(),
-  agentId: __t.string(),
-  aiUserId: __t.option(__t.u64()),
-  tokensIn: __t.u64(),
-  tokensOut: __t.u64(),
-  wallClockMs: __t.u64(),
-  createdAt: __t.timestamp(),
-});
-export type OrchaUsageEvent = __Infer<typeof OrchaUsageEvent>;
 
 export const Page = __t.object("Page", {
   id: __t.u64(),
@@ -1252,7 +313,6 @@ export const Page = __t.object("Page", {
   },
   title: __t.string(),
   sortOrder: __t.u32(),
-  embedding: __t.option(__t.array(__t.f32())),
   get createdBy() {
     return ActorType;
   },
@@ -1270,7 +330,6 @@ export type Page = __Infer<typeof Page>;
 
 export const PageAccessRequest = __t.object("PageAccessRequest", {
   id: __t.u64(),
-  conversationId: __t.u64(),
   pageId: __t.u64(),
   get principal() {
     return Principal;
@@ -1371,42 +430,12 @@ export const PageYjsState = __t.object("PageYjsState", {
 });
 export type PageYjsState = __Infer<typeof PageYjsState>;
 
-// The tagged union or sum type for the algebraic type `ParticipantRole`.
-export const ParticipantRole = __t.enum("ParticipantRole", {
-  Initiator: __t.unit(),
-  Member: __t.unit(),
-});
-export type ParticipantRole = __Infer<typeof ParticipantRole>;
-
 // The tagged union or sum type for the algebraic type `Permission`.
 export const Permission = __t.enum("Permission", {
   Read: __t.unit(),
   Write: __t.unit(),
 });
 export type Permission = __Infer<typeof Permission>;
-
-// The tagged union or sum type for the algebraic type `PermissionAction`.
-export const PermissionAction = __t.enum("PermissionAction", {
-  Read: __t.unit(),
-  Write: __t.unit(),
-  Edit: __t.unit(),
-  Delete: __t.unit(),
-  Snapshot: __t.unit(),
-  PropertyRead: __t.unit(),
-  PropertyWrite: __t.unit(),
-  SpawnJob: __t.unit(),
-  HttpOutbound: __t.unit(),
-});
-export type PermissionAction = __Infer<typeof PermissionAction>;
-
-// The tagged union or sum type for the algebraic type `PermissionScope`.
-export const PermissionScope = __t.enum("PermissionScope", {
-  Page: __t.u64(),
-  Subtree: __t.u64(),
-  Workspace: __t.unit(),
-  BridgeDevice: __t.u64(),
-});
-export type PermissionScope = __Infer<typeof PermissionScope>;
 
 // The tagged union or sum type for the algebraic type `Principal`.
 export const Principal = __t.enum("Principal", {
@@ -1477,72 +506,6 @@ export const ReadableResource = __t.object("ReadableResource", {
 });
 export type ReadableResource = __Infer<typeof ReadableResource>;
 
-export const ReviewAgentBinding = __t.object("ReviewAgentBinding", {
-  id: __t.u64(),
-  reviewerAiUserId: __t.u64(),
-  get subject() {
-    return ReviewSubject;
-  },
-  get mode() {
-    return ReviewMode;
-  },
-  failOpen: __t.bool(),
-  createdBy: __t.identity(),
-  createdAt: __t.timestamp(),
-});
-export type ReviewAgentBinding = __Infer<typeof ReviewAgentBinding>;
-
-export const ReviewAnnotation = __t.object("ReviewAnnotation", {
-  id: __t.u64(),
-  snapshotId: __t.u64(),
-  reviewerAiUserId: __t.u64(),
-  get severity() {
-    return ReviewSeverity;
-  },
-  comment: __t.string(),
-  createdAt: __t.timestamp(),
-});
-export type ReviewAnnotation = __Infer<typeof ReviewAnnotation>;
-
-// The tagged union or sum type for the algebraic type `ReviewMode`.
-export const ReviewMode = __t.enum("ReviewMode", {
-  Pre: __t.unit(),
-  Post: __t.unit(),
-});
-export type ReviewMode = __Infer<typeof ReviewMode>;
-
-// The tagged union or sum type for the algebraic type `ReviewSeverity`.
-export const ReviewSeverity = __t.enum("ReviewSeverity", {
-  Pass: __t.unit(),
-  Warn: __t.unit(),
-  Fail: __t.unit(),
-});
-export type ReviewSeverity = __Infer<typeof ReviewSeverity>;
-
-// The tagged union or sum type for the algebraic type `ReviewSubject`.
-export const ReviewSubject = __t.enum("ReviewSubject", {
-  AiUser: __t.u64(),
-  Workspace: __t.unit(),
-});
-export type ReviewSubject = __Infer<typeof ReviewSubject>;
-
-// The tagged union or sum type for the algebraic type `RoutineScheduleKind`.
-export const RoutineScheduleKind = __t.enum("RoutineScheduleKind", {
-  Interval: __t.unit(),
-  Cron: __t.unit(),
-});
-export type RoutineScheduleKind = __Infer<typeof RoutineScheduleKind>;
-
-export const SensorRegistry = __t.object("SensorRegistry", {
-  id: __t.u64(),
-  sensorKind: __t.string(),
-  code: __t.string(),
-  displayName: __t.string(),
-  description: __t.string(),
-  defaultSeverity: __t.string(),
-});
-export type SensorRegistry = __Infer<typeof SensorRegistry>;
-
 // The tagged union or sum type for the algebraic type `SnapshotType`.
 export const SnapshotType = __t.enum("SnapshotType", {
   Manual: __t.unit(),
@@ -1552,49 +515,11 @@ export const SnapshotType = __t.enum("SnapshotType", {
 });
 export type SnapshotType = __Infer<typeof SnapshotType>;
 
-export const StructuralSensorFinding = __t.object("StructuralSensorFinding", {
-  id: __t.u64(),
-  sensorKind: __t.string(),
-  code: __t.string(),
-  targetKind: __t.string(),
-  targetId: __t.u64(),
-  message: __t.string(),
-  severity: __t.string(),
-  detailsJson: __t.string(),
-  createdAt: __t.timestamp(),
-  lastSeenAt: __t.timestamp(),
-  resolvedAt: __t.option(__t.timestamp()),
-});
-export type StructuralSensorFinding = __Infer<typeof StructuralSensorFinding>;
-
-export const ToolCallAuditLog = __t.object("ToolCallAuditLog", {
-  id: __t.u64(),
-  conversationId: __t.u64(),
-  jobId: __t.option(__t.u64()),
-  taskId: __t.option(__t.u64()),
-  agentId: __t.string(),
-  installedExtensionId: __t.option(__t.u64()),
-  toolName: __t.string(),
-  inputHash: __t.string(),
-  outputHash: __t.string(),
-  outcome: __t.string(),
-  outcomeDetail: __t.option(__t.string()),
-  calledAt: __t.timestamp(),
-});
-export type ToolCallAuditLog = __Infer<typeof ToolCallAuditLog>;
-
 export const TrashPurgeTick = __t.object("TrashPurgeTick", {
   scheduledId: __t.u64(),
   scheduledAt: __t.scheduleAt(),
 });
 export type TrashPurgeTick = __Infer<typeof TrashPurgeTick>;
-
-// The tagged union or sum type for the algebraic type `UnlistedCommandPolicy`.
-export const UnlistedCommandPolicy = __t.enum("UnlistedCommandPolicy", {
-  Prompt: __t.unit(),
-  Reject: __t.unit(),
-});
-export type UnlistedCommandPolicy = __Infer<typeof UnlistedCommandPolicy>;
 
 export const User = __t.object("User", {
   identity: __t.identity(),

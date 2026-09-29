@@ -2,16 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { AgentPolicySettings } from "@/src/components/AgentPolicySettings";
-import { AiUsersSettings } from "@/src/components/AiUsersSettings";
 import { ApiEndpointsSettings } from "@/src/components/ApiEndpointsSettings";
-import { ExtensionsSettings } from "@/src/components/ExtensionsSettings";
 import { MembersSettings } from "@/src/components/MembersSettings";
 import { WorkspaceConnectionsPanel } from "@/src/components/WorkspaceConnectionsPanel";
-import { NotionImportPanel } from "@/src/components/NotionImportPanel";
 import { StorageUsagePanel } from "@/src/components/StorageUsagePanel";
-import { AutomationsSettings } from "@/src/components/AutomationsSettings";
-import { WorkspaceHealthSettings } from "@/src/components/WorkspaceHealthSettings";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -57,21 +51,7 @@ export default function SettingsPage() {
 
         <WorkspaceConnectionsPanel />
 
-        <NotionImportPanel />
-
         <MembersSettings />
-
-        <AiUsersSettings />
-
-        <WorkspaceHealthSettings />
-
-        <AgentPolicySettings />
-
-        <AutomationsSettings />
-
-        <section className="mb-10">
-          <ExtensionsSettings />
-        </section>
 
         <ApiEndpointsSettings />
 

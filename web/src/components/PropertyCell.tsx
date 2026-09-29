@@ -181,17 +181,6 @@ export function PropertyCell({
         />
       );
 
-    case "Ai":
-      return (
-        <AiCell
-          value={
-            value?.tag === "Ai"
-              ? (value.value as { output: string; evaluationId: bigint; isStale: boolean })
-              : null
-          }
-        />
-      );
-
     case "Formula" as string: {
       let config: { expression?: string } = {};
       try { config = JSON.parse(definition.config || "{}"); } catch { /* */ }
@@ -1217,46 +1206,6 @@ function PersonCell({
     </div>
   );
 }
-
-// ————————————————— AI cell —————————————————
-//
-// Read-only display of a materialised `PropertyValue::Ai` payload. The value
-// is computed by the worker's `ai_primitive` task and written back through the
-// `record_ai_evaluation` reducer; the cell never edits in place. The sparkle
-// icon makes the provenance visible; the staleness pill warns when an input
-// changed and the evaluation is queued to re-run. Hover shows the
-// evaluation id so support / debugging can correlate with `ai_evaluation`
-// rows.
-
-function AiCell({
-  value,
-}: {
-  value: { output: string; evaluationId: bigint; isStale: boolean } | null;
-}) {
-  if (!value) {
-    return (
-      <div className="h-full w-full px-2 py-1 text-sm flex items-center gap-1.5 text-neutral-400 dark:text-neutral-600 italic">
-        <span aria-hidden>✨</span>
-        <span>Pending…</span>
-      </div>
-    );
-  }
-  return (
-    <div
-      className="h-full w-full px-2 py-1 text-sm flex items-center gap-1.5 text-neutral-800 dark:text-neutral-200 truncate"
-      title={`AI evaluation #${value.evaluationId.toString()}`}
-    >
-      <span aria-hidden className="text-violet-500 dark:text-violet-400">✨</span>
-      <span className="truncate">{value.output}</span>
-      {value.isStale && (
-        <span className="ml-auto flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">
-          stale
-        </span>
-      )}
-    </div>
-  );
-}
-
 
 // ── File cell ─────────────────────────────────────────────────────────────────
 

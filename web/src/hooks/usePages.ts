@@ -145,10 +145,6 @@ export function useUpdatePageIcon() {
   return useReducer(reducers.updatePageIcon);
 }
 
-export function useSetPageEmbedding() {
-  return useReducer(reducers.setPageEmbedding);
-}
-
 export function useUpdatePageContent() {
   return useReducer(reducers.updatePageContent);
 }

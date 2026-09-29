@@ -5,11 +5,6 @@
 // them and keeps only the browser-specific download helper.
 
 export {
-  // v1 (kept for the import path — old snapshot files stay importable)
-  PEAR_SNAPSHOT_FORMAT,
-  PEAR_SNAPSHOT_TABLES,
-  buildPearSnapshotV1,
-  parsePearSnapshotV1Json,
   // shared encoding
   encodePearValue,
   // v2
@@ -23,8 +18,6 @@ export {
   parsePearSnapshotJson,
 } from "@eclosion-tech/snapshot-core";
 export type {
-  PearSnapshotTableName,
-  PearSnapshotV1,
   PearSnapshotV2,
   PearSnapshotV2Chunk,
   PearSnapshotV2Header,
@@ -36,11 +29,11 @@ export type {
   SnapshotTableRegistryEntry,
 } from "@eclosion-tech/snapshot-core";
 
-import type { PearSnapshotV1, PearSnapshotV2 } from "@eclosion-tech/snapshot-core";
+import type { PearSnapshotV2 } from "@eclosion-tech/snapshot-core";
 
 /** Browser-only: serialize a snapshot and trigger a file download. */
 export function downloadPearSnapshotJson(
-  snapshot: PearSnapshotV1 | PearSnapshotV2,
+  snapshot: PearSnapshotV2,
   filenameHint?: string
 ): void {
   const json = JSON.stringify(snapshot, null, 2);

@@ -14,8 +14,7 @@ import {
   type BlockInsertEvent,
   type BlockTree,
 } from "@eclosion-tech/pulp";
-import type { ComponentNode, Conversation } from "@/src/module_bindings/types";
-import { BlockThreadGutter } from "@/src/components/BlockThreadGutter";
+import type { ComponentNode } from "@/src/module_bindings/types";
 import {
   useComponentTree,
   useEnsureBuiltinComponentTypes,
@@ -36,8 +35,6 @@ import { useSyncChildPageLinks } from "@/src/hooks/useSyncChildPageLinks";
 import { useWorkspace } from "@/src/providers/WorkspaceProvider";
 import { AudioAttachmentContext } from "@/src/components/AudioAttachmentContext";
 import { useCreateAttachment } from "@/src/hooks/usePages";
-import { useCreateConversation } from "@/src/hooks/useConversations";
-import { useSpacetimeDB } from "spacetimedb/react";
 import { registerPearBuiltinRenderers } from "./built-in";
 import { PEAR_SLASH_ITEMS, slashItemsForDefs } from "./pearSlashItems";
 import { useQueryResolver } from "@/src/lib/repeater/queryResolver";
@@ -96,21 +93,10 @@ function useHighlightNodeFromUrl(surfaceId: bigint): void {
  */
 export function ComponentTreeRenderer({
   surfaceId,
-  onOpenThread,
 }: {
   surfaceId: bigint;
-  onOpenThread?: (conversationId: bigint) => void;
 }) {
   const { idbNamespace } = useWorkspace();
-  const { identity, getConnection } = useSpacetimeDB();
-  const createConversation = useCreateConversation();
-  // Cleanup for the click-time conversation onInsert listener armed by
-  // handleCommentBlock. Deliberately NOT a `conversation` table subscription:
-  // holding one here re-rendered the whole editor ~3.3×/s whenever any AI turn
-  // streamed anywhere in the workspace (streaming flushes bump
-  // conversation.updatedAt). The row itself arrives through BlockThreadGutter's
-  // subscription, which is mounted exactly when `onOpenThread` is provided.
-  const pendingThreadCleanupRef = useRef<(() => void) | null>(null);
   useHighlightNodeFromUrl(surfaceId);
   const insertComponent = useInsertComponent();
   const deleteComponent = useDeleteComponent();
@@ -138,8 +124,6 @@ export function ComponentTreeRenderer({
   saveYjsRef.current = saveComponentYjsState;
   const surfaceIdRef = useRef(surfaceId);
   surfaceIdRef.current = surfaceId;
-  // Positioning container for block-anchored thread markers (gutter overlay).
-  const editorContainerRef = useRef<HTMLDivElement | null>(null);
 
   const onNodeInsert = useCallback(
     (row: ComponentNode) => {
@@ -313,63 +297,6 @@ export function ComponentTreeRenderer({
     deletePageLink,
   });
 
-  useEffect(
-    () => () => {
-      pendingThreadCleanupRef.current?.();
-      pendingThreadCleanupRef.current = null;
-    },
-    [],
-  );
-
-  const handleCommentBlock = useCallback(
-    (nodeId: bigint) => {
-      if (!identity) return;
-      const meHex = identity.toHexString();
-      const conn = getConnection();
-      // Re-arming replaces any listener from a previous, unresolved click.
-      pendingThreadCleanupRef.current?.();
-      pendingThreadCleanupRef.current = null;
-
-      let cleanup: (() => void) | null = null;
-      if (onOpenThread && conn) {
-        const conversationTable = (conn.db as any).conversation;
-        const existingIds = new Set(
-          Array.from(conversationTable?.iter?.() ?? []).map((c: any) => String(c.id)),
-        );
-        const onInsert = (_ctx: unknown, row: Conversation) => {
-          if (
-            existingIds.has(String(row.id)) ||
-            row.initiatedBy.toHexString() !== meHex ||
-            row.pageId !== surfaceIdRef.current ||
-            row.kind.tag !== "ContextThread" ||
-            row.blockAnchor !== nodeId
-          ) {
-            return;
-          }
-          cleanup?.();
-          onOpenThread(row.id);
-        };
-        cleanup = () => {
-          conversationTable?.removeOnInsert?.(onInsert);
-          if (pendingThreadCleanupRef.current === cleanup) {
-            pendingThreadCleanupRef.current = null;
-          }
-        };
-        conversationTable?.onInsert?.(onInsert);
-        pendingThreadCleanupRef.current = cleanup;
-      }
-      void createConversation({
-        pageId: surfaceId,
-        participantIdentities: [identity],
-        blockAnchor: nodeId,
-      }).catch((error) => {
-        cleanup?.();
-        console.error("[PearComponentTreeRenderer] Failed to create block thread", error);
-      });
-    },
-    [createConversation, getConnection, identity, onOpenThread, surfaceId],
-  );
-
   // Supplies rows to `Repeater` nodes (custom-view runtime, ADR D1). Stable
   // identity, so including it here does not churn the config memo.
   const queryResolver = useQueryResolver();
@@ -405,10 +332,9 @@ export function ComponentTreeRenderer({
       validateProps: validateComponentProps,
       slashItems: slashItemsForDefs(PEAR_SLASH_ITEMS, tree.defs),
       linkTargets,
-      onCommentBlock: handleCommentBlock,
       queryResolver,
     }),
-    [idbNamespace, linkTargets, tree.defs, handleCommentBlock, queryResolver],
+    [idbNamespace, linkTargets, tree.defs, queryResolver],
   );
 
   const attachmentCtx = useMemo(
@@ -421,16 +347,8 @@ export function ComponentTreeRenderer({
       <PulpProvider tree={tree} config={config} mutations={mutations}>
         <SurfaceFocusProvider coordinator={focusCoordinator}>
           <SurfaceUndoProvider coordinator={undoCoordinator}>
-            <div ref={editorContainerRef} className="relative">
+            <div>
               <BlockEditor />
-              {onOpenThread && (
-                <BlockThreadGutter
-                  containerRef={editorContainerRef}
-                  pageId={surfaceId}
-                  onOpenThread={onOpenThread}
-                  onCreateThread={handleCommentBlock}
-                />
-              )}
             </div>
           </SurfaceUndoProvider>
         </SurfaceFocusProvider>

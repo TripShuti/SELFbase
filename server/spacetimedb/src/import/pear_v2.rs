@@ -437,7 +437,6 @@ fn decode_page(v: &Value) -> Result<Page, String> {
         page_type: decode_page_type(m.get("pageType").ok_or("pageType")?)?,
         title: string_at(m, "title")?,
         sort_order: u64_at(m, "sortOrder")? as u32,
-        embedding: decode_opt_f32_vec(m.get("embedding"))?,
         created_by: decode_actor_type(m.get("createdBy").ok_or("createdBy")?)?,
         created_at: decode_timestamp(m.get("createdAt").ok_or("createdAt")?)?,
         updated_at: decode_timestamp(m.get("updatedAt").ok_or("updatedAt")?)?,

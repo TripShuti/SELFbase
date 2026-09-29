@@ -500,7 +500,7 @@ pub fn create_database_row(
         page_type: PageType::Database,
         title,
         icon: None,
-        embedding: None,
+
         created_by: ActorType::Human,
         created_at: ctx.timestamp,
         updated_at: ctx.timestamp,

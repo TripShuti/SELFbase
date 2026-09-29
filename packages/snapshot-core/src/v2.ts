@@ -127,11 +127,6 @@ function collectBlobStorageKeys(tableName: string, row: unknown, out: Set<string
     if (typeof r.storageKey === "string" && r.storageKey !== "") out.add(r.storageKey);
     return;
   }
-  if (tableName === "conversation_attachment") {
-    // objectKey is optional (upload may not have completed); skip null/undefined.
-    if (typeof r.objectKey === "string" && r.objectKey !== "") out.add(r.objectKey);
-    return;
-  }
   if (tableName === "component_node") {
     if (typeof r.props !== "string" || r.props === "") return;
     let props: unknown;

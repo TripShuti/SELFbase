@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { usePages, filterNavVisiblePages } from "@/src/hooks/usePages";
 import type { PageRow } from "@/src/hooks/usePages";
-import { cosineSimilarity, getPageEmbeddingVector } from "@/src/lib/semanticSearch";
 
 // ─── Fuzzy match ──────────────────────────────────────────────────────────────
 // Returns null if no match, otherwise a score (lower = better) and the indices
@@ -79,8 +78,6 @@ function buildBreadcrumb(page: PageRow, allPages: PageRow[]): string {
 type ResultRow = {
   page: PageRow;
   indices: number[];
-  /** How this row matched — for subtle UI hint */
-  matchKind: "title" | "semantic";
 };
 
 // ─── QuickSwitcher ────────────────────────────────────────────────────────────
@@ -96,84 +93,8 @@ export function QuickSwitcher({ open, onClose }: QuickSwitcherProps) {
   const pages = useMemo(() => filterNavVisiblePages(allPages), [allPages]);
   const [query, setQuery] = useState("");
   const [selectedIdx, setSelectedIdx] = useState(0);
-  const [semanticScores, setSemanticScores] = useState<Map<string, number>>(new Map());
-  const [semanticBusy, setSemanticBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  /** Latest pages for async semantic search (SpacetimeDB gives a new `pages` array ref every render). */
-  const pagesRef = useRef(pages);
-  pagesRef.current = pages;
-
-  /** Stable string — only changes when a page id or embedding presence changes (not array identity).
-   *  Gated on `open`: decoding an embedding allocates a 384-float array per
-   *  page, and the switcher is mounted (closed) on every Sidebar render —
-   *  don't pay O(pages × 384) while nothing is visible. */
-  const embeddingIndexKey = useMemo(
-    () =>
-      open
-        ? pages
-            .map((p) => `${p.id}:${getPageEmbeddingVector(p) ? "1" : "0"}`)
-            .join("|")
-        : "",
-    [pages, open]
-  );
-
-  const hasEmbeddings = useMemo(
-    () => open && pages.some((p) => getPageEmbeddingVector(p) !== null),
-    [pages, open]
-  );
-
-  useEffect(() => {
-    const q = query.trim();
-    if (!open || q.length < 2) {
-      setSemanticBusy(false);
-      setSemanticScores((prev) => (prev.size === 0 ? prev : new Map()));
-      return;
-    }
-
-    const pagesWithEmb = pagesRef.current.filter(
-      (p) => getPageEmbeddingVector(p) !== null
-    );
-    if (pagesWithEmb.length === 0) {
-      setSemanticBusy(false);
-      setSemanticScores((prev) => (prev.size === 0 ? prev : new Map()));
-      return;
-    }
-
-    const t = setTimeout(() => {
-      void (async () => {
-        setSemanticBusy(true);
-        try {
-          const res = await fetch("/api/embed", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text: q }),
-          });
-          if (!res.ok) {
-            setSemanticScores((prev) => (prev.size === 0 ? prev : new Map()));
-            return;
-          }
-          const data = (await res.json()) as { embedding?: number[] };
-          const qEmb = data.embedding;
-          if (!qEmb?.length) {
-            setSemanticScores((prev) => (prev.size === 0 ? prev : new Map()));
-            return;
-          }
-          const next = new Map<string, number>();
-          for (const p of pagesRef.current) {
-            const pv = getPageEmbeddingVector(p);
-            if (!pv) continue;
-            const sim = cosineSimilarity(qEmb, pv);
-            if (sim > 0.2) next.set(String(p.id), sim);
-          }
-          setSemanticScores(next);
-        } finally {
-          setSemanticBusy(false);
-        }
-      })();
-    }, 280);
-    return () => clearTimeout(t);
-  }, [query, embeddingIndexKey, open]);
 
   const results = useMemo<ResultRow[]>(() => {
     const q = query.trim();
@@ -182,7 +103,7 @@ export function QuickSwitcher({ open, onClose }: QuickSwitcherProps) {
         .slice()
         .sort((a, b) => a.sortOrder - b.sortOrder)
         .slice(0, 12)
-        .map((page) => ({ page, indices: [], matchKind: "title" as const }));
+        .map((page) => ({ page, indices: [] }));
     }
 
     const fuzzyRows: Array<{
@@ -199,23 +120,6 @@ export function QuickSwitcher({ open, onClose }: QuickSwitcherProps) {
     const seen = new Set<string>();
     const out: ResultRow[] = [];
 
-    const semanticSorted = [...semanticScores.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .map(([id]) => pages.find((p) => String(p.id) === id))
-      .filter((p): p is PageRow => p != null);
-
-    for (const page of semanticSorted) {
-      const id = String(page.id);
-      if (seen.has(id)) continue;
-      seen.add(id);
-      const fm = fuzzyMatch(q, page.title || "Untitled");
-      out.push({
-        page,
-        indices: fm?.indices ?? [],
-        matchKind: "semantic",
-      });
-    }
-
     for (const row of fuzzyRows) {
       const id = String(row.page.id);
       if (seen.has(id)) continue;
@@ -223,12 +127,11 @@ export function QuickSwitcher({ open, onClose }: QuickSwitcherProps) {
       out.push({
         page: row.page,
         indices: row.indices,
-        matchKind: "title",
       });
     }
 
     return out.slice(0, 12);
-  }, [query, pages, semanticScores]);
+  }, [query, pages]);
 
   /** Reset selection when the query changes — do not depend on `results` (new array ref every render). */
   useEffect(() => {
@@ -304,11 +207,7 @@ export function QuickSwitcher({ open, onClose }: QuickSwitcherProps) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={
-              hasEmbeddings
-                ? "Search pages by title or meaning…"
-                : "Jump to page…"
-            }
+            placeholder="Jump to page…"
             className="flex-1 bg-transparent outline-none text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500"
           />
 
@@ -330,10 +229,10 @@ export function QuickSwitcher({ open, onClose }: QuickSwitcherProps) {
         <div ref={listRef} className="max-h-80 overflow-y-auto py-1">
           {results.length === 0 ? (
             <p className="px-4 py-8 text-center text-sm text-neutral-400 dark:text-neutral-500">
-              {semanticBusy ? "Searching…" : "No pages found"}
+              {"No pages found"}
             </p>
           ) : (
-            results.map(({ page, indices, matchKind }, i) => {
+            results.map(({ page, indices }, i) => {
               const breadcrumb = buildBreadcrumb(page, pages);
               const title = page.title || "Untitled";
               return (
@@ -357,11 +256,6 @@ export function QuickSwitcher({ open, onClose }: QuickSwitcherProps) {
                       <div className="text-sm text-neutral-900 dark:text-white truncate flex-1">
                         <Highlighted text={title} indices={indices} />
                       </div>
-                      {matchKind === "semantic" && query.trim().length >= 2 && (
-                        <span className="text-[9px] uppercase tracking-wide text-violet-500 dark:text-violet-400 shrink-0">
-                          semantic
-                        </span>
-                      )}
                     </div>
                     {breadcrumb && (
                       <div className="text-xs text-neutral-400 dark:text-neutral-500 truncate mt-0.5">
@@ -391,11 +285,6 @@ export function QuickSwitcher({ open, onClose }: QuickSwitcherProps) {
           <span>
             <kbd className="font-mono">esc</kbd> close
           </span>
-          {hasEmbeddings && (
-            <span className="text-neutral-400 dark:text-neutral-500">
-              Meaning search uses local MiniLM (first open may download the model)
-            </span>
-          )}
         </div>
       </div>
     </div>

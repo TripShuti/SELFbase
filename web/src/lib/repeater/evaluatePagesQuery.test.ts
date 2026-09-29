@@ -24,7 +24,6 @@ function page(
     pageType: { tag: "Doc" },
     title,
     sortOrder: Number(id),
-    embedding: undefined,
     createdBy: { tag: "Human" },
     createdAt: { microsSinceUnixEpoch: 0n },
     updatedAt: { microsSinceUnixEpoch: 0n },

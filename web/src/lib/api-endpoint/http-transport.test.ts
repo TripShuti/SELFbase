@@ -38,14 +38,14 @@ describe("caller-scoped HTTP reads", () => {
             }
             return reply("id", 1);
         }) as typeof fetch);
-        await expect(transport.sql("SELECT * FROM conversation_message")).rejects.toThrow("view unavailable");
-        expect(bodies).toEqual(["SELECT COUNT(*) AS count FROM readable_conversations"]);
-        await expect(transport.sql("SELECT * FROM conversation_message")).resolves.toEqual([{ id: 1 }]);
+        await expect(transport.sql("SELECT * FROM page_snapshot")).rejects.toThrow("view unavailable");
+        expect(bodies).toEqual(["SELECT COUNT(*) AS count FROM readable_pages"]);
+        await expect(transport.sql("SELECT * FROM page_snapshot")).resolves.toEqual([{ id: 1 }]);
         expect(bodies).toHaveLength(3);
     });
     test("does not change unprotected identity/config reads", async () => {
         const fetchImpl = vi.fn(async () => reply("id", 4));
-        await expect(create(fetchImpl as typeof fetch).sql("SELECT id FROM ai_user_config")).resolves.toEqual([{ id: 4 }]);
+        await expect(create(fetchImpl as typeof fetch).sql("SELECT id FROM migration_state")).resolves.toEqual([{ id: 4 }]);
         expect(fetchImpl).toHaveBeenCalledTimes(1);
     });
 });

@@ -9,8 +9,6 @@ import { PageMigratingShell } from "./PageMigratingShell";
 export type PageEditorSurfaceProps = {
   page: PageRow;
   content: PageContent | undefined;
-  /** Open a block-anchored thread (from a gutter marker) in the AI panel. */
-  onOpenThread?: (conversationId: bigint) => void;
   /** Editor remount key — e.g. content updatedAt in modals. */
   editorKeySuffix?: string | number;
 };
@@ -23,7 +21,6 @@ export type PageEditorSurfaceProps = {
 export function PageEditorSurface({
   page,
   content,
-  onOpenThread,
   editorKeySuffix = "",
 }: PageEditorSurfaceProps) {
   const migration = useMigrateBlockNotePageOnOpen(page, content?.content);
@@ -38,7 +35,6 @@ export function PageEditorSurface({
       <ComponentTreeRenderer
         key={`${page.id}-${editorKeySuffix}`}
         surfaceId={page.id}
-        onOpenThread={onOpenThread}
       />
     );
   }
