@@ -27,6 +27,7 @@ rich text.
 - **Databases** — grid, list & board views; Text, Number, Date, Select, Multi-select, Checkbox, URL, Relation, Person, File, Formula, Rollup columns; inline editing, filters, sorts; any row opens as a full page with its own URL.
 - **Relations** — first-class links between databases.
 - **Access control** — per-page/per-block rules (open by default), access requests with human approval.
+- **Comments** — page-level and block-anchored threads with replies, resolve/reopen, author/admin moderation.
 - **Files** — presigned S3 upload/download, metadata in SpacetimeDB.
 - **REST API** — expose any database as a versioned REST API (`/api/e/{slug}`) with API-key auth and OpenAPI spec. See [`docs/API_ENDPOINTS.md`](./docs/API_ENDPOINTS.md).
 - **Backup** — export/import the workspace as a `selfbase-snapshot-v2` JSON file from settings.
@@ -87,8 +88,15 @@ spacetime start
 cd server/spacetimedb
 cargo build --release --target wasm32-unknown-unknown
 cd ..
-spacetime publish -s local selfbase
-spacetime call -s local --yes selfbase run_pending_migrations
+# NOTE: `spacetime publish <name>` cannot create databases on SpacetimeDB
+# 2.0.3 (empty-list resolution bug) — publish via HTTP directly, authed as
+# your stable CLI identity (this also makes you the module publisher, so
+# later updates keep working without wipes):
+TOKEN=$(python3 -c "import tomllib;print(tomllib.load(open('$HOME/.config/spacetime/cli.toml','rb'))['spacetimedb_token'])")
+curl -m 60 -X PUT --data-binary @./spacetimedb/target/wasm32-unknown-unknown/release/server.wasm \
+  "http://127.0.0.1:3000/v1/database/selfbase" \
+  -H "Content-Type: application/wasm" -H "Authorization: Bearer $TOKEN"
+spacetime call --server http://127.0.0.1:3000 --yes selfbase run_pending_migrations
 
 # new shell, repo root:
 pnpm install

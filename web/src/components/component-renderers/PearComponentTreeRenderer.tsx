@@ -93,8 +93,10 @@ function useHighlightNodeFromUrl(surfaceId: bigint): void {
  */
 export function ComponentTreeRenderer({
   surfaceId,
+  onCommentBlock,
 }: {
   surfaceId: bigint;
+  onCommentBlock?: (blockId: string) => void;
 }) {
   const { idbNamespace } = useWorkspace();
   useHighlightNodeFromUrl(surfaceId);
@@ -333,8 +335,11 @@ export function ComponentTreeRenderer({
       slashItems: slashItemsForDefs(PEAR_SLASH_ITEMS, tree.defs),
       linkTargets,
       queryResolver,
+      onCommentBlock: onCommentBlock
+        ? (nodeId: bigint) => onCommentBlock(String(nodeId))
+        : undefined,
     }),
-    [idbNamespace, linkTargets, tree.defs, queryResolver],
+    [idbNamespace, linkTargets, tree.defs, queryResolver, onCommentBlock],
   );
 
   const attachmentCtx = useMemo(

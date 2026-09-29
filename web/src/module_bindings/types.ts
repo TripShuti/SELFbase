@@ -128,6 +128,19 @@ export const BlockAccessRule = __t.object("BlockAccessRule", {
 });
 export type BlockAccessRule = __Infer<typeof BlockAccessRule>;
 
+export const BlockComment = __t.object("BlockComment", {
+  id: __t.u64(),
+  pageId: __t.u64(),
+  blockId: __t.option(__t.string()),
+  parentId: __t.option(__t.u64()),
+  author: __t.identity(),
+  content: __t.string(),
+  resolved: __t.bool(),
+  createdAt: __t.timestamp(),
+  updatedAt: __t.timestamp(),
+});
+export type BlockComment = __Infer<typeof BlockComment>;
+
 export const BlockContentUpdateInput = __t.object("BlockContentUpdateInput", {
   componentId: __t.u64(),
   data: __t.byteArray(),

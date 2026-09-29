@@ -8,6 +8,7 @@
     "api_field_mapping",
     "attachment",
     "block_access_rule",
+    "block_comment",
     "component_node",
     "component_type_definition",
     "component_yjs_state",

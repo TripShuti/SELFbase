@@ -20,7 +20,7 @@ use super::decode::*;
 use crate::auth::sender_is_admin;
 use crate::{
     api_call_log, api_endpoint, api_endpoint_key, api_field_mapping, attachment, block_access_rule,
-    component_node, component_type_definition, component_yjs_state, database_row_marker,
+    block_comment, component_node, component_type_definition, component_yjs_state, database_row_marker,
     database_schema, database_view, id_counter, page, page_access_request, page_access_rule,
     page_content, page_property_value, page_property_value_history, page_snapshot, page_yjs_state,
     property_definition, user, user_preference, workspace_setting,
@@ -65,6 +65,7 @@ const IMPORT_V2_TABLES: &[&str] = &[
     "attachment",
     "page_access_rule",
     "block_access_rule",
+    "block_comment",
     "page_access_request",
     "api_endpoint",
     "api_field_mapping",
@@ -389,6 +390,7 @@ fn import_rows(ctx: &ReducerContext, table_name: &str, arr: &[Value]) -> Result<
         "attachment" => plain!(attachment, decode_attachment),
         "page_access_rule" => plain!(page_access_rule, decode_page_access_rule),
         "block_access_rule" => plain!(block_access_rule, decode_block_access_rule),
+        "block_comment" => plain!(block_comment, decode_block_comment),
         "page_access_request" => plain!(page_access_request, decode_page_access_request),
         "api_endpoint" => plain!(api_endpoint, decode_api_endpoint),
         "api_field_mapping" => plain!(api_field_mapping, decode_api_field_mapping),
@@ -576,6 +578,23 @@ fn decode_api_call_log(v: &Value) -> Result<ApiCallLog, String> {
         caller_ip: opt_string_at(m, "callerIp")?,
         error_message: opt_string_at(m, "errorMessage")?,
         at: decode_timestamp(m.get("at").ok_or("at")?)?,
+    })
+}
+
+
+fn decode_block_comment(v: &Value) -> Result<crate::comments::BlockComment, String> {
+    use crate::comments::BlockComment;
+    let m = obj(v, "block_comment")?;
+    Ok(BlockComment {
+        id: u64_at(m, "id")?,
+        page_id: u64_at(m, "pageId")?,
+        block_id: opt_string_at(m, "blockId")?,
+        parent_id: opt_u64_at(m, "parentId")?,
+        author: decode_identity(m.get("author").ok_or("author")?)?,
+        content: string_at(m, "content")?,
+        resolved: bool_at(m, "resolved")?,
+        created_at: decode_timestamp(m.get("createdAt").ok_or("createdAt")?)?,
+        updated_at: decode_timestamp(m.get("updatedAt").ok_or("updatedAt")?)?,
     })
 }
 

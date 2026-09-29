@@ -22,7 +22,7 @@ v1 snapshot import.
 
 ## Next (fork direction)
 
-- [ ] Human block comments (the one collaboration primitive worth having)
+- [x] Human block comments (page + block-anchored threads, resolve, moderation)
 - [ ] Markdown import/export
 - [ ] Calendar / gallery views (schema exists, renderers missing)
 - [ ] `selfbase upgrade` ergonomics (export → publish --clear → import)

@@ -9,6 +9,8 @@ import { PageMigratingShell } from "./PageMigratingShell";
 export type PageEditorSurfaceProps = {
   page: PageRow;
   content: PageContent | undefined;
+  /** Open the comments panel anchored to a block (from the block menu). */
+  onCommentBlock?: (blockId: string) => void;
   /** Editor remount key — e.g. content updatedAt in modals. */
   editorKeySuffix?: string | number;
 };
@@ -21,6 +23,7 @@ export type PageEditorSurfaceProps = {
 export function PageEditorSurface({
   page,
   content,
+  onCommentBlock,
   editorKeySuffix = "",
 }: PageEditorSurfaceProps) {
   const migration = useMigrateBlockNotePageOnOpen(page, content?.content);
@@ -35,6 +38,7 @@ export function PageEditorSurface({
       <ComponentTreeRenderer
         key={`${page.id}-${editorKeySuffix}`}
         surfaceId={page.id}
+        onCommentBlock={onCommentBlock}
       />
     );
   }

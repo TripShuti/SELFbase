@@ -10,14 +10,7 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
-import {
-  ComponentCapability,
-} from "./types";
-
 export default {
-  typeId: __t.u64(),
-  displayName: __t.option(__t.string()),
-  description: __t.option(__t.string()),
-  propSchemaJson: __t.option(__t.string()),
-  capabilities: __t.option(__t.array(ComponentCapability)),
+  commentId: __t.u64(),
+  resolved: __t.bool(),
 };

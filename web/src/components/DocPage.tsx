@@ -13,6 +13,8 @@ import { PageEditorSurface } from "./PageEditorSurface";
 import { PageMoreMenu } from "./PageMoreMenu";
 import { PageAccessMenu } from "./PageAccessMenu";
 import { PageHistoryPanel } from "./PageHistoryPanel";
+import { CommentsPanel } from "./CommentsPanel";
+import { useBlockComments } from "@/src/hooks/useBlockComments";
 import { PagePropertiesPanel } from "./PagePropertiesPanel";
 import { Breadcrumb } from "./Breadcrumb";
 import { useDatabaseSchema, usePropertyDefinitions } from "@/src/hooks/useDatabase";
@@ -57,6 +59,9 @@ export function DocPage({ page }: DocPageProps) {
   const ancestors = usePageAncestors(page.id);
   const [title, setTitle] = useState(page.title);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [commentAnchor, setCommentAnchor] = useState<string | null>(null);
+  const { openCount: openComments } = useBlockComments(page.id);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Track whether the title input is focused so we can ignore server echoes
   // that would overwrite characters the user is still typing.
@@ -138,6 +143,28 @@ export function DocPage({ page }: DocPageProps) {
               <polyline points="12 6 12 12 16 14"/>
             </svg>
           </button>
+          <button
+            onClick={() => {
+              setCommentAnchor(null);
+              setCommentsOpen((o) => !o);
+            }}
+            title="Comments"
+            aria-label="Comments"
+            className={`relative shrink-0 p-1.5 rounded transition-colors ${
+              commentsOpen
+                ? "text-neutral-900 dark:text-white bg-neutral-200 dark:bg-neutral-700"
+                : "text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            {openComments > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 rounded-full bg-blue-600 text-white text-[10px] leading-4 text-center">
+                {openComments}
+              </span>
+            )}
+          </button>
           <PageAccessMenu key={String(page.id)} pageId={page.id} />
           <PageMoreMenu
             items={[
@@ -178,6 +205,10 @@ export function DocPage({ page }: DocPageProps) {
         <PageEditorSurface
           page={page}
           content={content}
+          onCommentBlock={(blockId) => {
+            setCommentAnchor(blockId);
+            setCommentsOpen(true);
+          }}
         />
       </div>
       </div>
@@ -186,6 +217,19 @@ export function DocPage({ page }: DocPageProps) {
           <PageHistoryPanel
             pageId={page.id}
             onClose={() => setHistoryOpen(false)}
+          />
+        </div>
+      )}
+      {commentsOpen && (
+        <div className="w-80 shrink-0 border-l border-neutral-200 dark:border-neutral-800">
+          <CommentsPanel
+            pageId={page.id}
+            onClose={() => {
+              setCommentsOpen(false);
+              setCommentAnchor(null);
+            }}
+            anchorBlockId={commentAnchor}
+            onClearAnchor={() => setCommentAnchor(null)}
           />
         </div>
       )}

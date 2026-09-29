@@ -164,6 +164,8 @@ const PAGE_ACCESS_RULE_READ: Filter = Filter::Sql("SELECT page_access_rule.* FRO
 #[client_visibility_filter]
 const BLOCK_ACCESS_RULE_READ: Filter = Filter::Sql("SELECT block_access_rule.* FROM block_access_rule JOIN readable_pages ON block_access_rule.page_id = readable_pages.id");
 #[client_visibility_filter]
+const BLOCK_COMMENT_READ: Filter = Filter::Sql("SELECT block_comment.* FROM block_comment JOIN readable_pages ON block_comment.page_id = readable_pages.id");
+#[client_visibility_filter]
 const PAGE_PROPERTY_VALUE_READ: Filter = Filter::Sql("SELECT page_property_value.* FROM page_property_value JOIN readable_pages ON page_property_value.page_id = readable_pages.id");
 #[client_visibility_filter]
 const PAGE_PROPERTY_VALUE_HISTORY_READ: Filter = Filter::Sql("SELECT page_property_value_history.* FROM page_property_value_history JOIN readable_pages ON page_property_value_history.page_id = readable_pages.id");

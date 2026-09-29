@@ -11,6 +11,7 @@ use spacetimedb::{reducer, ReducerContext, Table};
 mod access_control;
 mod api_endpoints;
 mod auth;
+mod comments;
 mod id_counters;
 mod import;
 mod migrations;
@@ -35,6 +36,7 @@ pub use crate::auth::{
     user, user_credential, user_preference, workspace_setting, User, UserCredential,
     UserPreference, WorkspaceSetting,
 };
+pub use crate::comments::{block_comment, BlockComment};
 pub use crate::id_counters::{id_counter, IdCounter};
 pub use crate::migrations::{migration_state, MigrationState};
 pub use crate::module_install::{module_install_meta, ModuleInstallMeta};
