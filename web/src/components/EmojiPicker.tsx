@@ -6,7 +6,7 @@ import { FloatingPopup } from "./FloatingPopup";
 const EMOJIS = [
   "📄", "📊", "📁", "📌", "📎", "📅", "📆", "📋", "🔗", "✏️",
   "📝", "🗂️", "📂", "🏷️", "⭐", "💡", "🔒", "✅", "❌", "💬",
-  "📌", "🎯", "🚀", "📌", "🔔", "❤️", "🔥", "👍", "📌", "🏠",
+  "🎯", "🚀", "🔔", "❤️", "🔥", "👍", "🏠",
 ];
 
 interface EmojiPickerProps {
@@ -29,9 +29,9 @@ export function EmojiPicker({ anchorRef, currentIcon, onSelect, onClose }: Emoji
         >
           ✕
         </button>
-        {EMOJIS.map((emoji) => (
+        {EMOJIS.map((emoji, i) => (
           <button
-            key={emoji}
+            key={`${emoji}-${i}`}
             type="button"
             onClick={() => { onSelect(emoji); onClose(); }}
             className={`w-8 h-8 flex items-center justify-center rounded text-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors ${(currentIcon ?? undefined) === emoji ? "bg-blue-100 dark:bg-blue-900/40 ring-1 ring-blue-500/50" : ""}`}

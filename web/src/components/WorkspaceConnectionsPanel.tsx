@@ -90,6 +90,7 @@ export function WorkspaceConnectionsPanel() {
     activeId,
     switchWorkspace,
     addWorkspace,
+    updateWorkspace,
     removeWorkspace,
     idbNamespace,
   } = useWorkspace();
@@ -108,6 +109,14 @@ export function WorkspaceConnectionsPanel() {
 
   const [probing, setProbing] = useState<string | null>(null);
   const [probeError, setProbeError] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+
+  function saveRename(id: string) {
+    const name = renameDraft.trim();
+    if (name) updateWorkspace(id, { name });
+    setRenamingId(null);
+  }
 
   async function handleSwitch(id: string) {
     if (id === activeId) return;
@@ -312,27 +321,55 @@ export function WorkspaceConnectionsPanel() {
               }`}
             >
               <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleSwitch(w.id)}
-                  disabled={w.id === activeId || busy || probing !== null || !!uriErr}
-                  title={uriErr ?? undefined}
-                  className="text-left font-medium text-neutral-900 dark:text-white text-sm flex-1 min-w-0 truncate disabled:opacity-60"
-                >
-                  {w.name}
-                  {w.id === activeId && (
-                    <span className="ml-2 text-xs font-normal text-neutral-500">(active)</span>
-                  )}
-                  {probing === w.id && (
-                    <span className="ml-2 text-xs font-normal text-neutral-500">(testing…)</span>
-                  )}
-                </button>
+                {renamingId === w.id ? (
+                  <input
+                    autoFocus
+                    value={renameDraft}
+                    onChange={(e) => setRenameDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") saveRename(w.id);
+                      if (e.key === "Escape") setRenamingId(null);
+                    }}
+                    onBlur={() => saveRename(w.id)}
+                    maxLength={60}
+                    className="flex-1 min-w-0 text-sm px-1.5 py-0.5 rounded border border-neutral-400 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white outline-none"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleSwitch(w.id)}
+                    disabled={w.id === activeId || busy || probing !== null || !!uriErr}
+                    title={uriErr ?? undefined}
+                    className="text-left font-medium text-neutral-900 dark:text-white text-sm flex-1 min-w-0 truncate disabled:opacity-60"
+                  >
+                    {w.name}
+                    {w.id === activeId && (
+                      <span className="ml-2 text-xs font-normal text-neutral-500">(active)</span>
+                    )}
+                    {probing === w.id && (
+                      <span className="ml-2 text-xs font-normal text-neutral-500">(testing…)</span>
+                    )}
+                  </button>
+                )}
                 <span
                   className={`text-xs truncate max-w-[200px] ${uriErr ? "text-red-600 dark:text-red-400" : "text-neutral-500"}`}
                   title={resolveWorkspaceWsUri(w.wsUri)}
                 >
                   {resolveWorkspaceWsUri(w.wsUri)} / {resolveWorkspaceDbName(w.dbName)}
                 </span>
+                {renamingId !== w.id && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRenameDraft(w.name);
+                      setRenamingId(w.id);
+                    }}
+                    title="Rename workspace"
+                    className="text-xs text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
+                  >
+                    Rename
+                  </button>
+                )}
                 {workspaces.length > 1 && (
                   <button
                     type="button"

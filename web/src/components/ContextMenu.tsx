@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 export interface ContextMenuItem {
@@ -18,6 +18,20 @@ interface ContextMenuProps {
 
 export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ left: x, top: y });
+
+  // Clamp into the viewport after mount (menus near the right/bottom edge
+  // would otherwise render off-screen with no way to reach them).
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const w = el.offsetWidth || 160;
+    const h = el.offsetHeight || 0;
+    setPos({
+      left: Math.max(8, Math.min(x, window.innerWidth - w - 8)),
+      top: Math.max(8, Math.min(y, window.innerHeight - h - 8)),
+    });
+  }, [x, y]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -42,7 +56,7 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
     <div
       ref={ref}
       className="fixed z-50 min-w-[160px] py-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-xl overflow-hidden"
-      style={{ left: x, top: y }}
+      style={{ left: pos.left, top: pos.top }}
     >
       {items.map((item, i) => (
         <button
