@@ -10,7 +10,9 @@ services:
     image: dxflrs/garage:v2.3.0
     container_name: selfbase-garage
     ports:
-      - "9000:3900"   # S3 API (host 9000 preserved from the MinIO era)
+      # Host port is configurable (Dockhand and other dashboards take :3000):
+      # set GARAGE_HOST_PORT in env, default 9000.
+      - "${GARAGE_HOST_PORT:-9000}:3900"   # S3 API (Garage listens on 3900 internally)
     environment:
       # Secrets read by Garage when absent from garage.toml. Compose-network
       # internal (RPC/admin ports are not published); defaults are fine for
@@ -49,7 +51,7 @@ services:
     image: clockworklabs/spacetime:v2.0.3
     container_name: selfbase-spacetimedb
     ports:
-      - "3000:3000"
+      - "${SPACETIMEDB_HOST_PORT:-3000}:3000"
     volumes:
       - spacetimedb-data:/stdb/data
       # Persist the spacetime CLI identity across container restarts.
@@ -58,8 +60,11 @@ services:
       - spacetimedb-config:/root/.config/spacetime
       # Entrypoint script (starts SpacetimeDB then publishes the module)
       - ./server/docker/entrypoint.sh:/entrypoint.sh:ro
-      # Pre-built module WASM — run `cd server && spacetime build` first
-      - ./server/spacetimedb/target/wasm32-unknown-unknown/release/server.wasm:/module/server.wasm:ro
+      # Module WASM — committed to git so fresh clones (Dockhand etc.) deploy
+      # without a local Rust toolchain. Rebuild + commit after any change
+      # under server/spacetimedb/src/: `cd server && spacetime build`,
+      # then copy target/wasm32-unknown-unknown/release/server.wasm here.
+      - ./server/docker/server.wasm:/module/server.wasm:ro
     entrypoint: ["/bin/sh", "/entrypoint.sh"]
     environment:
       STDB_DB_NAME: ${SPACETIMEDB_DB_NAME:-selfbase}
@@ -94,7 +99,7 @@ services:
         SPACETIMEDB_PROXY_ORIGIN: ${SPACETIMEDB_PROXY_ORIGIN:-}
     container_name: selfbase-web
     ports:
-      - "3001:3001"
+      - "${WEB_HOST_PORT:-3001}:3001"
     depends_on:
       - spacetimedb
       - garage

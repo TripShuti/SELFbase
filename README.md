@@ -61,13 +61,11 @@ Prerequisites: Docker + Docker Compose, plus Rust (`wasm32-unknown-unknown`
 target) and the SpacetimeDB CLI for the one-time module build.
 
 ```bash
-# 1. Build the database module (once)
-cd server && spacetime build && cd ..
+# 1. Configure
+cp .env.example .env   # adjust S3 secrets (≥16 chars), URIs, host ports
 
-# 2. Configure
-cp .env.example .env   # adjust S3 secrets (≥16 chars), URIs
-
-# 3. Start
+# 2. Start (the module WASM is committed at server/docker/server.wasm,
+#    so no Rust toolchain is needed for deploy)
 docker compose up -d --build
 ```
 
