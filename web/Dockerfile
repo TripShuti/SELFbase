@@ -13,7 +13,9 @@ COPY web/package.json ./web/
 # present so the install links them with their own deps (yjs, prosemirror-*…).
 COPY packages/pulp/package.json ./packages/pulp/package.json
 COPY packages/snapshot-core/package.json ./packages/snapshot-core/package.json
-RUN pnpm install --frozen-lockfile --filter web... \
+# pnpm store cached across builds (survives lockfile changes without re-download).
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+  pnpm install --frozen-lockfile --filter web... \
  && mkdir -p /app/node_modules /app/web/node_modules
 
 # ── Build ───────────────────────────────────────────────────────────────────
@@ -45,10 +47,16 @@ COPY --from=deps /app/web/node_modules ./web/node_modules
 # node_modules (yjs, dnd-kit, prosemirror-*) must travel into builder too —
 # COPY . . won't bring them (.dockerignore excludes node_modules).
 COPY --from=deps /app/packages ./packages
-COPY . .
+# Narrow copy: Rust sources, docs, compose files must NOT invalidate the web
+# build cache — only these trees affect the bundle.
+COPY package.json pnpm-workspace.yaml ./
+COPY web ./web
+COPY packages/pulp/src ./packages/pulp/src
+COPY packages/snapshot-core/src ./packages/snapshot-core/src
 # module_bindings is tracked in git — regenerate after module changes with
 # `cd server && spacetime generate` before building.
-RUN pnpm --filter web build
+RUN --mount=type=cache,id=next-cache,target=/app/web/.next/cache \
+  pnpm --filter web build
 
 # ── Production runtime ───────────────────────────────────────────────────────
 FROM node:22-slim AS runner
