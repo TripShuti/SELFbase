@@ -557,9 +557,14 @@ export function GridView({ page }: GridViewProps) {
   // Two-phase seed for brand-new databases.
   // Phase 1: detect no schema → create schema + view.
   // Phase 2: schema arrives in subscription → add 3 columns + 3 rows.
+  // Top-level database pages ONLY: rows (Database pages with a parent) inherit
+  // the schema from their parent database and must never be seeded — opening
+  // an imported row used to plant a bogus Name/Tags/Notes schema plus three
+  // Untitled children into it.
   const seedingRef = useRef<"idle" | "schema-pending" | "done">("idle");
 
   useEffect(() => {
+    if (page.parentId != null) return;
     if (!schemaReady || schema || seedingRef.current !== "idle") return;
     seedingRef.current = "schema-pending";
     createSchema({ pageId: page.id, name: page.title });
