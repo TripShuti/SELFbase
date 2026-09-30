@@ -7,21 +7,21 @@ export {
 } from "./tablePolicy";
 
 export {
-  PEAR_SNAPSHOT_FORMAT_V2,
-  buildPearSnapshotV2,
-  chunkSnapshotV2,
+  SELFBASE_SNAPSHOT_FORMAT_V2,
+  buildSelfbaseSnapshotV2,
+  chunkSelfbaseSnapshotV2,
   resolveSnapshotTableAccessors,
 } from "./v2";
 export type {
-  ChunkedPearSnapshotV2,
-  PearSnapshotV2,
-  PearSnapshotV2Chunk,
-  PearSnapshotV2Header,
-  PearSnapshotV2Manifest,
-  PearSnapshotV2Meta,
+  ChunkedSelfbaseSnapshotV2,
+  SelfbaseSnapshotV2,
+  SelfbaseSnapshotV2Chunk,
+  SelfbaseSnapshotV2Header,
+  SelfbaseSnapshotV2Manifest,
+  SelfbaseSnapshotV2Meta,
   SnapshotTableRegistry,
   SnapshotTableRegistryEntry,
 } from "./v2";
 
-export { parsePearSnapshotJson } from "./parse";
-export type { ParsedPearSnapshot } from "./parse";
+export { parseSelfbaseSnapshotJson } from "./parse";
+export type { ParsedSelfbaseSnapshot } from "./parse";

@@ -10,13 +10,13 @@ import {
   validateResolvedSpacetimeUri,
 } from "@/src/lib/workspaceConnections";
 import {
-  PEAR_SNAPSHOT_FORMAT_V2,
-  buildPearSnapshotV2,
-  chunkSnapshotV2,
-  downloadPearSnapshotJson,
-  parsePearSnapshotJson,
-  type PearSnapshotV2,
-} from "@/src/lib/pearExport";
+  SELFBASE_SNAPSHOT_FORMAT_V2,
+  buildSelfbaseSnapshotV2,
+  chunkSelfbaseSnapshotV2,
+  downloadSelfbaseSnapshotJson,
+  parseSelfbaseSnapshotJson,
+  type SelfbaseSnapshotV2,
+} from "@/src/lib/selfbaseExport";
 import { clearIdbCache } from "@/src/lib/spacetime";
 import { reducers, tables } from "@/src/module_bindings";
 
@@ -48,7 +48,7 @@ function getImportV2Reducers(conn: unknown): PearImportV2Reducers {
     typeof r.importV2Abort !== "function"
   ) {
     throw new Error(
-      "This workspace's module does not support pear-snapshot-v2 import (import_v2_* reducers missing). Update the module and try again."
+      "This workspace's module does not support selfbase-snapshot-v2 import (import_v2_* reducers missing). Update the module and try again."
     );
   }
   return r as PearImportV2Reducers;
@@ -164,13 +164,13 @@ export function WorkspaceConnectionsPanel() {
             ),
           );
       });
-      const snap = buildPearSnapshotV2(conn.db, {
+      const snap = buildSelfbaseSnapshotV2(conn.db, {
         wsUri: resolveWorkspaceWsUri(activeWorkspace.wsUri),
         dbName: resolveWorkspaceDbName(activeWorkspace.dbName),
         moduleVersion: readModuleVersion(conn.db),
         tablesRegistry: tables,
       });
-      downloadPearSnapshotJson(snap, `pear-snapshot-${snap.exportedAt.slice(0, 10)}.json`);
+      downloadSelfbaseSnapshotJson(snap, `selfbase-snapshot-${snap.exportedAt.slice(0, 10)}.json`);
       setMsg("Export downloaded.");
     } catch (e) {
       setMsg(e instanceof Error ? e.message : `${e}`);
@@ -184,11 +184,11 @@ export function WorkspaceConnectionsPanel() {
     }
   }
 
-  async function handleImportV2(snapshot: PearSnapshotV2) {
+  async function handleImportV2(snapshot: SelfbaseSnapshotV2) {
     const conn = getConnection();
     if (!conn) throw new Error("Not connected.");
     const importV2 = getImportV2Reducers(conn);
-    const { header, chunks, manifest } = chunkSnapshotV2(snapshot);
+    const { header, chunks, manifest } = chunkSelfbaseSnapshotV2(snapshot);
 
     setImportProgress({ done: 0, total: chunks.length });
     try {
@@ -220,9 +220,9 @@ export function WorkspaceConnectionsPanel() {
     setMsg(null);
     try {
       const text = await f.text();
-      const parsed = parsePearSnapshotJson(text);
-      if (parsed.format !== PEAR_SNAPSHOT_FORMAT_V2) {
-        throw new Error("Only pear-snapshot-v2 files are supported.");
+      const parsed = parseSelfbaseSnapshotJson(text);
+      if (parsed.format !== SELFBASE_SNAPSHOT_FORMAT_V2) {
+        throw new Error("Only selfbase-snapshot-v2 files are supported.");
       }
       await handleImportV2(parsed.snapshot);
       setMsg("Import successful. Data will appear momentarily.");
@@ -439,7 +439,7 @@ export function WorkspaceConnectionsPanel() {
       <div className="space-y-3">
         <p className="text-xs font-medium text-neutral-600 dark:text-neutral-400">Backup & restore</p>
         <p className="text-neutral-600 dark:text-neutral-400 text-sm">
-          Export uses the <code className="text-xs bg-neutral-100 dark:bg-neutral-800 px-1 rounded">pear-snapshot-v2</code> JSON format and includes all workspace tables. Import accepts
+          Export uses the <code className="text-xs bg-neutral-100 dark:bg-neutral-800 px-1 rounded">selfbase-snapshot-v2</code> JSON format and includes all workspace tables. Import accepts
           v2 files and only works on an empty database (no pages).
         </p>
         <div className="flex flex-wrap gap-2 items-center">

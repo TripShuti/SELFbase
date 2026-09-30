@@ -8,32 +8,32 @@ export {
   // shared encoding
   encodePearValue,
   // v2
-  PEAR_SNAPSHOT_FORMAT_V2,
+  SELFBASE_SNAPSHOT_FORMAT_V2,
   SNAPSHOT_TABLE_POLICY_V2,
   SNAPSHOT_TABLES_V2,
   SNAPSHOT_EXCLUDED_TABLES_V2,
-  buildPearSnapshotV2,
-  chunkSnapshotV2,
+  buildSelfbaseSnapshotV2,
+  chunkSelfbaseSnapshotV2,
   resolveSnapshotTableAccessors,
-  parsePearSnapshotJson,
+  parseSelfbaseSnapshotJson,
 } from "@selfbase/snapshot-core";
 export type {
-  PearSnapshotV2,
-  PearSnapshotV2Chunk,
-  PearSnapshotV2Header,
-  PearSnapshotV2Manifest,
-  PearSnapshotV2Meta,
-  ChunkedPearSnapshotV2,
-  ParsedPearSnapshot,
+  SelfbaseSnapshotV2,
+  SelfbaseSnapshotV2Chunk,
+  SelfbaseSnapshotV2Header,
+  SelfbaseSnapshotV2Manifest,
+  SelfbaseSnapshotV2Meta,
+  ChunkedSelfbaseSnapshotV2,
+  ParsedSelfbaseSnapshot,
   SnapshotTableRegistry,
   SnapshotTableRegistryEntry,
 } from "@selfbase/snapshot-core";
 
-import type { PearSnapshotV2 } from "@selfbase/snapshot-core";
+import type { SelfbaseSnapshotV2 } from "@selfbase/snapshot-core";
 
 /** Browser-only: serialize a snapshot and trigger a file download. */
-export function downloadPearSnapshotJson(
-  snapshot: PearSnapshotV2,
+export function downloadSelfbaseSnapshotJson(
+  snapshot: SelfbaseSnapshotV2,
   filenameHint?: string
 ): void {
   const json = JSON.stringify(snapshot, null, 2);

@@ -11,7 +11,7 @@ export const SNAPSHOT_TABLE_POLICY_V2: {
   exclude: Record<string, string>;
 } = tablePolicy;
 
-/** Public module tables included in a pear-snapshot-v2 export (snake_case sourceNames). */
+/** Public module tables included in a selfbase-snapshot-v2 export (snake_case sourceNames). */
 export const SNAPSHOT_TABLES_V2: readonly string[] = tablePolicy.include;
 
 /** Public module tables deliberately excluded from export (snake_case sourceNames). */

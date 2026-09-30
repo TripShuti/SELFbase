@@ -1,5 +1,5 @@
-//! Chunked import of `pear-snapshot-v2` produced by the web client's
-//! `buildPearSnapshotV2` (see `snapshot_tables_v2.json` for the canonical
+//! Chunked import of `selfbase-snapshot-v2` produced by the web client's
+//! `buildSelfbaseSnapshotV2` (see `snapshot_tables_v2.json` for the canonical
 //! table policy this module implements the import side of).
 //!
 //! Unlike v1's single-reducer JSON blob, v2 streams the snapshot in chunks so
@@ -33,9 +33,9 @@ use crate::{
 use serde_json::Value;
 use spacetimedb::{reducer, table, Identity, ReducerContext, Table, Timestamp};
 
-/// Keep in sync with `PEAR_SNAPSHOT_V2_FORMAT` in `pear/web/src/lib/pearExport.ts`
+/// Keep in sync with `SELFBASE_SNAPSHOT_V2_FORMAT` in `web/src/lib/selfbaseExport.ts`
 /// and the `format` field of `snapshot_tables_v2.json`.
-const FORMAT: &str = "pear-snapshot-v2";
+const FORMAT: &str = "selfbase-snapshot-v2";
 
 /// The fixed primary key of the single [`ImportSession`] row — at most one
 /// import session may exist at a time.
@@ -44,7 +44,7 @@ const IMPORT_SESSION_ID: u64 = 1;
 /// Every table this importer can dispatch. MUST match the `include` list of
 /// `snapshot_tables_v2.json` exactly — enforced by
 /// `dispatch_table_matches_policy_include_list` below (and mirrored on the
-/// TypeScript side in `pear/web/src/lib/pearExport.test.ts`).
+/// TypeScript side in `web/src/lib/selfbaseExport.test.ts`).
 const IMPORT_V2_TABLES: &[&str] = &[
     "user",
     "user_preference",
@@ -108,10 +108,10 @@ pub struct ImportSessionCount {
 
 // ── Reducers ──────────────────────────────────────────────────────────────────
 
-/// Open a `pear-snapshot-v2` import session. Only succeeds when the database
+/// Open a `selfbase-snapshot-v2` import session. Only succeeds when the database
 /// has **no pages** (empty workspace), the caller is an authenticated user,
 /// and no other session is in flight. `header_json` carries
-/// `{"format":"pear-snapshot-v2"}` from the export header.
+/// `{"format":"selfbase-snapshot-v2"}` from the export header.
 #[reducer]
 pub fn import_v2_begin(ctx: &ReducerContext, header_json: String) -> Result<(), String> {
     if ctx.db.page().iter().next().is_some() {
@@ -195,7 +195,7 @@ pub fn import_v2_chunk(
     // built against a newer schema fails loudly instead of dropping rows.
     if !IMPORT_V2_TABLES.contains(&table_name.as_str()) {
         return Err(format!(
-            "unknown snapshot table: {table_name} (not in the pear-snapshot-v2 include list)"
+            "unknown snapshot table: {table_name} (not in the selfbase-snapshot-v2 include list)"
         ));
     }
 
@@ -398,7 +398,7 @@ fn import_rows(ctx: &ReducerContext, table_name: &str, arr: &[Value]) -> Result<
         "api_call_log" => plain!(api_call_log, decode_api_call_log),
         other => {
             return Err(format!(
-                "unknown snapshot table: {other} (not in the pear-snapshot-v2 include list)"
+                "unknown snapshot table: {other} (not in the selfbase-snapshot-v2 include list)"
             ))
         }
     };
@@ -617,16 +617,16 @@ mod pear_v2_tests {
         json!({"__pear": "identity", "v": ID_HEX})
     }
 
-    /// Keep in sync with `PEAR_SNAPSHOT_V2_FORMAT` in
-    /// `pear/web/src/lib/pearExport.ts` and `snapshot_tables_v2.json`.
+    /// Keep in sync with `SELFBASE_SNAPSHOT_V2_FORMAT` in
+    /// `web/src/lib/selfbaseExport.ts` and `snapshot_tables_v2.json`.
     #[test]
     fn portable_snapshot_format_constant() {
-        assert_eq!(FORMAT, "pear-snapshot-v2");
+        assert_eq!(FORMAT, "selfbase-snapshot-v2");
     }
 
     /// The importer's dispatch table must equal the policy's include list
     /// exactly — a module table added without updating both fails here (and
-    /// the TS-side twin in `pear/web/src/lib/pearExport.test.ts`).
+    /// the TS-side twin in `web/src/lib/selfbaseExport.test.ts`).
     #[test]
     fn dispatch_table_matches_policy_include_list() {
         let policy: Value =

@@ -1,6 +1,6 @@
 {
-  "$comment": "Canonical table policy for the pear-snapshot-v2 export/import format. Every PUBLIC module table must appear in exactly one of `include` or `exclude` \u2014 enforced from the TypeScript side (pear/web/src/lib/pearExport.test.ts, against generated bindings) and the Rust side (pear/server/spacetimedb/src/import/pear_v2.rs tests, against the importer dispatch table). Adding a module table without updating this file fails CI on both sides. Private tables are not in client bindings and are intentionally outside this policy (documented in docs/RUNBOOKS/restore-workspace.md).",
-  "format": "pear-snapshot-v2",
+  "$comment": "Canonical table policy for the selfbase-snapshot-v2 export/import format. Every PUBLIC module table must appear in exactly one of `include` or `exclude` \u2014 enforced from the TypeScript side (web/src/lib/selfbaseExport.test.ts, against generated bindings) and the Rust side (server/spacetimedb/src/import/pear_v2.rs tests, against the importer dispatch table). Adding a module table without updating this file fails CI on both sides. Private tables are not in client bindings and are intentionally outside this policy (documented in docs/RUNBOOKS/restore-workspace.md).",
+  "format": "selfbase-snapshot-v2",
   "include": [
     "api_call_log",
     "api_endpoint",

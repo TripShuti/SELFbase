@@ -2,10 +2,10 @@ import { encodePearValue } from "./encodePearValue";
 import { SNAPSHOT_TABLES_V2 } from "./tablePolicy";
 
 /** Pear portable snapshot format (JSON). Version 2. */
-export const PEAR_SNAPSHOT_FORMAT_V2 = "pear-snapshot-v2" as const;
+export const SELFBASE_SNAPSHOT_FORMAT_V2 = "selfbase-snapshot-v2" as const;
 
-export type PearSnapshotV2 = {
-  format: typeof PEAR_SNAPSHOT_FORMAT_V2;
+export type SelfbaseSnapshotV2 = {
+  format: typeof SELFBASE_SNAPSHOT_FORMAT_V2;
   exportedAt: string;
   workspace: { wsUri: string; dbName: string };
   moduleVersion?: string;
@@ -73,14 +73,14 @@ export function resolveSnapshotTableAccessors(
 
   if (missing.length > 0) {
     throw new Error(
-      `pear-snapshot-v2 export: could not resolve a db accessor for table(s): ${missing.join(", ")}. ` +
+      `selfbase-snapshot-v2 export: could not resolve a db accessor for table(s): ${missing.join(", ")}. ` +
         "The module bindings and snapshot_tables_v2.json are out of sync — refusing to export a partial snapshot."
     );
   }
   return resolved;
 }
 
-export type PearSnapshotV2Meta = {
+export type SelfbaseSnapshotV2Meta = {
   wsUri: string;
   dbName: string;
   moduleVersion?: string;
@@ -88,7 +88,7 @@ export type PearSnapshotV2Meta = {
   tablesRegistry: SnapshotTableRegistry;
 };
 
-export function buildPearSnapshotV2(db: unknown, meta: PearSnapshotV2Meta): PearSnapshotV2 {
+export function buildSelfbaseSnapshotV2(db: unknown, meta: SelfbaseSnapshotV2Meta): SelfbaseSnapshotV2 {
   const accessors = resolveSnapshotTableAccessors(db, meta.tablesRegistry);
 
   const tables: Record<string, unknown[]> = {};
@@ -97,7 +97,7 @@ export function buildPearSnapshotV2(db: unknown, meta: PearSnapshotV2Meta): Pear
 
   for (const name of SNAPSHOT_TABLES_V2) {
     const table = accessors.get(name);
-    if (!table) throw new Error(`pear-snapshot-v2 export: missing accessor for "${name}"`); // unreachable
+    if (!table) throw new Error(`selfbase-snapshot-v2 export: missing accessor for "${name}"`); // unreachable
     const rows: unknown[] = [];
     for (const row of table.iter()) {
       collectBlobStorageKeys(name, row, storageKeys);
@@ -108,7 +108,7 @@ export function buildPearSnapshotV2(db: unknown, meta: PearSnapshotV2Meta): Pear
   }
 
   return {
-    format: PEAR_SNAPSHOT_FORMAT_V2,
+    format: SELFBASE_SNAPSHOT_FORMAT_V2,
     exportedAt: new Date().toISOString(),
     workspace: { wsUri: meta.wsUri, dbName: meta.dbName },
     ...(meta.moduleVersion !== undefined ? { moduleVersion: meta.moduleVersion } : {}),
@@ -156,14 +156,14 @@ function collectStorageKeyProps(value: unknown, out: Set<string>): void {
 
 // ── Chunking ─────────────────────────────────────────────────────────────────
 
-export type PearSnapshotV2Header = {
-  format: typeof PEAR_SNAPSHOT_FORMAT_V2;
+export type SelfbaseSnapshotV2Header = {
+  format: typeof SELFBASE_SNAPSHOT_FORMAT_V2;
   exportedAt: string;
   workspace: { wsUri: string; dbName: string };
   moduleVersion?: string;
 };
 
-export type PearSnapshotV2Chunk = {
+export type SelfbaseSnapshotV2Chunk = {
   /** 1-based, contiguous across the whole snapshot, deterministic. */
   seq: number;
   tableName: string;
@@ -173,14 +173,14 @@ export type PearSnapshotV2Chunk = {
   oversized?: true;
 };
 
-export type PearSnapshotV2Manifest = {
+export type SelfbaseSnapshotV2Manifest = {
   counts: Record<string, number>;
 };
 
-export type ChunkedPearSnapshotV2 = {
-  header: PearSnapshotV2Header;
-  chunks: PearSnapshotV2Chunk[];
-  manifest: PearSnapshotV2Manifest;
+export type ChunkedSelfbaseSnapshotV2 = {
+  header: SelfbaseSnapshotV2Header;
+  chunks: SelfbaseSnapshotV2Chunk[];
+  manifest: SelfbaseSnapshotV2Manifest;
 };
 
 const utf8Encoder = new TextEncoder();
@@ -195,15 +195,15 @@ function utf8Length(s: string): number {
  * itself larger than maxBytes, which ships alone flagged `oversized`), and a
  * commit manifest with the expected row counts.
  */
-export function chunkSnapshotV2(
-  snapshot: PearSnapshotV2,
+export function chunkSelfbaseSnapshotV2(
+  snapshot: SelfbaseSnapshotV2,
   maxBytes = 1_000_000
-): ChunkedPearSnapshotV2 {
+): ChunkedSelfbaseSnapshotV2 {
   if (!Number.isFinite(maxBytes) || maxBytes < 2) {
-    throw new Error(`chunkSnapshotV2: maxBytes must be a finite number >= 2, got ${maxBytes}`);
+    throw new Error(`chunkSelfbaseSnapshotV2: maxBytes must be a finite number >= 2, got ${maxBytes}`);
   }
 
-  const chunks: PearSnapshotV2Chunk[] = [];
+  const chunks: SelfbaseSnapshotV2Chunk[] = [];
   let seq = 1;
 
   for (const [tableName, rows] of Object.entries(snapshot.tables)) {
@@ -212,7 +212,7 @@ export function chunkSnapshotV2(
 
     const flush = (oversized = false): void => {
       if (pending.length === 0) return;
-      const chunk: PearSnapshotV2Chunk = {
+      const chunk: SelfbaseSnapshotV2Chunk = {
         seq: seq++,
         tableName,
         rowsJson: `[${pending.join(",")}]`,

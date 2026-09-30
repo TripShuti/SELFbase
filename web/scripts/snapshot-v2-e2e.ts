@@ -1,5 +1,5 @@
 /**
- * pear-snapshot-v2 — export → wipe → chunked import round-trip e2e.
+ * selfbase-snapshot-v2 — export → wipe → chunked import round-trip e2e.
  *
  * Drives the full backup/restore loop against a live SpacetimeDB instance:
  *
@@ -34,8 +34,8 @@ import type { DbConnection as DbConnectionType } from "../src/module_bindings/in
 import { tables } from "../src/module_bindings/index.js";
 import type { ComponentNode, ComponentYjsState, Page } from "../src/module_bindings/types.js";
 import {
-  buildPearSnapshotV2,
-  chunkSnapshotV2,
+  buildSelfbaseSnapshotV2,
+  chunkSelfbaseSnapshotV2,
   SNAPSHOT_TABLES_V2,
 } from "@selfbase/snapshot-core";
 
@@ -208,12 +208,12 @@ async function main(): Promise<void> {
   );
 
   console.log("[e2e] Building v2 snapshot");
-  const snapshot = buildPearSnapshotV2(conn.db, {
+  const snapshot = buildSelfbaseSnapshotV2(conn.db, {
     wsUri: uri,
     dbName,
     tablesRegistry: tables,
   });
-  const { header, chunks, manifest } = chunkSnapshotV2(snapshot);
+  const { header, chunks, manifest } = chunkSelfbaseSnapshotV2(snapshot);
   const seededTables = Object.entries(snapshot.counts).filter(([, n]) => n > 0);
   console.log(
     `[e2e] Snapshot: ${seededTables.length} non-empty tables, ${chunks.length} chunks`,

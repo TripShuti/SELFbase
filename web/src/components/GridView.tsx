@@ -699,6 +699,34 @@ export function GridView({ page }: GridViewProps) {
     ]);
   }
 
+  /** Header click: single-column sort cycling asc → desc → off. */
+  function toggleHeaderSort(propertyId: bigint | null) {
+    setActiveSort((prev) => {
+      if (prev.length === 1) {
+        const cur = prev[0];
+        const same =
+          (cur.propertyId === null && propertyId === null) ||
+          (cur.propertyId !== null && propertyId !== null && cur.propertyId === propertyId);
+        if (same) {
+          if (cur.direction === "asc") {
+            return [{ ...cur, direction: "desc" }];
+          }
+          return [];
+        }
+      }
+      return [{ id: `${Date.now()}-${Math.random()}`, propertyId, direction: "asc" }];
+    });
+  }
+
+  function sortDirOf(propertyId: bigint | null): "asc" | "desc" | null {
+    if (activeSort.length !== 1) return null;
+    const cur = activeSort[0];
+    const same =
+      (cur.propertyId === null && propertyId === null) ||
+      (cur.propertyId !== null && propertyId !== null && cur.propertyId === propertyId);
+    return same ? cur.direction : null;
+  }
+
   function removeSort(id: string) {
     setActiveSort((prev) => prev.filter((s) => s.id !== id));
   }
@@ -1383,8 +1411,9 @@ export function GridView({ page }: GridViewProps) {
                 ref={nameColRef}
                 className="text-left px-3 py-2 text-xs font-medium text-neutral-500 uppercase tracking-wider border-r border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 sticky left-0 z-[2] relative group/col overflow-hidden [box-shadow:1px_0_0_0_#e5e7eb] dark:[box-shadow:1px_0_0_0_#262626]"
               >
+                <div className="flex items-center gap-1 w-full">
                 <button
-                  className="flex items-center gap-1 w-full text-left hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors"
+                  className="flex items-center gap-1 flex-1 min-w-0 text-left hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors"
                   onClick={() => { setNameDefaultDraft(currentNameDefault ?? ""); setNameDefaultOpen(true); }}
                 >
                   <span className="text-[10px] font-mono text-neutral-400 dark:text-neutral-500">T</span>
@@ -1395,6 +1424,15 @@ export function GridView({ page }: GridViewProps) {
                     </span>
                   )}
                 </button>
+                <button
+                  type="button"
+                  title={sortDirOf(null) === "asc" ? "Sorted ascending — click for descending" : sortDirOf(null) === "desc" ? "Sorted descending — click to clear" : "Sort by name"}
+                  onClick={(e) => { e.stopPropagation(); toggleHeaderSort(null); }}
+                  className={`flex-shrink-0 transition-opacity ${sortDirOf(null) ? "opacity-100 text-blue-500" : "opacity-0 group-hover/col:opacity-100 text-neutral-400"}`}
+                >
+                  {sortDirOf(null) === "desc" ? "▼" : "▲"}
+                </button>
+                </div>
                 <div
                   className="absolute top-0 right-0 h-full w-1 cursor-col-resize opacity-0 group-hover/col:opacity-100 bg-blue-400/60 hover:bg-blue-500 transition-opacity z-10"
                   onMouseDown={(e) => {
@@ -1487,6 +1525,8 @@ export function GridView({ page }: GridViewProps) {
                   onAutoFit={() => autoFitColumn(String(prop.id))}
                   onDragStart={(clientX, clientY) => startColDrag(String(prop.id), propIdx, clientX, clientY)}
                   isDragging={draggingColKey === String(prop.id)}
+                  sortDirection={sortDirOf(prop.id)}
+                  onToggleSort={() => toggleHeaderSort(prop.id)}
                 />
               ))}
               <th
@@ -1827,6 +1867,8 @@ function ColumnHeader({
   onAutoFit,
   onDragStart,
   isDragging,
+  sortDirection,
+  onToggleSort,
 }: {
   prop: NonNullable<PropertyDefinitionRow>;
   schemaId: bigint;
@@ -1837,6 +1879,8 @@ function ColumnHeader({
   onAutoFit: () => void;
   onDragStart: (clientX: number, clientY: number) => void;
   isDragging: boolean;
+  sortDirection: "asc" | "desc" | null;
+  onToggleSort: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [mode, setMode] = useState<"idle" | "rename" | "change-type" | "relation-target" | "edit-options" | "set-default">("idle");
@@ -1938,6 +1982,17 @@ function ColumnHeader({
         >
           <PropertyTypeIcon type={prop.propertyType.tag} />
           {prop.name}
+          <span
+            role="button"
+            tabIndex={0}
+            title={sortDirection === "asc" ? "Sorted ascending — click for descending" : sortDirection === "desc" ? "Sorted descending — click to clear" : "Sort by this column"}
+            onClick={(e) => { e.stopPropagation(); onToggleSort(); }}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onToggleSort(); } }}
+            onMouseDown={(e) => e.stopPropagation()}
+            className={`ml-auto flex-shrink-0 transition-opacity ${sortDirection ? "opacity-100 text-blue-500" : "opacity-0 group-hover/col:opacity-100 text-neutral-400"}`}
+          >
+            {sortDirection === "desc" ? "▼" : "▲"}
+          </span>
         </button>
       )}
       <div

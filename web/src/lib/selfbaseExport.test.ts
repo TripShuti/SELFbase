@@ -2,16 +2,16 @@ import { describe, expect, test } from "vitest";
 import { ScheduleAt } from "spacetimedb";
 
 import {
-  PEAR_SNAPSHOT_FORMAT_V2,
+  SELFBASE_SNAPSHOT_FORMAT_V2,
   SNAPSHOT_TABLES_V2,
-  buildPearSnapshotV2,
-  chunkSnapshotV2,
+  buildSelfbaseSnapshotV2,
+  chunkSelfbaseSnapshotV2,
   encodePearValue,
-  parsePearSnapshotJson,
+  parseSelfbaseSnapshotJson,
   resolveSnapshotTableAccessors,
-  type PearSnapshotV2,
+  type SelfbaseSnapshotV2,
   type SnapshotTableRegistry,
-} from "./pearExport";
+} from "./selfbaseExport";
 import { tables } from "../module_bindings";
 import tablePolicy from "../../../server/spacetimedb/snapshot_tables_v2.json";
 
@@ -203,18 +203,18 @@ describe("accessor-map resolution (no silent empty exports)", () => {
     expect(() => resolveSnapshotTableAccessors(db, registry)).toThrowError(/\buser\b/);
   });
 
-  test("buildPearSnapshotV2 covers exactly the include list", () => {
-    const snap = buildPearSnapshotV2(makeFakeDb(), BASE_META);
+  test("buildSelfbaseSnapshotV2 covers exactly the include list", () => {
+    const snap = buildSelfbaseSnapshotV2(makeFakeDb(), BASE_META);
     expect(Object.keys(snap.tables)).toEqual([...SNAPSHOT_TABLES_V2]);
     expect(Object.keys(snap.counts)).toEqual([...SNAPSHOT_TABLES_V2]);
-    expect(snap.format).toBe(PEAR_SNAPSHOT_FORMAT_V2);
+    expect(snap.format).toBe(SELFBASE_SNAPSHOT_FORMAT_V2);
     expect(snap.workspace).toEqual({ wsUri: BASE_META.wsUri, dbName: BASE_META.dbName });
   });
 });
 
-describe("buildPearSnapshotV2 rows, counts and blobManifest", () => {
+describe("buildSelfbaseSnapshotV2 rows, counts and blobManifest", () => {
   test("rows are encoded and counted per table", () => {
-    const snap = buildPearSnapshotV2(
+    const snap = buildSelfbaseSnapshotV2(
       makeFakeDb({ user: [{ id: 1n, name: "a" }, { id: 2n, name: "b" }] }),
       BASE_META
     );
@@ -234,7 +234,7 @@ describe("buildPearSnapshotV2 rows, counts and blobManifest", () => {
       numericStorageKey: { storageKey: 42 }, // non-string — ignored
       other: "x",
     });
-    const snap = buildPearSnapshotV2(
+    const snap = buildSelfbaseSnapshotV2(
       makeFakeDb({
         attachment: [
           { id: 1n, storageKey: "att/1.png" },
@@ -257,14 +257,14 @@ describe("buildPearSnapshotV2 rows, counts and blobManifest", () => {
   });
 });
 
-describe("chunkSnapshotV2", () => {
+describe("chunkSelfbaseSnapshotV2", () => {
   const utf8 = new TextEncoder();
 
-  function makeSnapshot(tablesData: Record<string, unknown[]>): PearSnapshotV2 {
+  function makeSnapshot(tablesData: Record<string, unknown[]>): SelfbaseSnapshotV2 {
     const counts: Record<string, number> = {};
     for (const [k, v] of Object.entries(tablesData)) counts[k] = v.length;
     return {
-      format: PEAR_SNAPSHOT_FORMAT_V2,
+      format: SELFBASE_SNAPSHOT_FORMAT_V2,
       exportedAt: "2026-07-11T00:00:00.000Z",
       workspace: { wsUri: "ws://x", dbName: "y" },
       moduleVersion: "0.19.0",
@@ -276,9 +276,9 @@ describe("chunkSnapshotV2", () => {
 
   test("header and manifest carry the snapshot metadata and counts", () => {
     const snap = makeSnapshot({ user: [{ a: 1 }], page: [] });
-    const { header, manifest } = chunkSnapshotV2(snap);
+    const { header, manifest } = chunkSelfbaseSnapshotV2(snap);
     expect(header).toEqual({
-      format: PEAR_SNAPSHOT_FORMAT_V2,
+      format: SELFBASE_SNAPSHOT_FORMAT_V2,
       exportedAt: snap.exportedAt,
       workspace: snap.workspace,
       moduleVersion: "0.19.0",
@@ -294,7 +294,7 @@ describe("chunkSnapshotV2", () => {
       page: [],
       page_content: rows(11, "pc"),
     });
-    const { chunks } = chunkSnapshotV2(snap, 500);
+    const { chunks } = chunkSelfbaseSnapshotV2(snap, 500);
 
     expect(chunks.map((c) => c.seq)).toEqual(chunks.map((_, i) => i + 1));
 
@@ -319,7 +319,7 @@ describe("chunkSnapshotV2", () => {
         { id: 4, pad: "c".repeat(60) },
       ],
     });
-    const { chunks } = chunkSnapshotV2(snap, maxBytes);
+    const { chunks } = chunkSelfbaseSnapshotV2(snap, maxBytes);
     for (const chunk of chunks) {
       const size = utf8.encode(chunk.rowsJson).length;
       if (chunk.oversized) {
@@ -338,49 +338,49 @@ describe("chunkSnapshotV2", () => {
   test("moduleVersion is omitted from the header when absent", () => {
     const snap = makeSnapshot({ user: [] });
     delete snap.moduleVersion;
-    const { header } = chunkSnapshotV2(snap);
+    const { header } = chunkSelfbaseSnapshotV2(snap);
     expect("moduleVersion" in header).toBe(false);
   });
 });
 
-describe("parsePearSnapshotJson", () => {
+describe("parseSelfbaseSnapshotJson", () => {
   test("rejects legacy v1 files with a clear error", () => {
     const v1 = JSON.stringify({
-      format: "pear-snapshot-v1",
+      format: "selfbase-snapshot-v1",
       exportedAt: "2026-01-01T00:00:00.000Z",
       workspace: { wsUri: "ws://x", dbName: "y" },
       tables: { user: [] },
     });
-    expect(() => parsePearSnapshotJson(v1)).toThrowError(/Unsupported snapshot format/);
+    expect(() => parseSelfbaseSnapshotJson(v1)).toThrowError(/Unsupported snapshot format/);
   });
 
   test("sniffs v2", () => {
     const v2 = JSON.stringify({
-      format: PEAR_SNAPSHOT_FORMAT_V2,
+      format: SELFBASE_SNAPSHOT_FORMAT_V2,
       exportedAt: "2026-01-01T00:00:00.000Z",
       workspace: { wsUri: "ws://x", dbName: "y" },
       tables: { user: [] },
       counts: { user: 0 },
       blobManifest: { storageKeys: [] },
     });
-    const parsed = parsePearSnapshotJson(v2);
-    expect(parsed.format).toBe(PEAR_SNAPSHOT_FORMAT_V2);
-    if (parsed.format === PEAR_SNAPSHOT_FORMAT_V2) {
+    const parsed = parseSelfbaseSnapshotJson(v2);
+    expect(parsed.format).toBe(SELFBASE_SNAPSHOT_FORMAT_V2);
+    if (parsed.format === SELFBASE_SNAPSHOT_FORMAT_V2) {
       expect(parsed.snapshot.counts).toEqual({ user: 0 });
     }
   });
 
   test("rejects unknown formats and malformed input with clear errors", () => {
-    expect(() => parsePearSnapshotJson("not json")).toThrowError(/not valid JSON/);
-    expect(() => parsePearSnapshotJson("[1,2]")).toThrowError(/expected a JSON object/);
-    expect(() => parsePearSnapshotJson(JSON.stringify({ format: "pear-snapshot-v9" }))).toThrowError(
+    expect(() => parseSelfbaseSnapshotJson("not json")).toThrowError(/not valid JSON/);
+    expect(() => parseSelfbaseSnapshotJson("[1,2]")).toThrowError(/expected a JSON object/);
+    expect(() => parseSelfbaseSnapshotJson(JSON.stringify({ format: "pear-snapshot-v9" }))).toThrowError(
       /Unsupported snapshot format.*pear-snapshot-v9/
     );
-    expect(() => parsePearSnapshotJson(JSON.stringify({ hello: 1 }))).toThrowError(
+    expect(() => parseSelfbaseSnapshotJson(JSON.stringify({ hello: 1 }))).toThrowError(
       /Unsupported snapshot format/
     );
     expect(() =>
-      parsePearSnapshotJson(JSON.stringify({ format: PEAR_SNAPSHOT_FORMAT_V2, tables: {} }))
+      parseSelfbaseSnapshotJson(JSON.stringify({ format: SELFBASE_SNAPSHOT_FORMAT_V2, tables: {} }))
     ).toThrowError(/missing counts/);
   });
 });
