@@ -17,6 +17,7 @@ import { SettingsPopover } from "@/src/components/SettingsPopover";
 import { ContextMenu, type ContextMenuItem } from "@/src/components/ContextMenu";
 import { QuickSwitcher } from "@/src/components/QuickSwitcher";
 import { EmojiPicker } from "@/src/components/EmojiPicker";
+import { Trash2 } from "lucide-react";
 import { PageIcon } from "@/src/components/PageIcon";
 import { RepeaterSidebarTree } from "@/src/components/RepeaterSidebarTree";
 import { useRepeaterSidebarFlagState } from "@/src/lib/repeater/sidebarFlag";
@@ -113,7 +114,7 @@ function SidebarItem({
     page.pageType.tag === "Database" &&
     page.parentId != null &&
     pagesById.get(page.parentId)?.pageType.tag === "Database";
-  const defaultIcon = isRow || page.pageType.tag !== "Database" ? "📄" : "📊";
+  const defaultIcon = isRow || page.pageType.tag !== "Database" ? "lucide:file-text" : "lucide:table";
   const showEmojiPicker = emojiPickerPageId === page.id;
 
   const children = childrenByParent.get(page.id) ?? NO_CHILD_PAGES;
@@ -773,7 +774,9 @@ export function Sidebar() {
               : "text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-900 hover:text-neutral-900 dark:hover:text-white"
           }`}
         >
-          <span className="mr-1.5 text-xs">🗑</span>
+          <span className="mr-1.5 inline-flex items-center text-neutral-500 dark:text-neutral-400">
+            <Trash2 size={13} aria-hidden="true" />
+          </span>
           Trash
           {deletedPages.length > 0 && (
             <span className="ml-1 text-xs text-neutral-400 dark:text-neutral-500">

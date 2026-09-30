@@ -122,7 +122,7 @@ export function DocPage({ page }: DocPageProps) {
             className="shrink-0 w-10 h-10 flex items-center justify-center rounded-lg text-2xl hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
             title="Change icon"
           >
-            <PageIcon icon={page.icon} fallback="📄" size={26} />
+            <PageIcon icon={page.icon} fallback="lucide:file-text" size={26} />
           </button>
           {emojiPickerOpen && (
             <EmojiPicker
