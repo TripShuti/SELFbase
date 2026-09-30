@@ -5,6 +5,7 @@ import { useTheme } from "next-themes";
 import { ApiEndpointsSettings } from "@/src/components/ApiEndpointsSettings";
 import { MembersSettings } from "@/src/components/MembersSettings";
 import { WorkspaceConnectionsPanel } from "@/src/components/WorkspaceConnectionsPanel";
+import { NotionImportSection } from "@/src/components/NotionImportSection";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -47,6 +48,8 @@ export default function SettingsPage() {
         </section>
 
         <WorkspaceConnectionsPanel />
+
+        <NotionImportSection />
 
         <MembersSettings />
 
