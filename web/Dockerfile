@@ -49,7 +49,7 @@ COPY --from=deps /app/web/node_modules ./web/node_modules
 COPY --from=deps /app/packages ./packages
 # Narrow copy: Rust sources, docs, compose files must NOT invalidate the web
 # build cache — only these trees affect the bundle.
-COPY package.json pnpm-workspace.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY web ./web
 COPY packages/pulp/src ./packages/pulp/src
 COPY packages/snapshot-core/src ./packages/snapshot-core/src
