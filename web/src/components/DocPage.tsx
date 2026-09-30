@@ -9,6 +9,7 @@ import { useScopedTable } from "@/src/hooks/useScopedTable";
 import { useUpdatePageTitle, useUpdatePageIcon, useDeletePageSubtree, useChildPages } from "@/src/hooks/usePages";
 import type { PageRow } from "@/src/hooks/usePages";
 import { EmojiPicker } from "./EmojiPicker";
+import { PageIcon } from "./PageIcon";
 import { CommentIcon } from "./CommentIcon";
 import { PageEditorSurface } from "./PageEditorSurface";
 import { PageMoreMenu } from "./PageMoreMenu";
@@ -121,7 +122,7 @@ export function DocPage({ page }: DocPageProps) {
             className="shrink-0 w-10 h-10 flex items-center justify-center rounded-lg text-2xl hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
             title="Change icon"
           >
-            {page.icon ?? "📄"}
+            <PageIcon icon={page.icon} fallback="📄" size={26} />
           </button>
           {emojiPickerOpen && (
             <EmojiPicker

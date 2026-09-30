@@ -17,6 +17,7 @@ import { SettingsPopover } from "@/src/components/SettingsPopover";
 import { ContextMenu, type ContextMenuItem } from "@/src/components/ContextMenu";
 import { QuickSwitcher } from "@/src/components/QuickSwitcher";
 import { EmojiPicker } from "@/src/components/EmojiPicker";
+import { PageIcon } from "@/src/components/PageIcon";
 import { RepeaterSidebarTree } from "@/src/components/RepeaterSidebarTree";
 import { useRepeaterSidebarFlagState } from "@/src/lib/repeater/sidebarFlag";
 import { measureDelivery, recordMount } from "@/src/lib/repeater/paintMetrics";
@@ -58,6 +59,7 @@ const NO_CHILD_PAGES: PageRow[] = [];
 interface SidebarItemProps {
   page: PageRow;
   childrenByParent: ReadonlyMap<bigint, PageRow[]>;
+  pagesById: ReadonlyMap<bigint, PageRow>;
   depth: number;
   activeId: string | undefined;
   expandedIds: Set<string>;
@@ -80,6 +82,7 @@ interface SidebarItemProps {
 function SidebarItem({
   page,
   childrenByParent,
+  pagesById,
   depth,
   activeId,
   expandedIds,
@@ -104,8 +107,13 @@ function SidebarItem({
   const isSelected = selectedIds.has(id);
   const isExpanded = expandedIds.has(id);
   const isDragging = draggingId === page.id;
-  const defaultIcon = page.pageType.tag === "Database" ? "📊" : "📄";
-  const icon = page.icon ?? defaultIcon;
+  // Rows (Database pages nested under another Database) render as documents,
+  // matching the DocPage title default.
+  const isRow =
+    page.pageType.tag === "Database" &&
+    page.parentId != null &&
+    pagesById.get(page.parentId)?.pageType.tag === "Database";
+  const defaultIcon = isRow || page.pageType.tag !== "Database" ? "📄" : "📊";
   const showEmojiPicker = emojiPickerPageId === page.id;
 
   const children = childrenByParent.get(page.id) ?? NO_CHILD_PAGES;
@@ -224,7 +232,7 @@ function SidebarItem({
             className="shrink-0 w-6 h-6 flex items-center justify-center rounded text-base hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
             title="Change icon"
           >
-            {icon}
+            <PageIcon icon={page.icon} fallback={defaultIcon} size={15} />
           </button>
           {showEmojiPicker && (
             <EmojiPicker
@@ -251,6 +259,7 @@ function SidebarItem({
               key={String(child.id)}
               page={child}
               childrenByParent={childrenByParent}
+              pagesById={pagesById}
               depth={depth + 1}
               activeId={activeId}
               expandedIds={expandedIds}
@@ -315,6 +324,12 @@ export function Sidebar() {
     for (const list of map.values()) {
       list.sort((a, b) => a.sortOrder - b.sortOrder);
     }
+    return map;
+  }, [navPages]);
+
+  const pagesById = useMemo(() => {
+    const map = new Map<bigint, PageRow>();
+    for (const p of navPages) map.set(p.id, p);
     return map;
   }, [navPages]);
 
@@ -726,6 +741,7 @@ export function Sidebar() {
                 key={String(page.id)}
                 page={page}
                 childrenByParent={childrenByParent}
+                pagesById={pagesById}
                 depth={0}
                 activeId={activeId}
                 expandedIds={expandedIds}

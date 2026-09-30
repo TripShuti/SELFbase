@@ -10,6 +10,7 @@ import { PageAccessMenu } from "./PageAccessMenu";
 import { PageHistoryPanel } from "./PageHistoryPanel";
 import { Breadcrumb } from "./Breadcrumb";
 import { EmojiPicker } from "./EmojiPicker";
+import { PageIcon } from "./PageIcon";
 import { usePageAncestors } from "@/src/hooks/usePages";
 import { clearIdbCache, clearIdbCacheForPage } from "@/src/lib/spacetime";
 import { useWorkspace } from "@/src/providers/WorkspaceProvider";
@@ -55,7 +56,7 @@ export function DatabasePage({ page }: DatabasePageProps) {
             className="shrink-0 w-10 h-10 flex items-center justify-center rounded-lg text-2xl hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
             title="Change icon"
           >
-            {page.icon ?? "📊"}
+            <PageIcon icon={page.icon} fallback="📊" size={26} />
           </button>
           {emojiPickerOpen && (
             <EmojiPicker
