@@ -116,6 +116,8 @@ services:
       S3_ACCESS_KEY: ${S3_ACCESS_KEY:-selfbase-access-key}
       S3_SECRET_KEY: ${S3_SECRET_KEY:-selfbase-secret-key-change-me}
       S3_REGION: ${S3_REGION:-us-east-1}
+      # Host port of Garage's S3 API (used to derive browser-reachable URLs).
+      GARAGE_HOST_PORT: ${GARAGE_HOST_PORT:-9000}
     restart: unless-stopped
     networks:
       - selfbase

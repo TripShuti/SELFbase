@@ -9,7 +9,7 @@ const S3_ACCESS_KEY = process.env.S3_ACCESS_KEY;
 const S3_SECRET_KEY = process.env.S3_SECRET_KEY;
 
 /** Default storage port when deriving public URL from request host (compose publishes Garage on 9000). */
-export const S3_PUBLIC_DEFAULT_PORT = 9000;
+export const S3_PUBLIC_DEFAULT_PORT = Number(process.env.GARAGE_HOST_PORT ?? 9000) || 9000;
 
 export function isS3Configured(): boolean {
   return !!(

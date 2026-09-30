@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { getS3Client, getS3Bucket, isS3Configured } from "@/src/lib/s3";
+import {
+  getS3Bucket,
+  getS3PresigningClient,
+  isS3Configured,
+  derivePublicS3EndpointFromRequest,
+} from "@/src/lib/s3";
 import { authorizeBlobRequest, pageIdFromKey } from "../_auth";
 
 /**
@@ -33,7 +38,6 @@ export async function GET(request: NextRequest) {
   const denied = await authorizeBlobRequest(request, dbName, pageId, false);
   if (denied) return denied;
 
-  const client = getS3Client();
   const bucket = getS3Bucket();
 
   const command = new GetObjectCommand({
@@ -43,7 +47,11 @@ export async function GET(request: NextRequest) {
 
   let getUrl: string;
   try {
-    getUrl = await getSignedUrl(client, command, { expiresIn: 3600 }); // 1 hour
+    // Presign against the browser-reachable endpoint, not the internal one.
+    const presigningClient = getS3PresigningClient(
+      derivePublicS3EndpointFromRequest(request)
+    );
+    getUrl = await getSignedUrl(presigningClient, command, { expiresIn: 3600 }); // 1 hour
   } catch (err) {
     console.error("[upload/url] presign error:", err);
     return NextResponse.json(
