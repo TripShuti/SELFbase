@@ -53,6 +53,8 @@ COPY package.json pnpm-workspace.yaml ./
 COPY web ./web
 COPY packages/pulp/src ./packages/pulp/src
 COPY packages/snapshot-core/src ./packages/snapshot-core/src
+# Snapshot table policy is imported into the web bundle (tablePolicy.ts).
+COPY server/spacetimedb/snapshot_tables_v2.json ./server/spacetimedb/snapshot_tables_v2.json
 # module_bindings is tracked in git — regenerate after module changes with
 # `cd server && spacetime generate` before building.
 RUN --mount=type=cache,id=next-cache,target=/app/web/.next/cache \
