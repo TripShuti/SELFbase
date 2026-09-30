@@ -23,9 +23,11 @@ export function getS3Bucket(): string {
   return S3_BUCKET;
 }
 
-/** Endpoint for presigning. Prefer override (e.g. derived from request), then S3_PUBLIC_ENDPOINT, then S3_ENDPOINT. */
+/** Endpoint for presigning. Explicit S3_PUBLIC_ENDPOINT wins (operator-set
+ * public URL, e.g. https://s3.home behind Caddy); otherwise the
+ * request-derived override, then the internal S3_ENDPOINT. */
 function getPresigningEndpoint(override?: string): string {
-  return override ?? S3_PUBLIC_ENDPOINT ?? S3_ENDPOINT!;
+  return S3_PUBLIC_ENDPOINT ?? override ?? S3_ENDPOINT!;
 }
 
 /**
