@@ -88,7 +88,7 @@ services:
         # NEXT_PUBLIC_* vars are baked into the browser bundle at build time.
         # The browser must reach these URLs directly, so use the public-facing
         # addresses (Cloudflare Tunnel hostname or exposed host port).
-        NEXT_PUBLIC_SPACETIMEDB_URI: ${SPACETIMEDB_PUBLIC_URI-ws://localhost:3000}
+        NEXT_PUBLIC_SPACETIMEDB_URI: ${SPACETIMEDB_PUBLIC_URI:-ws://localhost:3000}
         NEXT_PUBLIC_SPACETIMEDB_DB_NAME: ${SPACETIMEDB_DB_NAME:-selfbase}
         NEXT_PUBLIC_SPACETIMEAUTH_CLIENT_ID: ${SPACETIMEAUTH_CLIENT_ID:-}
         NEXT_PUBLIC_SPACETIMEAUTH_AUTHORITY: ${SPACETIMEAUTH_AUTHORITY:-}
