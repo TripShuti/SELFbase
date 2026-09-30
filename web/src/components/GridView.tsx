@@ -300,6 +300,7 @@ const MIN_COL_WIDTH      = 60;
 interface ViewConfig {
   columnWidths?: Record<string, number>;
   boardGroupByPropertyId?: string; // property definition id as string (bigint serialization)
+  sorts?: Array<{ propertyId: string | null; direction: "asc" | "desc" }>;
 }
 function parseViewConfig(raw: string): ViewConfig {
   try { return JSON.parse(raw) as ViewConfig; } catch { return {}; }
@@ -734,6 +735,46 @@ export function GridView({ page }: GridViewProps) {
   function updateSort(id: string, changes: Partial<SortRule>) {
     setActiveSort((prev) => prev.map((s) => (s.id === id ? { ...s, ...changes } : s)));
   }
+
+  // Persist sorts in the view config (shared across devices, survives
+  // navigation) — same pattern as column widths. Hydrate once when the view
+  // arrives; save debounced on change. Property ids travel as strings
+  // (JSON has no bigint).
+  const sortsHydratedRef = useRef(false);
+  useEffect(() => {
+    if (sortsHydratedRef.current || !view?.config) return;
+    sortsHydratedRef.current = true;
+    const saved = parseViewConfig(view.config).sorts;
+    if (saved && saved.length > 0) {
+      setActiveSort(
+        saved.map((s, i) => ({
+          id: `persisted-${i}`,
+          propertyId: s.propertyId == null ? null : BigInt(s.propertyId),
+          direction: s.direction,
+        }))
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view?.id]);
+  useEffect(() => {
+    if (!sortsHydratedRef.current || !view) return;
+    const t = setTimeout(() => {
+      const v = viewRef.current;
+      if (!v) return;
+      const existing = parseViewConfig(v.config);
+      const serialized = activeSort.map((s) => ({
+        propertyId: s.propertyId == null ? null : String(s.propertyId),
+        direction: s.direction,
+      }));
+      if (JSON.stringify(existing.sorts ?? []) === JSON.stringify(serialized)) return;
+      updateViewConfigRef.current({
+        viewId: v.id,
+        config: serializeViewConfig({ ...existing, sorts: serialized }),
+      });
+    }, 600);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSort]);
   // ────────────────────────────────────────────────────────────────────────────
 
   // ── View mode (grid / list) ──────────────────────────────────────────────────
