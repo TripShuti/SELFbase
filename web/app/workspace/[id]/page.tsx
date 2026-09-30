@@ -23,7 +23,16 @@ export default function PageRoute() {
         </div>
       );
     }
-    return page.pageType.tag === "Database" ? (
+    // A Database page nested under another Database is a *row*, not a
+    // standalone database — render the row detail (properties + content +
+    // comments) instead of an empty grid.
+    const parent =
+      page.parentId != null ? pages.find((p) => p.id === page.parentId) : undefined;
+    const isRow =
+      page.pageType.tag === "Database" &&
+      parent != null &&
+      parent.pageType.tag === "Database";
+    return page.pageType.tag === "Database" && !isRow ? (
       <DatabasePage page={page} />
     ) : (
       <DocPage page={page} />
