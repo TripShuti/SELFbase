@@ -2436,7 +2436,7 @@ function ColumnHeader({
                 )}
               </div>
             </button>
-          )}
+          ) : null}
           <div className="border-t border-neutral-100 dark:border-neutral-700" />
           <button
             className="w-full text-left px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
