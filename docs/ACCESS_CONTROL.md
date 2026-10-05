@@ -14,6 +14,29 @@ accounts must be created by an administrator. Logging out does not reopen
 bootstrap registration. Only an administrator or publisher can provision AI
 identities.
 
+## Admin authority belongs to the account, not the device
+
+`User.is_admin` is keyed by SpacetimeDB identity, and an identity lives in the
+browser's localStorage — clearing storage, signing in from another machine or
+reinstalling the browser mints a new one. Native admin authority therefore
+lives on the account: `UserCredential.is_admin` is the record of record, and
+`login` copies it onto whichever identity authenticates. Signing in on a new
+device with an admin account yields an admin; a bare identity token never
+conferred anything, since the check also requires `is_authenticated`.
+
+One email may own several identities (every device that account signed in
+from), so `set_user_admin` treats the email as the unit of administration: it
+records the decision on the credential and cascades it to all of that account's
+`User` rows, and refuses a demotion when no *other account* holds admin. OIDC
+identities have no credential and are tracked by their `User` row alone.
+
+Two publisher-only reducers exist for the locked-out case:
+`backfill_credential_admin` migrates authority from pre-`is_admin` databases,
+and `recover_admin` re-grants it when every admin identity is gone (it promotes
+the most recently active authenticated user, or flags the newest credential
+when nobody is signed in). Both refuse when an authenticated admin already
+exists.
+
 Page rules retain their existing semantics: no rule on the page or its ancestors
 means open to workspace principals; otherwise an explicit ancestor/page grant
 or an authenticated administrator is required. Write implies read. New child

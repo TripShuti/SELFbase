@@ -64,6 +64,21 @@ pub struct UserCredential {
     /// Versioned PBKDF2-HMAC-SHA256 envelope; legacy digests require migration.
     pub password_hash: String,
     pub created_at: Timestamp,
+    /// Account-level admin flag — the authority belongs to the *account*, not
+    /// to one browser.
+    ///
+    /// `User.is_admin` is per-identity, and a SpacetimeDB identity lives in the
+    /// browser's localStorage: clearing storage, a new device or a reinstall
+    /// mints a brand-new identity that starts as a plain user. Authority
+    /// therefore travels with the credential and `login` copies it onto
+    /// whichever identity authenticates (see `login`). Only a successful
+    /// password login confers it — a bare identity token never does.
+    ///
+    /// One email may back several identities (every device the account logged
+    /// in from), so `set_user_admin` treats the email as the unit of
+    /// administration and cascades a demotion to all of that account's rows.
+    #[default(false)]
+    pub is_admin: bool,
 }
 
 /// Publisher-configured trust anchor. Empty/missing means native login only.
@@ -138,21 +153,25 @@ pub fn register(
         return Err("Email already registered".to_string());
     }
 
+    // Bootstrap authority is recorded on the credential so it survives this
+    // identity being lost; `login` re-applies it on every device.
+    let is_admin = workspace_has_no_admin(ctx);
+
     ctx.db.user_credential().insert(UserCredential {
         email: email.clone(),
         name: name.clone(),
         password_hash: harden_digest(&current_password_digest(&email, &password), &crate::stable_ids::generate_external_id(ctx, "password-salt", &email)),
         created_at: ctx.timestamp,
+        is_admin,
     });
 
     let identity = ctx.sender();
-    let needs_bootstrap_admin = workspace_has_no_admin(ctx);
     if let Some(existing) = ctx.db.user().identity().find(identity) {
         ctx.db.user().identity().update(User {
             email,
             name,
             is_authenticated: true,
-            is_admin: existing.is_admin || needs_bootstrap_admin,
+            is_admin: existing.is_admin || is_admin,
             last_seen_at: ctx.timestamp,
             ..existing
         });
@@ -196,6 +215,9 @@ pub fn create_local_user(
         name,
         password_hash: harden_digest(&current_password_digest(&email, &password), &crate::stable_ids::generate_external_id(ctx, "password-salt", &email)),
         created_at: ctx.timestamp,
+        // Admin-created accounts are never admin themselves — `set_user_admin`
+        // is the only path to that, so the privilege is explicit.
+        is_admin: false,
     });
     Ok(())
 }
@@ -242,11 +264,16 @@ pub fn login(ctx: &ReducerContext, email: String, password: String) -> Result<()
     let identity = ctx.sender();
     let needs_bootstrap_admin = workspace_has_no_admin(ctx);
     if let Some(existing) = ctx.db.user().identity().find(identity) {
+        // Authority follows the account: a fresh identity that authenticates with
+        // an admin credential becomes admin, so clearing browser storage or
+        // signing in on another device no longer costs the admin role.
+        let is_admin =
+            resolve_admin_on_login(cred.is_admin, existing.is_admin, needs_bootstrap_admin);
         ctx.db.user().identity().update(User {
             email,
             name: cred.name,
             is_authenticated: true,
-            is_admin: existing.is_admin || needs_bootstrap_admin,
+            is_admin,
             last_seen_at: ctx.timestamp,
             ..existing
         });
@@ -256,9 +283,17 @@ pub fn login(ctx: &ReducerContext, email: String, password: String) -> Result<()
 
 /// Promote or demote a workspace user. Only existing admins can call this.
 ///
-/// Refuses to demote the last remaining admin so the workspace can never
-/// end up admin-less (which would lock everyone out of orphan-cleanup
-/// operations on shared infrastructure rows).
+/// Administration belongs to the **account**, so the change is recorded on the
+/// `UserCredential` for the target's email and cascaded to every `User` row
+/// carrying that email — one account may own several identities (every device
+/// it signed in from), and demoting only the row that happened to be clicked
+/// would leave the other devices privileged.
+///
+/// Refuses to demote the last remaining admin account so the workspace can
+/// never end up admin-less (which would lock everyone out of orphan-cleanup
+/// operations on shared infrastructure rows). Identities that authenticate
+/// through OIDC have no credential and are therefore tracked by their `User`
+/// row alone.
 #[reducer]
 pub fn set_user_admin(
     ctx: &ReducerContext,
@@ -276,23 +311,51 @@ pub fn set_user_admin(
         .find(target_identity)
         .ok_or("Target user not found")?;
 
-    if target.is_admin == is_admin {
+    let target_email = target.email.trim().to_lowercase();
+    let credential = ctx.db.user_credential().email().find(&target_email);
+
+    if target.is_admin == is_admin && credential.as_ref().map(|c| c.is_admin) != Some(is_admin) {
         return Ok(());
     }
 
-    if !is_admin && target.is_admin {
-        let other_admins = ctx
-            .db
-            .user()
-            .iter()
-            .filter(|u| u.identity != target_identity && u.is_admin && u.is_authenticated)
-            .count();
+    if !is_admin && (target.is_admin || credential.as_ref().map(|c| c.is_admin).unwrap_or(false)) {
+        // Count admins outside this account: another identity of the same
+        // account does not make demotion safe.
+        let other_admins = count_admins_outside_account(
+            ctx.db
+                .user()
+                .iter()
+                .map(|u| (u.email.trim().to_lowercase(), u.is_admin)),
+            &target_email,
+        );
         if other_admins == 0 {
             return Err("Cannot demote the last admin — promote another user first".to_string());
         }
     }
 
-    ctx.db.user().identity().update(User { is_admin, ..target });
+    if !target_email.is_empty() {
+        if let Some(cred) = credential {
+            ctx.db
+                .user_credential()
+                .email()
+                .update(UserCredential { is_admin, ..cred });
+        }
+        // Every identity of this account follows the credential, so a demotion
+        // cannot be dodged by switching devices.
+        let same_account: Vec<User> = ctx
+            .db
+            .user()
+            .iter()
+            .filter(|u| u.email.trim().to_lowercase() == target_email && u.is_admin != is_admin)
+            .collect();
+        for row in same_account {
+            ctx.db.user().identity().update(User { is_admin, ..row });
+        }
+    }
+
+    if target.is_admin != is_admin {
+        ctx.db.user().identity().update(User { is_admin, ..target });
+    }
     Ok(())
 }
 
@@ -384,6 +447,34 @@ fn trusted_oidc_claims(claims: &serde_json::Value, issuer: &str, audience: &str)
             claims["aud"].as_str() == Some(audience)
             || claims["aud"].as_array().is_some_and(|a| a.iter().any(|v| v.as_str() == Some(audience))))
 }
+/// Admin flag for an identity that just authenticated with a native account.
+///
+/// Account authority is the point of this function: a credential flagged admin
+/// makes *any* identity that logs in with it an admin, so losing the browser's
+/// identity token no longer costs the role. The other two inputs keep their
+/// meaning — an identity that already holds the flag keeps it, and the first
+/// user on a fresh database is still bootstrapped.
+fn resolve_admin_on_login(
+    cred_is_admin: bool,
+    existing_is_admin: bool,
+    needs_bootstrap_admin: bool,
+) -> bool {
+    cred_is_admin || existing_is_admin || needs_bootstrap_admin
+}
+
+/// Admins that would survive demoting `target_email`'s account.
+///
+/// Every identity of the target's account is demoted together, so its other
+/// identities must not count as remaining admins — otherwise the last-admin
+/// guard could be defeated by logging in on a second device first.
+fn count_admins_outside_account<'a>(
+    rows: impl Iterator<Item = (String, bool)>,
+    target_email: &str,
+) -> usize {
+    rows.filter(|(email, is_admin)| *is_admin && !email.eq_ignore_ascii_case(target_email))
+        .count()
+}
+
 /// Domain separator for password hashing. All hashes use the V2 domain.
 /// (Pre-rebrand `pear-auth-v1` hashes were transparently upgraded on login
 /// while the fallback existed; it has since been removed.)
@@ -617,9 +708,122 @@ pub fn harden_local_passwords(ctx: &ReducerContext, limit: u32) -> Result<(), St
     Ok(())
 }
 
+/// Carry admin authority from the per-identity flag onto the account.
+///
+/// Run once after upgrading a database that predates `UserCredential.is_admin`:
+/// every email that currently owns an admin `User` row gets `is_admin = true` on
+/// its credential, so signing in from a new device keeps the role. Idempotent —
+/// credentials that already carry the flag are left untouched, and credentials
+/// with no admin identity are never promoted. Publisher-only, like every other
+/// privileged maintenance reducer.
+#[reducer]
+pub fn backfill_credential_admin(ctx: &ReducerContext) -> Result<(), String> {
+    if !crate::module_install::sender_is_module_publisher(ctx) {
+        return Err("Only the publisher may migrate admin authority".into());
+    }
+    let mut admin_emails: Vec<String> = Vec::new();
+    for user in ctx.db.user().iter().filter(|u| u.is_admin) {
+        let email = user.email.trim().to_lowercase();
+        if !email.is_empty() && !admin_emails.contains(&email) {
+            admin_emails.push(email);
+        }
+    }
+    for email in admin_emails {
+        let Some(cred) = ctx.db.user_credential().email().find(&email) else { continue };
+        if !cred.is_admin {
+            ctx.db.user_credential().email().update(UserCredential { is_admin: true, ..cred });
+        }
+    }
+    Ok(())
+}
+
+/// Re-grant admin access when every admin identity has been lost.
+///
+/// `User.is_admin` is keyed by SpacetimeDB identity, so clearing browser
+/// storage or moving to a new machine can leave an account authenticated but
+/// unprivileged — and `set_user_admin` needs an admin to call, so the workspace
+/// would be stuck. This is the escape hatch: publisher-only, and it promotes the
+/// most recently active authenticated user (falling back to the most recent
+/// credential when nobody is signed in). The promoted account's credential is
+/// flagged too, so the role survives the next device change.
+///
+/// Refuses when an authenticated admin already exists — use `set_user_admin` for
+/// ordinary changes, this is only for the locked-out case.
+#[reducer]
+pub fn recover_admin(ctx: &ReducerContext) -> Result<(), String> {
+    if !crate::module_install::sender_is_module_publisher(ctx) {
+        return Err("Only the publisher may recover admin access".into());
+    }
+    if ctx.db.user().iter().any(|u| u.is_admin && u.is_authenticated) {
+        return Err("An authenticated admin already exists — use set_user_admin".into());
+    }
+
+    let mut candidates: Vec<User> = ctx.db.user().iter().filter(|u| u.is_authenticated).collect();
+    candidates.sort_by_key(|u| u.last_seen_at);
+
+    if let Some(target) = candidates.pop() {
+        let email = target.email.trim().to_lowercase();
+        ctx.db.user().identity().update(User { is_admin: true, ..target });
+        if let Some(cred) = ctx.db.user_credential().email().find(&email) {
+            if !cred.is_admin {
+                ctx.db.user_credential().email().update(UserCredential { is_admin: true, ..cred });
+            }
+        }
+        return Ok(());
+    }
+
+    // Nobody is signed in: flag the newest credential so the next password
+    // login lands as admin (see `login`).
+    let Some(cred) = ctx.db.user_credential().iter().max_by_key(|c| c.created_at) else {
+        return Err("No user or credential rows to promote".into());
+    };
+    if !cred.is_admin {
+        ctx.db.user_credential().email().update(UserCredential { is_admin: true, ..cred });
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod security_tests {
     use super::*;
+    #[test]
+    fn login_grants_admin_from_the_account_credential() {
+        // A brand-new device (no existing row, no bootstrap) still becomes
+        // admin because the *account* is an admin — this is the case that used
+        // to silently cost the role.
+        assert!(resolve_admin_on_login(true, false, false));
+        // A plain account never becomes admin, however often it signs in.
+        assert!(!resolve_admin_on_login(false, false, false));
+        // Fresh-database bootstrap and an identity that already holds the flag
+        // keep working.
+        assert!(resolve_admin_on_login(false, false, true));
+        assert!(resolve_admin_on_login(false, true, false));
+        // A bare identity token confers nothing: the flag is only ever written
+        // on an authenticated login, and `sender_is_admin` also requires
+        // `is_authenticated`.
+    }
+
+    #[test]
+    fn demotion_only_counts_admins_from_other_accounts() {
+        let rows = vec![
+            ("admin@selfbase".to_string(), true),
+            ("admin@selfbase".to_string(), true), // same account, other device
+            ("plain@selfbase".to_string(), false),
+        ];
+        // Two devices of the only admin account: still one admin account, so
+        // demotion must be refused rather than allowed by the sibling device.
+        assert_eq!(count_admins_outside_account(rows.iter().map(|(e, a)| (e.clone(), *a)), "admin@selfbase"), 0);
+        // Another account's admin keeps the workspace staffed.
+        let rows = vec![
+            ("admin@selfbase".to_string(), true),
+            ("other@selfbase".to_string(), true),
+        ];
+        assert_eq!(count_admins_outside_account(rows.iter().map(|(e, a)| (e.clone(), *a)), "admin@selfbase"), 1);
+        // Case-insensitive: emails are normalised, but never rely on it.
+        let rows = vec![("Admin@Selfbase".to_string(), true)];
+        assert_eq!(count_admins_outside_account(rows.iter().map(|(e, a)| (e.clone(), *a)), "admin@selfbase"), 0);
+    }
+
     #[test]
     fn password_digest_verifies_current_domain() {
         let email = "user@test";
