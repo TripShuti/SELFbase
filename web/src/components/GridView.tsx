@@ -64,6 +64,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { FloatingPopup } from "./FloatingPopup";
 import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
 import { CellHistoryPopup } from "./CellHistoryPopup";
+import { PropertyTypeIcon } from "./propertyTypeIcons";
 
 // ──── Filter types & helpers ──────────────────────────────────────────────────
 
@@ -3660,26 +3661,5 @@ function FilterValueInput({
       placeholder="Value…"
       className={`${sharedCls} w-32`}
     />
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-
-function PropertyTypeIcon({ type }: { type: string }) {
-  const icons: Record<string, string> = {
-    Text: "T",
-    Number: "#",
-    Date: "📅",
-    Select: "◉",
-    MultiSelect: "☰",
-    Relation: "↗",
-    Checkbox: "✓",
-    Url: "🔗",
-    Duration: "⏱",
-  };
-  return (
-    <span className="text-neutral-400 dark:text-neutral-600 font-mono text-xs">
-      {icons[type] ?? "?"}
-    </span>
   );
 }

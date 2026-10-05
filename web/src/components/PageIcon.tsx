@@ -39,6 +39,7 @@ import {
   Paperclip,
   Pin,
   Plus,
+  Presentation,
   Rocket,
   Search,
   Settings,
@@ -121,6 +122,7 @@ const LUCIDE_ICONS: Record<string, LucideIcon> = {
   list: List,
   "layout-grid": LayoutGrid,
   paperclip: Paperclip,
+  presentation: Presentation,
   smile: Smile,
 };
 

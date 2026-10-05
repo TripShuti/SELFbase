@@ -10,6 +10,7 @@ import {
   usePearWorkspaceSlug,
 } from "@/src/lib/blobUpload";
 import { formatBytes } from "@/src/lib/formatBytes";
+import { PageIcon } from "@/src/components/PageIcon";
 
 /**
  * Built-in `FileBlock` — generic file attachment (any content type).
@@ -172,8 +173,8 @@ export function FileBlockRenderer({ node }: BlockRendererProps) {
   return (
     <figure className="my-3 group/file">
       <div className="flex items-center gap-3 rounded-lg border border-neutral-200 bg-white px-3 py-2.5 dark:border-neutral-700 dark:bg-neutral-900">
-        <span className="text-2xl leading-none" aria-hidden="true">
-          {iconFor(props.contentType, displayName)}
+        <span className="text-neutral-400 dark:text-neutral-500 shrink-0" aria-hidden="true">
+          <PageIcon icon={iconFor(props.contentType, displayName)} size={28} />
         </span>
         <div className="min-w-0 flex-1">
           <a
@@ -279,20 +280,20 @@ function shortTypeLabel(contentType: string | undefined, name: string): string {
 function iconFor(contentType: string | undefined, name: string): string {
   const ct = (contentType ?? "").toLowerCase();
   const ext = extensionOf(name).toLowerCase();
-  if (ct.startsWith("image/")) return "🖼️";
-  if (ct.startsWith("audio/")) return "🎵";
-  if (ct.startsWith("video/")) return "🎬";
-  if (ct === "application/pdf" || ext === "pdf") return "📄";
+  if (ct.startsWith("image/")) return "lucide:image";
+  if (ct.startsWith("audio/")) return "lucide:music";
+  if (ct.startsWith("video/")) return "lucide:video";
+  if (ct === "application/pdf" || ext === "pdf") return "lucide:file-text";
   if (
     /zip|tar|gzip|x-7z|rar|compressed/.test(ct) ||
     ["zip", "tar", "gz", "tgz", "7z", "rar"].includes(ext)
   ) {
-    return "🗜️";
+    return "lucide:archive";
   }
   if (/spreadsheet|excel|csv/.test(ct) || ["csv", "xls", "xlsx", "tsv"].includes(ext)) {
-    return "📊";
+    return "lucide:table";
   }
-  if (/presentation|powerpoint/.test(ct) || ["ppt", "pptx", "key"].includes(ext)) return "📽️";
-  if (ct.startsWith("text/") || /json|xml|markdown/.test(ct)) return "📃";
-  return "📎";
+  if (/presentation|powerpoint/.test(ct) || ["ppt", "pptx", "key"].includes(ext)) return "lucide:presentation";
+  if (ct.startsWith("text/") || /json|xml|markdown/.test(ct)) return "lucide:file-text";
+  return "lucide:paperclip";
 }

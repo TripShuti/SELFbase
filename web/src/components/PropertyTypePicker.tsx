@@ -19,8 +19,8 @@ import { PageIcon } from "./PageIcon";
 
 const PROPERTY_TYPES: { tag: PropertyTypeTag; icon: string; label: string }[] =
   [
-    { tag: "Text", icon: "T", label: "Text" },
-    { tag: "Number", icon: "#", label: "Number" },
+    { tag: "Text", icon: "lucide:type", label: "Text" },
+    { tag: "Number", icon: "lucide:hash", label: "Number" },
     { tag: "Date", icon: "lucide:calendar", label: "Date" },
     { tag: "Select", icon: "lucide:circle-dot", label: "Select" },
     { tag: "MultiSelect", icon: "lucide:list", label: "Multi-select" },

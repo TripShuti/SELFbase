@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useTable } from "spacetimedb/react";
 import { tables } from "@/src/module_bindings";
 import { PropertyCell } from "./PropertyCell";
+import { PropertyTypeIcon } from "./propertyTypeIcons";
 import { usePagePropertyValues, usePropertyDefinitions } from "@/src/hooks/useDatabase";
 import { useUsers } from "@/src/hooks/useUser";
 import { buildSiblingValues } from "@/src/lib/formulaEval";
@@ -54,19 +55,5 @@ export function PagePropertiesPanel({
 }
 
 export function PropIcon({ type }: { type: string }) {
-  const icons: Record<string, string> = {
-    Text: "T",
-    Number: "#",
-    Date: "📅",
-    Select: "◉",
-    MultiSelect: "☰",
-    Relation: "↗",
-    Checkbox: "✓",
-    Url: "🔗",
-  };
-  return (
-    <span className="font-mono text-neutral-400 dark:text-neutral-600 text-xs">
-      {icons[type] ?? "?"}
-    </span>
-  );
+  return <PropertyTypeIcon type={type} />;
 }

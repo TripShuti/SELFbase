@@ -6,6 +6,7 @@ import { useUpdatePropertyConfig } from "@/src/hooks/useDatabase";
 import type { PropertyDefinitionRow, PagePropertyValueRow } from "@/src/hooks/useDatabase";
 import { type UserRow } from "@/src/hooks/useUser";
 import { FloatingPopup } from "./FloatingPopup";
+import { PageIcon } from "./PageIcon";
 import { formatDateOnly } from "../lib/date-only";
 import { formatDuration, parseDurationText } from "../lib/duration";
 import { uploadWorkspaceBlob, useBlobSrc, usePearWorkspaceSlug } from "@/src/lib/blobUpload";
@@ -1333,12 +1334,16 @@ function FileRow({
           href={link}
           target="_blank"
           rel="noreferrer"
-          className="flex-1 truncate text-blue-600 dark:text-blue-400 hover:underline"
+          className="flex-1 truncate text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1.5"
         >
-          📎 {file.name}
+          <PageIcon icon="lucide:paperclip" size={13} className="shrink-0" />
+          <span className="truncate">{file.name}</span>
         </a>
       ) : (
-        <span className="flex-1 truncate text-neutral-500">📎 {file.name}</span>
+        <span className="flex-1 truncate text-neutral-500 inline-flex items-center gap-1.5">
+          <PageIcon icon="lucide:paperclip" size={13} className="shrink-0" />
+          <span className="truncate">{file.name}</span>
+        </span>
       )}
       <button
         type="button"
@@ -1399,7 +1404,8 @@ function FileCell({
               key={`${f.objectId || f.externalUrl}-${i}`}
               className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-xs text-neutral-700 dark:text-neutral-300 max-w-[12rem] truncate"
             >
-              📎 {f.name}
+              <PageIcon icon="lucide:paperclip" size={12} className="shrink-0" />
+              <span className="truncate">{f.name}</span>
             </span>
           ))
         )}
