@@ -4,8 +4,8 @@
 
 Fork of [Pear](https://codeberg.org/Eclosion-Tech/pear) (AGPL-3.0, fork point tagged `upstream-final`),
 stripped down to the workspace core: pages, databases, relations, files, and a
-versioned REST API. No AI users, no agents, no MCP, no Notion import, no
-automations, no worker. Pages and database rows are the same entity — a page
+versioned REST API. No AI users, no agents, no MCP, no automations, no worker.
+Pages and database rows are the same entity — a page
 viewed in a grid is a row, a row opened fully is a page. Real-time sync over
 SpacetimeDB subscriptions; documents are typed component trees with Yjs-backed
 rich text.
@@ -28,6 +28,7 @@ rich text.
 - **Column calculations** — per-column footer aggregations (Sum, Average, Min, Max, Range, Count…), stored per view; `Duration` columns sum as `Xh Ym`.
 - **Cell history** — every value change is kept append-only; right-click a cell → History → one-click restore.
 - **Type changes with migration** — changing a column type converts values where possible (with a Convert/Cancel confirm showing what will be cleared) instead of orphaning them.
+- **Notion import** — brings a Notion *export* (Markdown + CSV) in from Settings → Import from Notion, or from the CLI (`pnpm --filter web import:notion`). Pick one CSV and a folder of `.md` files, choose the title column, confirm per-column types (`Text` / `Number` / `Select`, inferred from the values and overridable), preview the plan, then import: CSV rows become rows, a `.md` file whose title matches a row becomes that row's body, and leftover `.md` files become plain Doc pages. One database per run; it refuses to import into an existing database of the same name. It runs client-side through the ordinary page/schema reducers, so there is no background job and no single-transaction apply — a failed run leaves partial rows behind. This is *not* upstream Pear's importer: that one fetched the Notion **API** server-side in a worker, with block-level and relation fidelity.
 - **Relations** — first-class links between databases.
 - **Access control** — per-page/per-block rules (open by default), access requests with human approval.
 - **Comments** — page-level and block-anchored threads with replies, resolve/reopen, author/admin moderation.
@@ -37,7 +38,7 @@ rich text.
 
 What this fork deliberately does **not** have (see upstream Pear if you need
 them): AI users, agent chats, Orcha orchestration, MCP server/client,
-extensions, automations, Notion import, semantic search, AI columns,
+extensions, automations, semantic search, AI columns,
 device bridge, desktop app.
 
 ## Project structure
