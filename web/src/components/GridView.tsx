@@ -35,6 +35,7 @@ import {
 import type { PropertyDefinitionRow } from "@/src/hooks/useDatabase";
 import { PropertyCell } from "./PropertyCell";
 import { dateOnlyKey } from "../lib/date-only";
+import { evaluateRollup } from "../lib/formulaEvaluator";
 import {
   buildSiblingValues,
   parseSelectConfig,
@@ -210,6 +211,45 @@ type PropValRow = { pageId: bigint; propertyDefinitionId: bigint; value: { tag: 
 type RowPropertyValues = ReturnType<typeof usePagePropertyValues>;
 const NO_ROW_VALUES: RowPropertyValues = [];
 
+/**
+ * Column footer calculations (Notion-style): per-column aggregation over the
+ * visible rows, configured per view and stored in `database_view.config`
+ * next to `columnWidths`. Only `Number` columns offer calculations — other
+ * tags are ignored strictly (a type change via `update_property_type`
+ * doesn't migrate stored values, so tag mixing would silently drop or
+ * misread cells). Keys match `evaluateRollup` function names 1:1
+ * (`web/src/lib/formulaEvaluator.ts`).
+ */
+const COLUMN_CALCULATIONS = [
+  { key: "sum", label: "Sum" },
+  { key: "average", label: "Average" },
+  { key: "min", label: "Min" },
+  { key: "max", label: "Max" },
+  { key: "range", label: "Range" },
+  { key: "count", label: "Count" },
+  { key: "count_values", label: "Count values" },
+] as const;
+type ColumnCalculation = (typeof COLUMN_CALCULATIONS)[number]["key"];
+
+function isColumnCalculation(v: unknown): v is ColumnCalculation {
+  return COLUMN_CALCULATIONS.some((c) => c.key === v);
+}
+
+/** Numeric value of one cell for aggregation, or null when the cell doesn't contribute. */
+function numberCellValue(entry: PropValRow | undefined): number | null {
+  if (!entry) return null;
+  const v = entry.value as { tag: string; value: unknown };
+  if (v.tag === "Number" && typeof v.value === "number" && Number.isFinite(v.value)) {
+    return v.value;
+  }
+  return null;
+}
+
+function formatCalcResult(result: string | number): string {
+  if (typeof result === "string") return result;
+  return String(Math.round(result * 100) / 100);
+}
+
 function matchesTextOp(text: string, op: FilterOperator, value: string): boolean {
   const t = text.toLowerCase();
   const v = value.toLowerCase();
@@ -301,6 +341,8 @@ interface ViewConfig {
   columnWidths?: Record<string, number>;
   boardGroupByPropertyId?: string; // property definition id as string (bigint serialization)
   sorts?: Array<{ propertyId: string | null; direction: "asc" | "desc" }>;
+  /** Per-column footer calculation by property definition id (as string). Absent = none. */
+  columnCalculations?: Record<string, string>;
 }
 function parseViewConfig(raw: string): ViewConfig {
   try { return JSON.parse(raw) as ViewConfig; } catch { return {}; }
@@ -734,6 +776,52 @@ export function GridView({ page }: GridViewProps) {
 
   function updateSort(id: string, changes: Partial<SortRule>) {
     setActiveSort((prev) => prev.map((s) => (s.id === id ? { ...s, ...changes } : s)));
+  }
+
+  // ── Column footer calculations (Notion-style) ─────────────────────────────
+  // Validated per-view mapping propId → calculation. Aggregates the visible
+  // (filtered + sorted) rows so the footer stays consistent with the grid.
+  const viewCalculations = useMemo(() => {
+    const raw = view ? parseViewConfig(view.config).columnCalculations : undefined;
+    const map = new Map<string, ColumnCalculation>();
+    if (raw) {
+      for (const [propId, calc] of Object.entries(raw)) {
+        if (isColumnCalculation(calc)) map.set(propId, calc);
+      }
+    }
+    return map;
+  }, [view]);
+
+  const columnCalcs = useMemo(() => {
+    const map = new Map<string, { calc: ColumnCalculation; display: string; n: number }>();
+    if (viewCalculations.size === 0 || sortedRows.length === 0) return map;
+    for (const prop of displayProperties) {
+      const calc = viewCalculations.get(String(prop.id));
+      if (!calc || prop.propertyType.tag !== "Number") continue;
+      const values: number[] = [];
+      for (const row of sortedRows) {
+        const num = numberCellValue(valueByPageProp.get(`${row.id}|${prop.id}`));
+        if (num !== null) values.push(num);
+      }
+      if (values.length === 0) continue;
+      const result = evaluateRollup({ function: calc, values });
+      if (result === null) continue;
+      map.set(String(prop.id), { calc, display: formatCalcResult(result), n: values.length });
+    }
+    return map;
+  }, [viewCalculations, displayProperties, sortedRows, valueByPageProp]);
+
+  function saveColumnCalculation(propId: bigint, calc: ColumnCalculation | "none") {
+    const v = viewRef.current;
+    if (!v) return;
+    const existing = parseViewConfig(v.config);
+    const next: Record<string, string> = { ...(existing.columnCalculations ?? {}) };
+    if (calc === "none") delete next[String(propId)];
+    else next[String(propId)] = calc;
+    updateViewConfigRef.current({
+      viewId: v.id,
+      config: serializeViewConfig({ ...existing, columnCalculations: next }),
+    });
   }
 
   // Persist sorts in the view config (shared across devices, survives
@@ -1568,6 +1656,8 @@ export function GridView({ page }: GridViewProps) {
                   isDragging={draggingColKey === String(prop.id)}
                   sortDirection={sortDirOf(prop.id)}
                   onToggleSort={() => toggleHeaderSort(prop.id)}
+                  calculation={viewCalculations.get(String(prop.id))}
+                  onSetCalculation={(calc) => saveColumnCalculation(prop.id, calc)}
                 />
               ))}
               <th
@@ -1681,6 +1771,37 @@ export function GridView({ page }: GridViewProps) {
               <tr aria-hidden="true" style={{ height: virtualPadBottom }} />
             )}
           </tbody>
+          {columnCalcs.size > 0 && (
+            <tfoot>
+              <tr className="border-t border-neutral-200 dark:border-neutral-800">
+                <td className="px-3 py-1.5 h-9 border-r border-neutral-200 dark:border-neutral-800 sticky left-0 bottom-0 z-[1] bg-neutral-50 dark:bg-neutral-900 [box-shadow:1px_0_0_0_#e5e7eb] dark:[box-shadow:1px_0_0_0_#262626]">
+                  <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                    Count {sortedRows.length}
+                  </span>
+                </td>
+                {displayProperties.map((prop) => {
+                  const c = columnCalcs.get(String(prop.id));
+                  const label = c ? COLUMN_CALCULATIONS.find((o) => o.key === c.calc)?.label ?? c.calc : "";
+                  return (
+                    <td
+                      key={String(prop.id)}
+                      className="px-2 py-1.5 h-9 border-r border-neutral-200 dark:border-neutral-800 sticky bottom-0 z-[1] bg-neutral-50 dark:bg-neutral-900"
+                    >
+                      {c != null && (
+                        <span
+                          className="text-xs font-medium text-neutral-700 dark:text-neutral-300"
+                          title={`${label} · ${c.n} value${c.n !== 1 ? "s" : ""}`}
+                        >
+                          {c.display}
+                        </span>
+                      )}
+                    </td>
+                  );
+                })}
+                <td className="sticky bottom-0 z-[1] bg-neutral-50 dark:bg-neutral-900" />
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
 
@@ -1910,6 +2031,8 @@ function ColumnHeader({
   isDragging,
   sortDirection,
   onToggleSort,
+  calculation,
+  onSetCalculation,
 }: {
   prop: NonNullable<PropertyDefinitionRow>;
   schemaId: bigint;
@@ -1922,9 +2045,11 @@ function ColumnHeader({
   isDragging: boolean;
   sortDirection: "asc" | "desc" | null;
   onToggleSort: () => void;
+  calculation: ColumnCalculation | undefined;
+  onSetCalculation: (calc: ColumnCalculation | "none") => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [mode, setMode] = useState<"idle" | "rename" | "change-type" | "relation-target" | "edit-options" | "set-default">("idle");
+  const [mode, setMode] = useState<"idle" | "rename" | "change-type" | "relation-target" | "edit-options" | "set-default" | "calculate">("idle");
   const [renameValue, setRenameValue] = useState(prop.name);
   const [relTargetId, setRelTargetId] = useState<bigint | null>(null);
   const [defaultDraft, setDefaultDraft] = useState("");
@@ -2085,6 +2210,21 @@ function ColumnHeader({
           >
             Change type
           </button>
+          {prop.propertyType.tag === "Number" && (
+            <button
+              className="w-full text-left px-3 py-1.5 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700"
+              onClick={() => { setMenuOpen(false); setMode("calculate"); }}
+            >
+              <div className="flex items-center justify-between">
+                <span>Calculate</span>
+                {calculation && (
+                  <span className="text-[10px] text-neutral-400 dark:text-neutral-500 font-mono truncate max-w-[80px] ml-2">
+                    {COLUMN_CALCULATIONS.find((c) => c.key === calculation)?.label ?? calculation}
+                  </span>
+                )}
+              </div>
+            </button>
+          )}
           <div className="border-t border-neutral-100 dark:border-neutral-700" />
           <button
             className="w-full text-left px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
@@ -2102,6 +2242,37 @@ function ColumnHeader({
           className="w-44 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-xl overflow-hidden"
         >
           <PropertyTypePicker onSelect={handleChangeType} />
+        </FloatingPopup>
+      )}
+
+      {mode === "calculate" && (
+        <FloatingPopup
+          anchorRef={buttonRef}
+          onClose={closeMenu}
+          className="w-44 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-xl overflow-hidden"
+        >
+          <div className="px-3 py-2 text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider border-b border-neutral-100 dark:border-neutral-700">
+            Calculate
+          </div>
+          {COLUMN_CALCULATIONS.map(({ key, label }) => (
+            <button
+              key={key}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+              onClick={() => { onSetCalculation(key); closeMenu(); }}
+            >
+              <span className="w-4 flex-shrink-0 text-blue-500 text-xs">
+                {calculation === key ? "✓" : ""}
+              </span>
+              {label}
+            </button>
+          ))}
+          <div className="border-t border-neutral-100 dark:border-neutral-700" />
+          <button
+            className="w-full text-left px-3 py-1.5 text-sm text-neutral-400 dark:text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-700 italic"
+            onClick={() => { onSetCalculation("none"); closeMenu(); }}
+          >
+            <span className="pl-6">None</span>
+          </button>
         </FloatingPopup>
       )}
 
