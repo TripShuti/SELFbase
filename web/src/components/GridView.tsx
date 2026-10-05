@@ -2241,6 +2241,7 @@ function ColumnHeader({
     tag: PropertyTypeTag;
     relTarget: bigint | null;
   } | null>(null);
+  const [typeError, setTypeError] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState(prop.name);
   const [relTargetId, setRelTargetId] = useState<bigint | null>(null);
   const [defaultDraft, setDefaultDraft] = useState("");
@@ -2260,6 +2261,7 @@ function ColumnHeader({
     setRelTargetId(null);
     setDefaultDraft("");
     setPendingType(null);
+    setTypeError(null);
   }
 
   async function commitRename() {
@@ -2274,23 +2276,31 @@ function ColumnHeader({
   // the server migrates convert-or-clear (transactional), and anything that
   // can't convert stays recoverable via cell History.
   async function applyChangeType(tag: PropertyTypeTag, relTarget: bigint | null) {
-    if (tag === "Relation" && relTarget) {
-      await updatePropertyType({
-        propertyDefinitionId: prop.id,
-        propertyType: { tag: "Relation" },
-      });
-      await updatePropertyConfig({
-        propertyDefinitionId: prop.id,
-        config: JSON.stringify({ targetPageId: String(relTarget) }),
-      });
-    } else {
-      await updatePropertyType({
-        propertyDefinitionId: prop.id,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        propertyType: { tag } as any,
-      });
+    setTypeError(null);
+    try {
+      if (tag === "Relation" && relTarget) {
+        await updatePropertyType({
+          propertyDefinitionId: prop.id,
+          propertyType: { tag: "Relation" },
+        });
+        await updatePropertyConfig({
+          propertyDefinitionId: prop.id,
+          config: JSON.stringify({ targetPageId: String(relTarget) }),
+        });
+      } else {
+        await updatePropertyType({
+          propertyDefinitionId: prop.id,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          propertyType: { tag } as any,
+        });
+      }
+      closeMenu();
+    } catch (err) {
+      // Keep the popup open and surface the reason — e.g. the live module
+      // predates a newly added type and rejects the unknown variant.
+      const msg = err instanceof Error ? err.message : String(err);
+      setTypeError(msg || "Type change failed");
     }
-    closeMenu();
   }
 
   function requestChangeType(tag: PropertyTypeTag, relTarget: bigint | null) {
@@ -2485,6 +2495,11 @@ function ColumnHeader({
                 </>
               )}
             </p>
+            {typeError && (
+              <p className="mt-1.5 text-xs text-red-600 dark:text-red-400 leading-snug break-words">
+                Failed: {typeError}
+              </p>
+            )}
             <div className="flex gap-2 mt-2 border-t border-neutral-100 dark:border-neutral-700 pt-2">
               <button
                 className="flex-1 text-xs py-1 rounded bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600"
