@@ -12,7 +12,8 @@ export type PropertyTypeTag =
   | "Person"
   | "File"
   | "Formula"
-  | "Rollup";
+  | "Rollup"
+  | "Duration";
 
 import { PageIcon } from "./PageIcon";
 
@@ -30,6 +31,7 @@ const PROPERTY_TYPES: { tag: PropertyTypeTag; icon: string; label: string }[] =
     { tag: "File", icon: "lucide:paperclip", label: "Files & media" },
     { tag: "Formula", icon: "lucide:sigma", label: "Formula" },
     { tag: "Rollup",  icon: "lucide:layers", label: "Rollup" },
+    { tag: "Duration", icon: "lucide:timer", label: "Duration" },
   ];
 
 interface PropertyTypePickerProps {

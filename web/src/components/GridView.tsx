@@ -35,6 +35,7 @@ import {
 import type { PropertyDefinitionRow } from "@/src/hooks/useDatabase";
 import { PropertyCell } from "./PropertyCell";
 import { dateOnlyKey } from "../lib/date-only";
+import { formatDuration, parseDurationText } from "../lib/duration";
 import { evaluateRollup } from "../lib/formulaEvaluator";
 import {
   buildSiblingValues,
@@ -120,6 +121,8 @@ function compareForSort(
       return dir * ((av.value as number) - (bv.value as number));
     case "Date":
       return dir * (Number(av.value as bigint) - Number(bv.value as bigint));
+    case "Duration":
+      return dir * (Number(av.value as bigint) - Number(bv.value as bigint));
     case "Checkbox":
       return dir * ((av.value ? 1 : 0) - (bv.value ? 1 : 0));
     case "MultiSelect": {
@@ -157,6 +160,7 @@ const OP_LABELS: Record<FilterOperator, string> = {
 function opsForType(type: string): FilterOperator[] {
   switch (type) {
     case "Number":
+    case "Duration":
       return ["equals", "not_equals", "gt", "gte", "lt", "lte", "is_empty", "is_not_empty"];
     case "Select":
       return ["is", "is_not", "is_empty", "is_not_empty"];
@@ -201,6 +205,8 @@ function isPropValueEmpty(pv: { tag: string; value: unknown }): boolean {
     case "Relation":
       return (pv.value as bigint[]).length === 0;
     case "Date":
+      return (pv.value as bigint) === BigInt(0);
+    case "Duration":
       return (pv.value as bigint) === BigInt(0);
     default:
       return false;
@@ -264,9 +270,9 @@ function willConvertCellValue(
   const v = value.value;
   switch (target) {
     case "Text":
-      return ["Text", "Url", "Number", "Checkbox", "Select", "MultiSelect", "Date", "Ai", "File"].includes(value.tag);
+      return ["Text", "Url", "Number", "Checkbox", "Select", "MultiSelect", "Date", "Ai", "File", "Duration"].includes(value.tag);
     case "Number": {
-      if (value.tag === "Number" || value.tag === "Checkbox") return true;
+      if (value.tag === "Number" || value.tag === "Checkbox" || value.tag === "Duration") return true;
       if (value.tag === "Text" || value.tag === "Url" || value.tag === "Select")
         return parsePreviewNumber(v) !== null;
       if (value.tag === "MultiSelect")
@@ -274,7 +280,7 @@ function willConvertCellValue(
       return false;
     }
     case "Checkbox": {
-      if (value.tag === "Checkbox" || value.tag === "Number") return true;
+      if (value.tag === "Checkbox" || value.tag === "Number" || value.tag === "Duration") return true;
       if (value.tag === "Text" || value.tag === "Select")
         return parsePreviewCheckbox(v) !== null;
       return false;
@@ -291,13 +297,23 @@ function willConvertCellValue(
         return Array.isArray(v) && v.length === 1 && isNonEmptyString(v[0]);
       if (value.tag === "Text" || value.tag === "Select" || value.tag === "Url")
         return isNonEmptyString(v);
-      return value.tag === "Number" || value.tag === "Checkbox" || value.tag === "Date";
+      return value.tag === "Number" || value.tag === "Checkbox" || value.tag === "Date" || value.tag === "Duration";
     }
     case "MultiSelect": {
       if (value.tag === "MultiSelect") return Array.isArray(v) && v.length > 0;
       if (value.tag === "Text" || value.tag === "Select" || value.tag === "Url")
         return isNonEmptyString(v);
-      return value.tag === "Number" || value.tag === "Checkbox" || value.tag === "Date";
+      return value.tag === "Number" || value.tag === "Checkbox" || value.tag === "Date" || value.tag === "Duration";
+    }
+    case "Duration": {
+      if (value.tag === "Duration") return true;
+      if (value.tag === "Text" || value.tag === "Select" || value.tag === "Url")
+        return parseDurationText(v) !== null;
+      if (value.tag === "Number")
+        return typeof v === "number" && Number.isFinite(v) && v >= 0;
+      if (value.tag === "MultiSelect")
+        return Array.isArray(v) && v.length === 1 && parseDurationText(v[0]) !== null;
+      return false;
     }
     case "Url":
       if (value.tag === "Url") return true;
@@ -321,11 +337,11 @@ function willConvertCellValue(
 /**
  * Column footer calculations (Notion-style): per-column aggregation over the
  * visible rows, configured per view and stored in `database_view.config`
- * next to `columnWidths`. Only `Number` columns offer calculations — other
- * tags are ignored strictly (a type change via `update_property_type`
+ * next to `columnWidths`. `Number` and `Duration` columns offer calculations —
+ * other tags are ignored strictly (a type change via `update_property_type`
  * doesn't migrate stored values, so tag mixing would silently drop or
  * misread cells). Keys match `evaluateRollup` function names 1:1
- * (`web/src/lib/formulaEvaluator.ts`).
+ * (`web/src/lib/formulaEvaluator.ts`). Duration results render as `Xh Ym`.
  */
 const COLUMN_CALCULATIONS = [
   { key: "sum", label: "Sum" },
@@ -343,17 +359,24 @@ function isColumnCalculation(v: unknown): v is ColumnCalculation {
 }
 
 /** Numeric value of one cell for aggregation, or null when the cell doesn't contribute. */
-function numberCellValue(entry: PropValRow | undefined): number | null {
+function numberCellValue(entry: PropValRow | undefined, tag: string): number | null {
   if (!entry) return null;
   const v = entry.value as { tag: string; value: unknown };
-  if (v.tag === "Number" && typeof v.value === "number" && Number.isFinite(v.value)) {
+  // Strict tag match: a type change migrates values server-side, so a
+  // mismatched tag is stale data that must not leak into the total.
+  if (tag === "Number" && v.tag === "Number" && typeof v.value === "number" && Number.isFinite(v.value)) {
     return v.value;
+  }
+  // Durations aggregate as minutes; 0 is the empty sentinel (like Date(0)).
+  if (tag === "Duration" && v.tag === "Duration" && typeof v.value === "bigint" && v.value !== BigInt(0)) {
+    return Number(v.value);
   }
   return null;
 }
 
-function formatCalcResult(result: string | number): string {
+function formatCalcResult(result: string | number, asDuration: boolean): string {
   if (typeof result === "string") return result;
+  if (asDuration) return formatDuration(result);
   return String(Math.round(result * 100) / 100);
 }
 
@@ -397,6 +420,18 @@ function matchesFilter(
       const n = parseFloat(value);
       if (isNaN(n)) return true;
       const v2 = val.value as number;
+      if (operator === "equals") return v2 === n;
+      if (operator === "not_equals") return v2 !== n;
+      if (operator === "gt") return v2 > n;
+      if (operator === "gte") return v2 >= n;
+      if (operator === "lt") return v2 < n;
+      if (operator === "lte") return v2 <= n;
+      return true;
+    }
+    case "Duration": {
+      const n = parseDurationText(value);
+      if (n === null) return true;
+      const v2 = Number(val.value as bigint);
       if (operator === "equals") return v2 === n;
       if (operator === "not_equals") return v2 !== n;
       if (operator === "gt") return v2 > n;
@@ -904,16 +939,19 @@ export function GridView({ page }: GridViewProps) {
     if (viewCalculations.size === 0 || sortedRows.length === 0) return map;
     for (const prop of displayProperties) {
       const calc = viewCalculations.get(String(prop.id));
-      if (!calc || prop.propertyType.tag !== "Number") continue;
+      const tag = prop.propertyType.tag;
+      if (!calc || (tag !== "Number" && tag !== "Duration")) continue;
       const values: number[] = [];
       for (const row of sortedRows) {
-        const num = numberCellValue(valueByPageProp.get(`${row.id}|${prop.id}`));
+        const num = numberCellValue(valueByPageProp.get(`${row.id}|${prop.id}`), tag);
         if (num !== null) values.push(num);
       }
       if (values.length === 0) continue;
       const result = evaluateRollup({ function: calc, values });
       if (result === null) continue;
-      map.set(String(prop.id), { calc, display: formatCalcResult(result), n: values.length });
+      // Counts render plain; other Duration results render as `Xh Ym`.
+      const asDuration = tag === "Duration" && calc !== "count" && calc !== "count_values";
+      map.set(String(prop.id), { calc, display: formatCalcResult(result, asDuration), n: values.length });
     }
     return map;
   }, [viewCalculations, displayProperties, sortedRows, valueByPageProp]);
@@ -2384,7 +2422,7 @@ function ColumnHeader({
           >
             Change type
           </button>
-          {prop.propertyType.tag === "Number" && (
+          {prop.propertyType.tag === "Number" || prop.propertyType.tag === "Duration" ? (
             <button
               className="w-full text-left px-3 py-1.5 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700"
               onClick={() => { setMenuOpen(false); setMode("calculate"); }}
@@ -3106,6 +3144,10 @@ function ListCellValue({ values, prop }: { values: RowPropertyValues; prop: NonN
     if (!text) return null;
     return <span className="text-xs text-neutral-400 dark:text-neutral-500 truncate max-w-[80px]">{text}</span>;
   }
+  if (tag === "Duration") {
+    if (val.value == null || typeof val.value !== "bigint" || val.value === BigInt(0)) return null;
+    return <span className="text-xs text-neutral-400 dark:text-neutral-500 truncate max-w-[80px]">{formatDuration(val.value)}</span>;
+  }
   return null;
 }
 
@@ -3329,6 +3371,7 @@ function emptyPropertyValue(tag: string) {
     case "MultiSelect": return { tag: "MultiSelect" as const, value: [] as string[] };
     case "Relation":    return { tag: "Relation" as const, value: [] as bigint[] };
     case "Date":        return { tag: "Date" as const, value: BigInt(0) };
+    case "Duration":    return { tag: "Duration" as const, value: BigInt(0) };
     case "Url":         return { tag: "Url" as const, value: "" };
     default:            return { tag: "Text" as const, value: "" };
   }
@@ -3568,6 +3611,19 @@ function FilterValueInput({
     );
   }
 
+  // Duration — free text parsed as `80h 3m` / `80:03` / minutes
+  if (propType === "Duration") {
+    return (
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="80h 3m…"
+        className={`${sharedCls} w-24`}
+      />
+    );
+  }
+
   // Date
   if (propType === "Date") {
     return (
@@ -3604,6 +3660,7 @@ function PropertyTypeIcon({ type }: { type: string }) {
     Relation: "↗",
     Checkbox: "✓",
     Url: "🔗",
+    Duration: "⏱",
   };
   return (
     <span className="text-neutral-400 dark:text-neutral-600 font-mono text-xs">

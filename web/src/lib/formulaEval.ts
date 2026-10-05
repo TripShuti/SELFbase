@@ -223,6 +223,9 @@ export function buildSiblingValues(
       map[prop.name] = String(val.value);
     } else if (val.tag === "Checkbox") {
       map[prop.name] = String(val.value);
+    } else if (val.tag === "Duration") {
+      // Minutes as a plain number so formulas can do arithmetic on durations.
+      map[prop.name] = String(val.value);
     }
   }
   return map;

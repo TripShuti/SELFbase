@@ -302,6 +302,7 @@ pub(super) fn decode_property_value(v: &Value) -> Result<PropertyValue, String> 
                 .and_then(|x| x.as_bool())
                 .ok_or("Checkbox.value")?,
         )),
+        "Duration" => Ok(PropertyValue::Duration(u64_at(o, "value")?)),
         "Url" => Ok(PropertyValue::Url(string_at(o, "value")?)),
         "Person" => {
             let arr = o.get("value").and_then(|v| v.as_array()).ok_or("Person")?;
@@ -439,6 +440,7 @@ pub(super) fn decode_property_type(v: &Value) -> Result<PropertyType, String> {
         "Formula" => Ok(PropertyType::Formula),
         "Rollup" => Ok(PropertyType::Rollup),
         "File" => Ok(PropertyType::File),
+        "Duration" => Ok(PropertyType::Duration),
         _ => Err(format!("PropertyType::{tag}")),
     }
 }
@@ -667,6 +669,7 @@ mod tests {
         for (tag, expected) in [
             ("File", PropertyType::File), ("Ai", PropertyType::Ai),
             ("Formula", PropertyType::Formula), ("Rollup", PropertyType::Rollup),
+            ("Duration", PropertyType::Duration),
         ] {
             assert_eq!(decode_property_type(&json!({"tag": tag})).unwrap(), expected);
         }

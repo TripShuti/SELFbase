@@ -7,6 +7,7 @@ import type { PropertyDefinitionRow, PagePropertyValueRow } from "@/src/hooks/us
 import { type UserRow } from "@/src/hooks/useUser";
 import { FloatingPopup } from "./FloatingPopup";
 import { formatDateOnly } from "../lib/date-only";
+import { formatDuration, parseDurationText } from "../lib/duration";
 import { uploadWorkspaceBlob, useBlobSrc, usePearWorkspaceSlug } from "@/src/lib/blobUpload";
 import {
   parseSelectConfig,
@@ -159,6 +160,16 @@ export function PropertyCell({
         <DateCell
           value={value?.tag === "Date" ? (value.value as bigint) : null}
           onSave={(v) => save({ tag: "Date", value: v })}
+        />
+      );
+
+    case "Duration":
+      return (
+        <DurationCell
+          value={value?.tag === "Duration" ? (value.value as bigint) : null}
+          onSave={(v) => save({ tag: "Duration", value: v })}
+          forceEdit={forceEdit}
+          onRequestNavigate={onRequestNavigate}
         />
       );
 
@@ -873,6 +884,93 @@ function DateCell({
   );
 }
 
+// ————————————————— Duration cell —————————————————
+// Stored as whole minutes (u64/bigint); displayed/edited as `80h 3m`.
+// `0` renders as empty — same convention as Date(0) (`isPropValueEmpty`).
+
+function DurationCell({
+  value,
+  onSave,
+  forceEdit,
+  onRequestNavigate,
+}: {
+  value: bigint | null;
+  onSave: (v: bigint) => void;
+  forceEdit?: boolean;
+  onRequestNavigate?: (dir: NavigateDir) => void;
+}) {
+  const [editing, setEditing] = useState(forceEdit ?? false);
+  const [draft, setDraft] = useState(
+    value != null && value !== BigInt(0) ? formatDuration(value) : "",
+  );
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (forceEdit) setEditing(true);
+  }, [forceEdit]);
+
+  useEffect(() => {
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
+
+  useEffect(() => {
+    if (!editing)
+      setDraft(value != null && value !== BigInt(0) ? formatDuration(value) : "");
+  }, [value, editing]);
+
+  function commit() {
+    setEditing(false);
+    const trimmed = draft.trim();
+    if (trimmed === "") return;
+    const minutes = parseDurationText(trimmed);
+    if (minutes === null) {
+      setDraft(value != null && value !== BigInt(0) ? formatDuration(value) : "");
+      return;
+    }
+    onSave(BigInt(minutes));
+  }
+
+  if (!editing) {
+    return (
+      <div
+        className="h-full w-full px-2 py-1 text-sm text-neutral-800 dark:text-neutral-200 cursor-default truncate hover:bg-neutral-100 dark:hover:bg-neutral-800/50"
+        onDoubleClick={() => setEditing(true)}
+      >
+        {value != null && value !== BigInt(0) ? (
+          formatDuration(value)
+        ) : (
+          <span className="text-neutral-400 dark:text-neutral-600 italic">—</span>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <input
+      ref={inputRef}
+      size={1}
+      className="h-full w-full min-w-0 px-2 py-1 text-sm bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white outline-none border border-blue-500/60 rounded-sm"
+      value={draft}
+      placeholder="80h 3m"
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          setEditing(false);
+          onRequestNavigate?.("escape");
+        } else if (e.key === "Enter") {
+          commit();
+          onRequestNavigate?.("down");
+        } else if (e.key === "Tab") {
+          e.preventDefault();
+          commit();
+          onRequestNavigate?.(e.shiftKey ? "left" : "right");
+        }
+      }}
+    />
+  );
+}
+
 // ————————————————— Relation cell —————————————————
 
 interface RelationConfig {
@@ -1360,6 +1458,8 @@ export function renderValueFallback(value: PropertyValue): string {
       return `${(value.value as string[]).length} assigned`;
     case "Date":
       return formatDateOnly(Number(value.value as bigint));
+    case "Duration":
+      return formatDuration(value.value as bigint);
     case "File": {
       const files = value.value as { name: string }[];
       return files.map((f) => f.name).join(", ");

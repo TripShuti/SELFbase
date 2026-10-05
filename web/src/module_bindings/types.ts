@@ -483,6 +483,7 @@ export const PropertyType = __t.enum("PropertyType", {
   Formula: __t.unit(),
   Rollup: __t.unit(),
   File: __t.unit(),
+  Duration: __t.unit(),
 });
 export type PropertyType = __Infer<typeof PropertyType>;
 
@@ -503,6 +504,7 @@ export const PropertyValue = __t.enum("PropertyValue", {
   get File() {
     return __t.array(FileRef);
   },
+  Duration: __t.u64(),
 });
 export type PropertyValue = __Infer<typeof PropertyValue>;
 

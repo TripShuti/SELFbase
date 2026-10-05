@@ -13,6 +13,7 @@
  */
 
 import { parseOptionFormula } from "./formulaEval";
+import { parseDurationText } from "./duration";
 
 export interface DefaultResolveContext {
   userIdentityHex: string;
@@ -33,7 +34,8 @@ type PropertyValue =
   | { tag: "Checkbox"; value: boolean }
   | { tag: "Url"; value: string }
   | { tag: "Person"; value: string[] }
-  | { tag: "Relation"; value: bigint[] };
+  | { tag: "Relation"; value: bigint[] }
+  | { tag: "Duration"; value: bigint };
 
 /**
  * Extract `defaultValue` from a config JSON string.
@@ -194,6 +196,10 @@ function coerceToType(raw: string, propertyType: string): PropertyValue | null {
     case "Date": {
       const ms = Date.parse(raw);
       return isNaN(ms) ? null : { tag: "Date", value: BigInt(ms) };
+    }
+    case "Duration": {
+      const minutes = parseDurationText(raw);
+      return minutes === null ? null : { tag: "Duration", value: BigInt(minutes) };
     }
     default:
       return null;

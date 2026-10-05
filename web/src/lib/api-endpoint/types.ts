@@ -21,7 +21,8 @@ export type PropertyTypeName =
   | "Relation"
   | "Checkbox"
   | "Url"
-  | "Person";
+  | "Person"
+  | "Duration";
 
 /** SATS-JSON tagged-union encoding of a `PropertyValue`. */
 export type SatsPropertyValue =
@@ -33,7 +34,8 @@ export type SatsPropertyValue =
   | { Relation: Array<number | string> }
   | { Checkbox: boolean }
   | { Url: string }
-  | { Person: string[] };
+  | { Person: string[] }
+  | { Duration: number | string }; // u64 minutes — string when value > 2^53
 
 export type HttpMethodName = "GET" | "POST" | "PATCH" | "DELETE";
 

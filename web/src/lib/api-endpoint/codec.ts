@@ -12,13 +12,17 @@
  *   Checkbox     boolean | "true" | "false"          → { Checkbox: boolean }
  *   Url          string                              → { Url: string }
  *   Person       string[] | string                   → { Person: string[] }
+ *   Duration     number (minutes) | "80h 3m" | "80:03" | ISO-8601 "PT80H3M"
+ *                                                   → { Duration: minutes }
  *
  * Decoding rules invert the above so the SATS shape never leaks into the
- * external API contract.
+ * external API contract. Durations decode as ISO-8601 duration strings
+ * (`PT80H3M`), mirroring how Dates decode as ISO-8601.
  */
 
 import { ApiEndpointError } from "./types";
 import type { PropertyTypeName, SatsPropertyValue } from "./types";
+import { parseDurationText } from "../duration";
 
 interface PropertyConfigShape {
   options?: string[];
@@ -157,7 +161,41 @@ export function encodePropertyValue(
       });
       return { Relation: ids as Array<number | string> };
     }
+    case "Duration": {
+      if (typeof raw === "number" && Number.isFinite(raw) && raw >= 0) {
+        return { Duration: Math.round(raw) };
+      }
+      if (typeof raw === "string") {
+        const fromIso = parseIsoDuration(raw);
+        if (fromIso !== null) return { Duration: fromIso };
+        const fromText = parseDurationText(raw);
+        if (fromText !== null) return { Duration: fromText };
+      }
+      return fail(
+        fieldName,
+        'must be whole minutes or a duration like "80h 3m", "80:03" or "PT80H3M"',
+      );
+    }
   }
+  return fail(fieldName, `unsupported property type '${propertyType}'`);
+}
+
+/** Parse ISO-8601 durations (`PT80H3M`, `PT45M`, `PT2H`) → whole minutes. */
+function parseIsoDuration(raw: string): number | null {
+  const m = /^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/i.exec(raw.trim());
+  if (!m || (!m[1] && !m[2] && !m[3])) return null;
+  const minutes =
+    Number(m[1] ?? 0) * 60 + Number(m[2] ?? 0) + Math.round(Number(m[3] ?? 0) / 60);
+  return Number.isFinite(minutes) ? minutes : null;
+}
+
+/** Format whole minutes as ISO-8601 duration (`PT80H3M`). */
+function formatIsoDuration(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  if (h > 0 && m > 0) return `PT${h}H${m}M`;
+  if (h > 0) return `PT${h}H`;
+  return `PT${m}M`;
 }
 
 /**
@@ -177,6 +215,9 @@ const PROPERTY_VALUE_TAGS = [
   "Checkbox", // 6
   "Url", // 7
   "Person", // 8
+  "Ai", // 9
+  "File", // 10
+  "Duration", // 11
 ] as const;
 
 type PropertyValueTag = (typeof PROPERTY_VALUE_TAGS)[number];
@@ -268,6 +309,22 @@ export function decodePropertyValue(value: SatsPropertyValue | unknown): unknown
       if (!Number.isFinite(ms)) return null;
       return new Date(ms).toISOString();
     }
+    case "Duration": {
+      const raw = norm.payload;
+      const minutes =
+        typeof raw === "number"
+          ? raw
+          : typeof raw === "string"
+            ? Number(raw)
+            : NaN;
+      if (!Number.isFinite(minutes) || minutes < 0) return null;
+      return formatIsoDuration(Math.round(minutes));
+    }
+    case "Ai":
+    case "File":
+      // Structured values have no external JSON representation — same
+      // `null` fallback as before they entered the tag list.
+      return null;
   }
 }
 

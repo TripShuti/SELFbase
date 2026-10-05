@@ -106,6 +106,11 @@ pub enum PropertyType {
     /// Values are `PropertyValue::File` lists of workspace blobs or external
     /// URLs.
     File,
+    /// Duration in whole minutes (e.g. playtime). Displayed as `80h 3m`;
+    /// sums/averages work like `Number`. Appended last so existing BSATN
+    /// variant indices (relied upon by `web/src/lib/api-endpoint/codec.ts`)
+    /// stay stable.
+    Duration,
 }
 
 #[derive(SpacetimeType, Clone, Debug, PartialEq)]
@@ -126,6 +131,8 @@ pub enum PropertyValue {
     Ai(AiPropertyValue),
     /// Files attached to a File-type property cell.
     File(Vec<FileRef>),
+    /// Duration in whole minutes. Appended last — see `PropertyType::Duration`.
+    Duration(u64),
 }
 
 /// One file in a File-type property cell. Exactly one of `object_id`
@@ -705,13 +712,85 @@ fn is_empty_property_value(value: &PropertyValue) -> bool {
         }
         PropertyValue::MultiSelect(v) => v.is_empty(),
         PropertyValue::Relation(v) => v.is_empty(),
-        PropertyValue::Date(ms) => *ms == 0,
+        PropertyValue::Date(ms) | PropertyValue::Duration(ms) => *ms == 0,
         PropertyValue::Number(_)
         | PropertyValue::Checkbox(_)
         | PropertyValue::Person(_)
         | PropertyValue::Ai(_)
         | PropertyValue::File(_) => false,
     }
+}
+
+/// Format whole minutes as `80h 3m` (hours unbounded: `137h 27m`).
+fn format_duration(minutes: u64) -> String {
+    format!("{}h {}m", minutes / 60, minutes % 60)
+}
+
+/// Parse a duration: `80h 3m`, `80:03`, `90m`, `2h` (also bare `90` =
+/// minutes). Returns total minutes, or `None` when nothing parses.
+fn parse_duration_text(s: &str) -> Option<u64> {
+    let t = s.trim().to_lowercase().replace(',', ".");
+    if t.is_empty() {
+        return None;
+    }
+    // `H:MM` — hours unbounded, minutes must be < 60.
+    if let Some(colon) = t.find(':') {
+        let (h, m) = t.split_at(colon);
+        let hours: u64 = h.trim().parse().ok()?;
+        let mins: u64 = m[1..].trim().parse().ok()?;
+        if mins >= 60 {
+            return None;
+        }
+        return hours.checked_mul(60)?.checked_add(mins);
+    }
+    // Token scan: numbers followed by an optional h/m suffix.
+    let mut total = 0u64;
+    let mut any = false;
+    let mut num = String::new();
+    let mut chars = t.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c.is_ascii_digit() || c == '.' {
+            num.push(c);
+            continue;
+        }
+        if c.is_whitespace() {
+            continue;
+        }
+        if num.is_empty() {
+            return None;
+        }
+        let n: f64 = num.parse().ok()?;
+        if !n.is_finite() || n < 0.0 {
+            return None;
+        }
+        match c {
+            'h' => {
+                total = total.checked_add((n * 60.0).round() as u64)?;
+                any = true;
+            }
+            'm' => {
+                total = total.checked_add(n.round() as u64)?;
+                any = true;
+            }
+            's' => {
+                // Seconds fold into minutes (no second precision stored).
+                total = total.checked_add((n / 60.0).round() as u64)?;
+                any = true;
+            }
+            _ => return None,
+        }
+        num.clear();
+    }
+    if !num.is_empty() {
+        // Bare number = minutes.
+        let n: f64 = num.parse().ok()?;
+        if !n.is_finite() || n < 0.0 {
+            return None;
+        }
+        total = total.checked_add(n.round() as u64)?;
+        any = true;
+    }
+    if any { Some(total) } else { None }
 }
 
 /// Format a finite f64 without a trailing `.0` (`720.0` → `"720"`).
@@ -835,6 +914,9 @@ fn convert_property_value(
             PropertyValue::Date(ms) => {
                 converted(PropertyValue::Text(format_iso_date(*ms)))
             }
+            PropertyValue::Duration(m) => {
+                converted(PropertyValue::Text(format_duration(*m)))
+            }
             PropertyValue::Ai(ai) => {
                 converted(PropertyValue::Text(ai.output.clone()))
             }
@@ -854,6 +936,7 @@ fn convert_property_value(
             PropertyValue::Checkbox(b) => {
                 converted(PropertyValue::Number(if *b { 1.0 } else { 0.0 }))
             }
+            PropertyValue::Duration(m) => converted(PropertyValue::Number(*m as f64)),
             PropertyValue::MultiSelect(v) if v.len() == 1 => {
                 match parse_number_text(&v[0]) {
                     Some(n) => converted(PropertyValue::Number(n)),
@@ -865,6 +948,7 @@ fn convert_property_value(
         PropertyType::Checkbox => match value {
             PropertyValue::Checkbox(_) => Keep,
             PropertyValue::Number(n) => converted(PropertyValue::Checkbox(*n != 0.0)),
+            PropertyValue::Duration(m) => converted(PropertyValue::Checkbox(*m != 0)),
             PropertyValue::Text(s) | PropertyValue::Select(s) => {
                 match parse_checkbox_text(s) {
                     Some(b) => converted(PropertyValue::Checkbox(b)),
@@ -887,6 +971,25 @@ fn convert_property_value(
             }
             _ => Clear,
         },
+        PropertyType::Duration => match value {
+            PropertyValue::Duration(_) => Keep,
+            PropertyValue::Text(s) | PropertyValue::Select(s) | PropertyValue::Url(s) => {
+                match parse_duration_text(s) {
+                    Some(m) => converted(PropertyValue::Duration(m)),
+                    None => Clear,
+                }
+            }
+            PropertyValue::Number(n) if n.is_finite() && *n >= 0.0 => {
+                converted(PropertyValue::Duration(*n as u64))
+            }
+            PropertyValue::MultiSelect(v) if v.len() == 1 => {
+                match parse_duration_text(&v[0]) {
+                    Some(m) => converted(PropertyValue::Duration(m)),
+                    None => Clear,
+                }
+            }
+            _ => Clear,
+        },
         PropertyType::Select => match value {
             PropertyValue::Select(s) if !s.trim().is_empty() => {
                 with_option(PropertyValue::Select(s.clone()), s.clone())
@@ -906,6 +1009,10 @@ fn convert_property_value(
             }
             PropertyValue::Date(ms) => {
                 let s = format_iso_date(*ms);
+                with_option(PropertyValue::Select(s.clone()), s)
+            }
+            PropertyValue::Duration(m) => {
+                let s = format_duration(*m);
                 with_option(PropertyValue::Select(s.clone()), s)
             }
             PropertyValue::MultiSelect(v) if v.len() == 1 && !v[0].trim().is_empty() => {
@@ -932,6 +1039,10 @@ fn convert_property_value(
             }
             PropertyValue::Date(ms) => {
                 let s = format_iso_date(*ms);
+                with_option(PropertyValue::MultiSelect(vec![s.clone()]), s)
+            }
+            PropertyValue::Duration(m) => {
+                let s = format_duration(*m);
                 with_option(PropertyValue::MultiSelect(vec![s.clone()]), s)
             }
             _ => Clear,
@@ -1218,5 +1329,83 @@ mod conversion_tests {
         assert!(!is_empty_property_value(&PropertyValue::Number(0.0)));
         assert!(!is_empty_property_value(&PropertyValue::Checkbox(false)));
         assert!(!is_empty_property_value(&PropertyValue::Person(vec![])));
+    }
+}
+
+#[cfg(test)]
+mod duration_tests {
+    use super::*;
+
+    #[test]
+    fn duration_parse_shapes() {
+        assert_eq!(parse_duration_text("80h 3m"), Some(4803));
+        assert_eq!(parse_duration_text("80:03"), Some(4803));
+        assert_eq!(parse_duration_text("90m"), Some(90));
+        assert_eq!(parse_duration_text("2h"), Some(120));
+        assert_eq!(parse_duration_text("90"), Some(90));
+        assert_eq!(parse_duration_text("1.5h"), Some(90));
+        assert_eq!(parse_duration_text("2H 30M"), Some(150));
+        assert_eq!(parse_duration_text("80:75"), None);
+        assert_eq!(parse_duration_text("abc"), None);
+        assert_eq!(parse_duration_text(""), None);
+        assert_eq!(parse_duration_text("-5m"), None);
+    }
+
+    #[test]
+    fn duration_format_normalizes() {
+        assert_eq!(format_duration(0), "0h 0m");
+        assert_eq!(format_duration(90), "1h 30m");
+        assert_eq!(format_duration(4803), "80h 3m");
+        assert_eq!(format_duration(8247), "137h 27m");
+    }
+
+    #[test]
+    fn duration_conversions() {
+        use ConvertOutcome::*;
+        let dur = |m: u64| PropertyValue::Duration(m);
+        // Into Duration.
+        assert_eq!(
+            convert_property_value(
+                &PropertyValue::Text("23h 23m".into()),
+                &PropertyType::Duration
+            ),
+            Convert(dur(1403), vec![])
+        );
+        assert_eq!(
+            convert_property_value(&PropertyValue::Text("abc".into()), &PropertyType::Duration),
+            Clear
+        );
+        assert_eq!(
+            convert_property_value(&PropertyValue::Number(90.0), &PropertyType::Duration),
+            Convert(dur(90), vec![])
+        );
+        assert_eq!(
+            convert_property_value(&PropertyValue::Number(-1.0), &PropertyType::Duration),
+            Clear
+        );
+        assert_eq!(
+            convert_property_value(&dur(90), &PropertyType::Duration),
+            Keep
+        );
+        // Out of Duration.
+        assert_eq!(
+            convert_property_value(&dur(90), &PropertyType::Text),
+            Convert(PropertyValue::Text("1h 30m".into()), vec![])
+        );
+        assert_eq!(
+            convert_property_value(&dur(90), &PropertyType::Number),
+            Convert(PropertyValue::Number(90.0), vec![])
+        );
+        assert_eq!(
+            convert_property_value(&dur(0), &PropertyType::Checkbox),
+            Convert(PropertyValue::Checkbox(false), vec![])
+        );
+        assert_eq!(
+            convert_property_value(&dur(90), &PropertyType::Date),
+            Clear
+        );
+        // Empty parity with the client (Duration(0) is empty like Date(0)).
+        assert!(is_empty_property_value(&dur(0)));
+        assert!(!is_empty_property_value(&dur(1)));
     }
 }

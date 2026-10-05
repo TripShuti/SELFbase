@@ -49,6 +49,11 @@ function jsonSchemaForProperty(
       return { type: "number" };
     case "Date":
       return { type: "string", format: "date-time" };
+    case "Duration":
+      return {
+        type: "string",
+        description: 'Duration: whole minutes, "80h 3m", "80:03" or ISO-8601 "PT80H3M"',
+      };
     case "Checkbox":
       return { type: "boolean" };
     case "Select":
