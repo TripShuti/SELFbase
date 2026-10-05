@@ -16,7 +16,7 @@ rich text.
 |---|---|
 | Backend / sync | [SpacetimeDB](https://spacetimedb.com) (Rust module) |
 | Frontend | Next.js · React 19 · Tailwind CSS 3 |
-| Editor | Component-tree editor (`packages/snapshot-core` + `packages/pulp`) — typed `ComponentNode` rows in SpacetimeDB, per-block Yjs rich text |
+| Editor | Component-tree editor (`packages/pulp`) — typed `ComponentNode` rows in SpacetimeDB, per-block Yjs rich text |
 | Auth | Native SpacetimeDB email/password (default) · Any OIDC provider (optional) |
 | Attachments | S3-compatible storage (Garage in Docker Compose by default) |
 | Containerisation | Docker Compose (3 services: SpacetimeDB, web, Garage) |
@@ -24,7 +24,10 @@ rich text.
 ## Features
 
 - **Pages & documents** — nesting, icons, breadcrumbs, trash with restore, snapshot history with one-click restore, audio/image/code blocks.
-- **Databases** — grid, list & board views; Text, Number, Date, Select, Multi-select, Checkbox, URL, Relation, Person, File, Formula, Rollup columns; inline editing, filters, sorts; any row opens as a full page with its own URL.
+- **Databases** — grid, list & board views; Text, Number, Date, Duration, Select, Multi-select, Checkbox, URL, Relation, Person, File, Formula, Rollup columns; inline editing, filters, sorts; any row opens as a full page with its own URL.
+- **Column calculations** — per-column footer aggregations (Sum, Average, Min, Max, Range, Count…), stored per view; `Duration` columns sum as `Xh Ym`.
+- **Cell history** — every value change is kept append-only; right-click a cell → History → one-click restore.
+- **Type changes with migration** — changing a column type converts values where possible (with a Convert/Cancel confirm showing what will be cleared) instead of orphaning them.
 - **Relations** — first-class links between databases.
 - **Access control** — per-page/per-block rules (open by default), access requests with human approval.
 - **Comments** — page-level and block-anchored threads with replies, resolve/reopen, author/admin moderation.
@@ -62,7 +65,8 @@ target) and the SpacetimeDB CLI for the one-time module build.
 
 ```bash
 # 1. Configure
-cp .env.example .env   # adjust S3 secrets (≥16 chars), URIs, host ports
+cp .env.example .env   # adjust S3 secrets (≥16 chars), URIs; host ports via
+                       # SPACETIMEDB_HOST_PORT / WEB_HOST_PORT if defaults are taken
 
 # 2. Start (the module WASM is committed at server/docker/server.wasm,
 #    so no Rust toolchain is needed for deploy)
@@ -114,10 +118,21 @@ Notes for native runs:
   `SPACETIMEDB_INTERNAL_URL=http://localhost:3000` in the web process env.
 - Without S3 (`S3_*` unset) uploads answer 503; everything else works.
 
-After any change under `server/spacetimedb/src/`, regenerate bindings:
+After any change under `server/spacetimedb/src/`, regenerate bindings with
+the **pinned CLI 2.0.3** (a newer host CLI rewrites the whole bindings
+format — e.g. via the `clockworklabs/spacetime:v2.0.3` image):
 
 ```bash
 cd server && spacetime generate
+```
+
+Then rebuild the module WASM and copy it to the committed prebuilt path
+(`server/docker/server.wasm`), which is what the Docker deploy publishes:
+
+```bash
+cd server/spacetimedb
+cargo build --release --target wasm32-unknown-unknown
+cp target/wasm32-unknown-unknown/release/server.wasm ../docker/server.wasm
 ```
 
 ## Authentication
