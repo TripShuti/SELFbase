@@ -126,7 +126,7 @@ function AddUserForm({ onDone }: { onDone: () => void }) {
 
       {humanUsersManagedExternally && (
         <p className="mt-3 text-xs text-amber-700 dark:text-amber-300">
-          Human users are managed by the configured auth provider or Pear Cloud.
+          Human users are managed by the configured auth provider.
           Invite them there; they will appear here after first sign-in.
         </p>
       )}

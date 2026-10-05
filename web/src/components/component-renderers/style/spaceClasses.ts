@@ -1,5 +1,5 @@
 /**
- * Web renderer mapping for `style_v1` tokens (PEAR_STYLE_VOCABULARY_ADR, D4).
+ * Web renderer mapping for `style_v1` tokens (SELFBASE_STYLE_VOCABULARY_ADR, D4).
  *
  * **This is the only place Tailwind is allowed to appear for styling.** The
  * document stores names (`indent: "md"`); this file turns them into classes.

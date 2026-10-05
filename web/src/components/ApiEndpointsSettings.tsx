@@ -39,7 +39,7 @@ const ApiEndpointsDocsPanel = dynamic(
 
 /**
  * Parse `acme` from `/workspace/acme/settings` so the URL template can
- * substitute `{workspaceSlug}` even though Pear's OSS routes are
+ * substitute `{workspaceSlug}` even though SELFbase's OSS routes are
  * workspace-agnostic.
  */
 function getCurrentWorkspaceSlug(): string {
@@ -52,7 +52,9 @@ function buildEndpointUrl(endpointSlug: string): string {
   const origin =
     typeof window !== "undefined" ? window.location.origin : "";
   return resolveEndpointUrl({
-    template: process.env.NEXT_PUBLIC_PEAR_API_URL_TEMPLATE,
+    template:
+      process.env.NEXT_PUBLIC_SELFBASE_API_URL_TEMPLATE ??
+      process.env.NEXT_PUBLIC_PEAR_API_URL_TEMPLATE,
     workspaceSlug: getCurrentWorkspaceSlug(),
     endpointSlug,
     origin,

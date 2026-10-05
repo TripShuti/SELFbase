@@ -3,8 +3,8 @@
 
 use spacetimedb::{reducer, table, ReducerContext, SpacetimeType, Table, Timestamp};
 
-use crate::id_counters::alloc_id;
 use crate::access_control::helpers::require_page_write;
+use crate::id_counters::alloc_id;
 use crate::pages::{page, ActorType};
 
 pub(crate) fn next_database_view_id(ctx: &ReducerContext) -> u64 {
@@ -160,7 +160,12 @@ pub fn set_default_view(ctx: &ReducerContext, view_id: u64) -> Result<(), String
 
 #[reducer]
 pub fn delete_view(ctx: &ReducerContext, view_id: u64) -> Result<(), String> {
-    let view = ctx.db.database_view().id().find(view_id).ok_or("View not found")?;
+    let view = ctx
+        .db
+        .database_view()
+        .id()
+        .find(view_id)
+        .ok_or("View not found")?;
     require_page_write(ctx, view.page_id)?;
     ctx.db.database_view().id().delete(view_id);
     Ok(())

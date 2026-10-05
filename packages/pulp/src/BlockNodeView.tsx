@@ -61,5 +61,5 @@ export const BlockNodeView = memo(function BlockNodeView({
   );
 });
 
-/** @deprecated Pear alias — prefer `BlockNodeView`. */
+/** @deprecated Deprecated alias — prefer `BlockNodeView`. */
 export const ComponentNodeView = BlockNodeView;

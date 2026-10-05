@@ -18,27 +18,27 @@ function uint8ToBase64(u8: Uint8Array): string {
  * `{ tag: "Interval", value: TimeDuration } | { tag: "Time", value: Timestamp }`;
  * the TimeDuration and Timestamp cases below make those encode to exactly the
  * shape the v2 import reducers expect:
- * `{ tag: "Interval", value: { __pear: "bigint", v } }` /
- * `{ tag: "Time", value: { __pear: "timestamp", v } }`.
+ * `{ tag: "Interval", value: { __selfbase: "bigint", v } }` /
+ * `{ tag: "Time", value: { __selfbase: "timestamp", v } }`.
  */
-export function encodePearValue(v: unknown): unknown {
+export function encodeSnapshotValue(v: unknown): unknown {
   if (v == null) return v;
   const t = typeof v;
-  if (t === "bigint") return { __pear: "bigint", v: v.toString() };
+  if (t === "bigint") return { __selfbase: "bigint", v: v.toString() };
   if (t === "number" || t === "boolean" || t === "string") return v;
-  if (v instanceof Uint8Array) return { __pear: "bytes", v: uint8ToBase64(v) };
-  if (Array.isArray(v)) return v.map(encodePearValue);
+  if (v instanceof Uint8Array) return { __selfbase: "bytes", v: uint8ToBase64(v) };
+  if (Array.isArray(v)) return v.map(encodeSnapshotValue);
   if (t === "object") {
     const o = v as Record<string, unknown>;
     if (typeof (o as { toHexString?: () => string }).toHexString === "function") {
-      return { __pear: "identity", v: (o as { toHexString: () => string }).toHexString() };
+      return { __selfbase: "identity", v: (o as { toHexString: () => string }).toHexString() };
     }
     if (
       "microsSinceUnixEpoch" in o &&
       typeof (o as { microsSinceUnixEpoch: unknown }).microsSinceUnixEpoch === "bigint"
     ) {
       return {
-        __pear: "timestamp",
+        __selfbase: "timestamp",
         v: (o as { microsSinceUnixEpoch: bigint }).microsSinceUnixEpoch.toString(),
       };
     }
@@ -51,13 +51,13 @@ export function encodePearValue(v: unknown): unknown {
       typeof (o as { __time_duration_micros__: unknown }).__time_duration_micros__ === "bigint"
     ) {
       return {
-        __pear: "bigint",
+        __selfbase: "bigint",
         v: (o as { __time_duration_micros__: bigint }).__time_duration_micros__.toString(),
       };
     }
     const out: Record<string, unknown> = {};
     for (const [k, val] of Object.entries(o)) {
-      out[k] = encodePearValue(val);
+      out[k] = encodeSnapshotValue(val);
     }
     return out;
   }

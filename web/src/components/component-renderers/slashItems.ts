@@ -7,10 +7,10 @@ import {
 } from "@selfbase/pulp";
 
 /**
- * Pear-only built-ins the slash menu expects in `component_type_definition`.
+ * SELFbase-only built-ins the slash menu expects in `component_type_definition`.
  * When any are missing, `slashItemsForDefs` hides them and inserts would fail.
  */
-export const PEAR_REGISTRY_REQUIRED_TYPES = [
+export const REGISTRY_REQUIRED_TYPES = [
   "BulletListItem",
   "NumberedListItem",
   "ChecklistItem",
@@ -25,8 +25,8 @@ export const PEAR_REGISTRY_REQUIRED_TYPES = [
   "Repeater",
 ] as const;
 
-/** Pear sprint-4 slash / turn-into items — extends pulp's curated set. */
-export const PEAR_SLASH_ITEMS: SlashMenuItem[] = [
+/** sprint-4 slash / turn-into items — extends pulp's curated set. */
+export const SLASH_ITEMS: SlashMenuItem[] = [
   ...SPRINT_3B_SLASH_ITEMS,
   {
     id: "repeater",

@@ -73,7 +73,7 @@ function dispatchSchema(args: {
   auth?: AuthResult;
 }): Promise<Response> {
   return dispatchApiEndpointRequest({
-    url: new URL("https://workspace.api.pear.pro/records/_schema"),
+    url: new URL("https://workspace.api.selfbase.example/records/_schema"),
     method: "GET",
     body: undefined,
     endpointSlug: "records",
@@ -82,7 +82,7 @@ function dispatchSchema(args: {
     auth: args.auth ?? { kind: "open" },
     cache: args.cache,
     cacheNamespace: args.cacheNamespace,
-    baseUrl: "https://workspace.api.pear.pro/records",
+    baseUrl: "https://workspace.api.selfbase.example/records",
   });
 }
 

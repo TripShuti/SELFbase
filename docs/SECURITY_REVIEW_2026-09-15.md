@@ -7,7 +7,7 @@
 Status: local fixes, pending coordinated deployment. This is a targeted source
 review and regression suite, not a certification of the whole application.
 
-Reviewed Pear source at `b8c5c8bd6b9bdac337fc5d438b2329c8be052ea3`, with
+Reviewed SELFbase source at `b8c5c8bd6b9bdac337fc5d438b2329c8be052ea3`, with
 cloud source at `daa232449c24af92e199494c381e359dcd55d0bd`. All attack fixtures
 used synthetic accounts, keys and data in disposable localhost databases.
 No production attack, credential extraction, or production deployment was performed.
@@ -19,7 +19,7 @@ No production attack, credential extraction, or production deployment was perfor
 | High | AI configuration reducers accepted unrelated callers, including anonymous identities. Changing a provider endpoint while retaining its key could redirect authenticated inference requests. | Require an authenticated creator, workspace administrator, or module publisher for profile, model, endpoint, keys, worker token, tool secrets, inference binding and deletion. |
 | High | Job execution accepted caller-supplied worker names; job prompts, tasks and context were public. | Publisher-only worker operations; requester/executing-AI visibility, additionally constrained by page access. |
 | High | Jobs could select another AI's credentials or omit the AI identity to execute tools with the worker's publisher connection. | Authenticate the actual principal; constrain AI selection to self, creator or administrator; reserve unassigned jobs for administrators/publisher. Apply these checks inside the shared job constructor so automations cannot bypass them. Attribute automated jobs to their effective run-as identity. |
-| High | Cloud proxy authenticated a workspace Host but forwarded arbitrary pool paths. | Bind allowed database operations to the Host's exact workspace slug; reject other tenants, traversal, and control-plane operations. Cloud change is in `pear-cloud/lifecycle/src/handlers.rs`. |
+| High | Cloud proxy authenticated a workspace Host but forwarded arbitrary pool paths. | Bind allowed database operations to the Host's exact workspace slug; reject other tenants, traversal, and control-plane operations. Cloud change is in `cloud/lifecycle/src/handlers.rs`. |
 | High | Cloud file reader used caller-supplied storage keys if workspace lookup failed. | Deny reads when lifecycle is configured and workspace resolution fails. Preserve standalone behavior when lifecycle is absent. |
 | High | IPv4-mapped IPv6 became hexadecimal after URL parsing and bypassed private-address checks. | Normalize IPv6 before classification; deny mapped, local and transition addresses. |
 | Medium | Schema instruction-column seeding bypassed schema write permission. | Require the normal schema write guard. |
@@ -46,7 +46,7 @@ guard; it does not yet have a dedicated live regression case.
 - Generated web and worker TypeScript bindings include `readable_jobs`.
 
 Run `web/scripts/access-control-e2e.ts` against a disposable local host after
-building the module. Optional `PEAR_UPGRADE_FROM_WASM=/path/to/old.wasm` seeds an
+building the module. Optional `SELFBASE_UPGRADE_FROM_WASM=/path/to/old.wasm` seeds an
 old-module job before upgrading with lifecycle's non-destructive pre-publish
 flow, then runs the same security checks. Never use database clearing to install
 this security update.

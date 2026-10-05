@@ -92,7 +92,7 @@ type PendingInsert = {
 /**
  * Imperative surface-scoped autofocus coordinator. Storage-agnostic —
  * the host app calls `handleNodeInsert` from its insert subscription
- * (Pear: SpacetimeDB `useTable` `onInsert`) so focus targets are set
+ * (host: SpacetimeDB `useTable` `onInsert`) so focus targets are set
  * before React re-renders the new block. When the subscription callback
  * races mount, `syncTree` resolves the same pending insert from the
  * updated `BlockTree`.

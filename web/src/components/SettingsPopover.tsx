@@ -9,7 +9,7 @@ import { clearSavedToken, clearIdbCache } from "@/src/lib/spacetime";
 import {
   useWorkspace,
 } from "@/src/providers/WorkspaceProvider";
-import { purgePearBrowserState } from "@/src/lib/workspaceConnections";
+import { purgeBrowserState } from "@/src/lib/workspaceConnections";
 import { createLogger } from "@/src/lib/log";
 
 const log = createLogger("settings");
@@ -17,17 +17,17 @@ const log = createLogger("settings");
 const OIDC_CONFIGURED = !!process.env.NEXT_PUBLIC_SPACETIMEAUTH_CLIENT_ID;
 
 /**
- * When Pear is embedded inside a host app that owns authentication
+ * When SELFbase is embedded inside a host app that owns authentication
  * (own session cookie, own IdP integration), the host can set this env
- * var to a URL that Pear should navigate to on sign-out. The host's
+ * var to a URL that SELFbase should navigate to on sign-out. The host's
  * endpoint is responsible for clearing its session and redirecting to
  * the IdP / marketing site / wherever.
  *
- * Pear still purges its own browser state (localStorage + IndexedDB)
+ * SELFbase still purges its own browser state (localStorage + IndexedDB)
  * before handing off, so the next user on this browser profile doesn't
  * inherit the previous session's workspace list or editor snapshots.
  *
- * When unset, Pear falls back to its built-in flows (OIDC via
+ * When unset, SELFbase falls back to its built-in flows (OIDC via
  * `react-oidc-context` if `NEXT_PUBLIC_SPACETIMEAUTH_CLIENT_ID` is
  * configured, otherwise the native SpacetimeDB `logout` reducer).
  *
@@ -146,7 +146,7 @@ export function SettingsPopover() {
 }
 
 /**
- * Host-delegated sign-out: purge all Pear-owned browser state
+ * Host-delegated sign-out: purge all SELFbase-owned browser state
  * (localStorage + Yjs IndexedDB snapshots) so the next sign-in on this
  * browser profile doesn't inherit the previous account's workspace list
  * or editor state, then do a FULL-page navigation to the host app's
@@ -162,7 +162,7 @@ function HostSignOut({ url }: { url: string }) {
   async function handleClick() {
     // Fire-and-forget: the critical synchronous work (localStorage
     // wipe) is done before the async IndexedDB deletion resolves.
-    void purgePearBrowserState().finally(() => {
+    void purgeBrowserState().finally(() => {
       window.location.href = url;
     });
   }

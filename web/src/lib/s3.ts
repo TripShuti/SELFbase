@@ -3,7 +3,7 @@ import { S3Client } from "@aws-sdk/client-s3";
 const S3_ENDPOINT = process.env.S3_ENDPOINT;
 /** Optional override. If unset, presigned URLs use the request host + port 9000 (so browser uploads work with zero config when app and the bundled Garage are on the same host). */
 const S3_PUBLIC_ENDPOINT = process.env.S3_PUBLIC_ENDPOINT;
-const S3_BUCKET = process.env.S3_BUCKET ?? "pear-attachments";
+const S3_BUCKET = process.env.S3_BUCKET ?? "selfbase-attachments";
 const S3_REGION = process.env.S3_REGION ?? "us-east-1";
 const S3_ACCESS_KEY = process.env.S3_ACCESS_KEY;
 const S3_SECRET_KEY = process.env.S3_SECRET_KEY;

@@ -15,7 +15,7 @@ import type { EndpointConfig, PropertyTypeName } from "./types";
 
 export interface BuildOpenApiSpecArgs {
   config: EndpointConfig;
-  /** Public base URL, e.g. `https://acme.api.pear.pro/e/fruit`. */
+  /** Public base URL, e.g. `https://acme.api.selfbase.example/e/fruit`. */
   baseUrl: string;
 }
 
@@ -170,7 +170,7 @@ export function buildOpenApiSpec(args: BuildOpenApiSpecArgs): unknown {
         ApiKey: {
           type: "http",
           scheme: "bearer",
-          bearerFormat: "pear_*",
+          bearerFormat: "selfbase_*",
         },
       }
     : {};
@@ -325,7 +325,7 @@ export function buildOpenApiSpec(args: BuildOpenApiSpecArgs): unknown {
       title: endpoint.displayName,
       description:
         endpoint.description ||
-        `Custom Pear API endpoint backed by the '${endpoint.slug}' database.`,
+        `Custom SELFbase API endpoint backed by the '${endpoint.slug}' database.`,
       version: "1.0.0",
     },
     servers: [{ url: baseUrl }],

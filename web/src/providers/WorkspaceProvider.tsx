@@ -29,7 +29,7 @@ type WorkspaceContextValue = {
    * Switch to another workspace as a user action. Defaults to persisting the
    * active id and reloading (standalone: every consumer of the active
    * workspace — connection, IDB namespace — re-initializes from localStorage).
-   * Hosts where localStorage is NOT the source of truth (Pear Cloud pins the
+   * Hosts where localStorage is NOT the source of truth (a multi-tenant host pins the
    * active workspace to the URL slug on load) inject `onSwitchWorkspace` to
    * navigate instead. Prefer this over raw `setActiveId` + reload in UI.
    */

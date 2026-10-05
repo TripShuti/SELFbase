@@ -20,7 +20,7 @@ import { createPortal } from "react-dom";
  * Both render `<SlashMenuList>` for the sectioned option list.
  *
  * **Item set.** The curated default below pins to the non-data-bound built-ins
- * with working renderers. The host (Pear) extends it via `config.slashItems`.
+ * with working renderers. The host extends it via `config.slashItems`.
  *
  * **Selection contract.** On select, the parent receives the chosen
  * `componentType` + `defaultProps` and owns the insert/turn-into dispatch —
@@ -140,7 +140,7 @@ export function SlashMenu({
   }, []);
 
   // Close on outside click / Escape / scroll. Same shape as
-  // <BlockMenu>; matches established Pear popover conventions.
+  // <BlockMenu>; matches established popover conventions.
   useEffect(() => {
     function onPointerDown(e: PointerEvent) {
       if (!menuRef.current) return;

@@ -33,7 +33,7 @@ export function OidcLoginGate() {
     <div className="flex h-screen items-center justify-center bg-neutral-950">
       <div className="w-full max-w-sm px-6">
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-semibold text-neutral-100 tracking-tight">Pear</h1>
+          <h1 className="text-2xl font-semibold text-neutral-100 tracking-tight">SELFbase</h1>
           <p className="mt-1 text-sm text-neutral-500">Sign in to your workspace</p>
         </div>
         {driftReason && (

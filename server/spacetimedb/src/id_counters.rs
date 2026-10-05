@@ -75,4 +75,3 @@ pub(crate) fn alloc_id<F: FnOnce() -> u64>(
     }
     next
 }
-

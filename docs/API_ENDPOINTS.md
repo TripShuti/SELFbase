@@ -1,6 +1,6 @@
 # Custom API Endpoints
 
-Pear lets you expose any database (Pear's tabular page type) as a versioned
+SELFbase lets you expose any database (SELFbase's tabular page type) as a versioned
 REST API. Once you create an endpoint, every row in that database becomes
 addressable over HTTP, with field-level mappings, per-property type
 coercion, optional API-key authentication, and an auto-generated OpenAPI
@@ -12,10 +12,10 @@ This document describes:
 2. The configuration UI under **Workspace Settings → API Endpoints**.
 3. The environment-variable contract that controls which HTTP handler
    actually serves traffic.
-4. The override hook used by Pear-Cloud (and any operator who wants to
-   front Pear with their own gateway).
+4. The override hook used by hosted (and any operator who wants to
+   front SELFbase with their own gateway).
 
-If you're a self-hoster running Pear out of the box, the default Next.js
+If you're a self-hoster running SELFbase out of the box, the default Next.js
 handler is enabled and routes live at `/api/e/{slug}` — there is nothing
 else to configure.
 
@@ -46,7 +46,7 @@ configured for the endpoint:
 
 - The mapping's `apiFieldName` is what shows up in the JSON.
 - The property's type (`Text`, `Number`, `Date`, `Select`, `MultiSelect`,
-  `Relation`, `Checkbox`, `Url`, `Person`) determines how Pear coerces
+  `Relation`, `Checkbox`, `Url`, `Person`) determines how SELFbase coerces
   the JSON value into a SpacetimeDB `PropertyValue`.
 - Mappings flagged `requiredOnCreate` are required on `POST`.
 - Mappings flagged `readOnly` are accepted on `GET` responses but
@@ -59,7 +59,7 @@ columns inherited through `DatabaseSchema.parent_schema_id` (see
 parent's original `property_definition_id`.
 
 The full encoding rules live in
-[`pear/web/src/lib/api-endpoint/codec.ts`](../web/src/lib/api-endpoint/codec.ts).
+[`web/src/lib/api-endpoint/codec.ts`](../web/src/lib/api-endpoint/codec.ts).
 
 ### Atomicity
 
@@ -102,7 +102,7 @@ accepted from either:
 - the original `created_by` identity, or
 - any **workspace admin** (`User.is_admin = true`).
 
-Pear's admin model lives entirely on the `User` table:
+SELFbase's admin model lives entirely on the `User` table:
 
 - The first user to authenticate on a fresh database is auto-promoted
   in `client_connected` / `register` / `login`, so a workspace can never
@@ -112,7 +112,7 @@ Pear's admin model lives entirely on the `User` table:
   demote the last remaining admin so a workspace can never *become*
   admin-less either.
 - The Members panel
-  ([`pear/web/src/components/MembersSettings.tsx`](../web/src/components/MembersSettings.tsx))
+  ([`web/src/components/MembersSettings.tsx`](../web/src/components/MembersSettings.tsx))
   surfaces every authenticated member with an "Admin" badge and gives
   admins Promote/Demote controls.
 
@@ -123,7 +123,7 @@ mode this resolves.
 
 Extension and AI-user reducers deliberately **do not** honor `is_admin`
 — those rows are per-installer / per-creator by design (see
-`docs/PEAR_EXTENSIONS_SECURITY.MD`).
+`docs/SELFBASE_EXTENSIONS_SECURITY.MD`).
 
 ### Audit log
 
@@ -145,7 +145,7 @@ the UI hands to the lazy-loaded
 ## 2. UI: Workspace Settings → API Endpoints
 
 The settings panel
-([`pear/web/src/components/ApiEndpointsSettings.tsx`](../web/src/components/ApiEndpointsSettings.tsx))
+([`web/src/components/ApiEndpointsSettings.tsx`](../web/src/components/ApiEndpointsSettings.tsx))
 covers the full lifecycle:
 
 - **Create** — pick a database, choose a slug, choose allowed methods.
@@ -157,7 +157,7 @@ covers the full lifecycle:
 
 Slugs are validated against a reserved list (`_schema`, `health`,
 `docs`, …) and may not begin with `_`. The reserved list lives in
-`pear/server/spacetimedb/src/lib.rs` next to `validate_slug`.
+`server/spacetimedb/src/lib.rs` next to `validate_slug`.
 
 The URL displayed in the UI (the **Endpoint URL**, the **curl** example,
 the **OpenAPI Schema** link, and the slug-prefix preview in the create
@@ -171,7 +171,7 @@ There is exactly **one** environment variable involved:
 
 | Variable                            | Where read                       | Default                            | Effect                                                                                                                                                                       |
 | ----------------------------------- | -------------------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_PEAR_API_URL_TEMPLATE` | Browser **and** server (Next.js) | `{origin}/api/e/{endpointSlug}`    | Controls the URL the UI advertises, **and** whether the bundled `/api/e/...` Next.js handler serves traffic. When set to a non-default value the bundled handler self-disables (returns `410 Gone` with a `Location` header that points at the templated URL). |
+| `NEXT_PUBLIC_SELFBASE_API_URL_TEMPLATE` | Browser **and** server (Next.js) | `{origin}/api/e/{endpointSlug}`    | Controls the URL the UI advertises, **and** whether the bundled `/api/e/...` Next.js handler serves traffic. When set to a non-default value the bundled handler self-disables (returns `410 Gone` with a `Location` header that points at the templated URL). |
 
 Recognised placeholders inside the template:
 
@@ -183,35 +183,35 @@ Recognised placeholders inside the template:
 
 ### Examples
 
-**Self-hosted Pear (default — leave unset):**
+**Self-hosted SELFbase (default — leave unset):**
 
 ```
 # unset → resolves to {origin}/api/e/{endpointSlug}
-# e.g.  https://pear.example.com/api/e/fruit
+# e.g.  https://selfbase.example.com/api/e/fruit
 ```
 
-**Subdomain-per-workspace gateway (Pear-Cloud's deployment):**
+**Subdomain-per-workspace gateway (hosted's deployment):**
 
 ```bash
-NEXT_PUBLIC_PEAR_API_URL_TEMPLATE='https://{workspaceSlug}.api.pear.pro/{endpointSlug}'
+NEXT_PUBLIC_SELFBASE_API_URL_TEMPLATE='https://{workspaceSlug}.api.selfbase.example/{endpointSlug}'
 ```
 
 A workspace `acme` with an endpoint `fruit` resolves to
-`https://acme.api.pear.pro/fruit`. The bundled Next.js handler stops
+`https://acme.api.selfbase.example/fruit`. The bundled Next.js handler stops
 serving traffic and instead 410s with a `Location` header pointing at
 the templated URL.
 
 **Path-per-workspace gateway:**
 
 ```bash
-NEXT_PUBLIC_PEAR_API_URL_TEMPLATE='https://api.example.com/{workspaceSlug}/{endpointSlug}'
+NEXT_PUBLIC_SELFBASE_API_URL_TEMPLATE='https://api.example.com/{workspaceSlug}/{endpointSlug}'
 ```
 
 **Custom origin, default path layout (e.g. moving APIs onto a CDN
 hostname while keeping the bundled handler):**
 
 ```bash
-NEXT_PUBLIC_PEAR_API_URL_TEMPLATE='https://api.example.com/api/e/{endpointSlug}'
+NEXT_PUBLIC_SELFBASE_API_URL_TEMPLATE='https://api.example.com/api/e/{endpointSlug}'
 # Note: this also disables the bundled handler because the template no
 # longer matches the literal default.
 ```
@@ -220,20 +220,20 @@ NEXT_PUBLIC_PEAR_API_URL_TEMPLATE='https://api.example.com/api/e/{endpointSlug}'
 
 ## 4. The override hook
 
-Operators who set a custom `NEXT_PUBLIC_PEAR_API_URL_TEMPLATE` are
+Operators who set a custom `NEXT_PUBLIC_SELFBASE_API_URL_TEMPLATE` are
 expected to provide their own HTTP handler at the templated URL. To make
 that easy, the implementation is split into:
 
 - **A platform-agnostic library** at
-  [`pear/web/src/lib/api-endpoint/`](../web/src/lib/api-endpoint/).
+  [`web/src/lib/api-endpoint/`](../web/src/lib/api-endpoint/).
   Imports nothing from `next/server`, the file system, or any host
   runtime.
 - **A default Next.js handler** at
-  [`pear/web/app/api/e/`](../web/app/api/e/) that wires the library to
-  Next's `Request`/`Response` model and reads `PEAR_STDB_*` env vars to
+  [`web/app/api/e/`](../web/app/api/e/) that wires the library to
+  Next's `Request`/`Response` model and reads `SELFBASE_STDB_*` env vars to
   talk to SpacetimeDB.
 
-To bring your own handler, depend on `pear/web/src/lib/api-endpoint`
+To bring your own handler, depend on `web/src/lib/api-endpoint`
 from your runtime of choice and call `dispatchApiEndpointRequest`. The
 library accepts an injected `StdbTransport`, so you can either reuse
 the bundled `HttpStdbTransport` (HTTP API client) or supply your own —
@@ -251,15 +251,15 @@ The minimum a custom handler needs to do:
 5. Call `dispatchApiEndpointRequest({ transport, auth, request, ... })`.
 6. Return the resulting `Response`.
 
-For a complete reference implementation, see the Pear-Cloud Cloudflare
-Worker at `pear-cloud:workers/api/`.
+For a complete reference implementation, see the hosted Cloudflare
+Worker at `cloud-host:workers/api/`.
 
 ### Why split it this way?
 
 The split exists so that:
 
 - Self-hosters get a working API surface with zero extra infrastructure.
-- Hosted offerings (Pear-Cloud, vendor deployments, BYO gateways) can
+- Hosted offerings (hosted, vendor deployments, BYO gateways) can
   do the things you can't reasonably do in-process — wildcard
   subdomains, edge rate limiting, in-isolate caching, regional
   failover — without having to fork the OSS code path.
@@ -273,13 +273,13 @@ The split exists so that:
 
 | Concern                          | File                                                                                |
 | -------------------------------- | ----------------------------------------------------------------------------------- |
-| Schema, reducers, validation     | `pear/server/spacetimedb/src/lib.rs` (search `Custom API Endpoints`)                |
-| Codec (JSON ↔ `PropertyValue`)   | `pear/web/src/lib/api-endpoint/codec.ts`                                            |
-| Endpoint config cache            | `pear/web/src/lib/api-endpoint/cache.ts`                                            |
-| OpenAPI builder                  | `pear/web/src/lib/api-endpoint/openapi.ts`                                          |
-| Request dispatcher (host-agnostic) | `pear/web/src/lib/api-endpoint/dispatcher.ts`                                     |
-| URL template resolver            | `pear/web/src/lib/api-endpoint/url-template.ts`                                     |
-| HTTP STDB transport              | `pear/web/src/lib/api-endpoint/http-transport.ts`                                   |
-| Default Next.js handler          | `pear/web/app/api/e/_shared.ts` + `[slug]/route.ts`, `[slug]/[id]/route.ts`, `[slug]/_schema/route.ts` |
-| Settings UI                      | `pear/web/src/components/ApiEndpointsSettings.tsx`                                  |
-| Lazy-loaded API docs viewer      | `pear/web/src/components/ApiEndpointsDocsPanel.tsx`                                 |
+| Schema, reducers, validation     | `server/spacetimedb/src/lib.rs` (search `Custom API Endpoints`)                |
+| Codec (JSON ↔ `PropertyValue`)   | `web/src/lib/api-endpoint/codec.ts`                                            |
+| Endpoint config cache            | `web/src/lib/api-endpoint/cache.ts`                                            |
+| OpenAPI builder                  | `web/src/lib/api-endpoint/openapi.ts`                                          |
+| Request dispatcher (host-agnostic) | `web/src/lib/api-endpoint/dispatcher.ts`                                     |
+| URL template resolver            | `web/src/lib/api-endpoint/url-template.ts`                                     |
+| HTTP STDB transport              | `web/src/lib/api-endpoint/http-transport.ts`                                   |
+| Default Next.js handler          | `web/app/api/e/_shared.ts` + `[slug]/route.ts`, `[slug]/[id]/route.ts`, `[slug]/_schema/route.ts` |
+| Settings UI                      | `web/src/components/ApiEndpointsSettings.tsx`                                  |
+| Lazy-loaded API docs viewer      | `web/src/components/ApiEndpointsDocsPanel.tsx`                                 |

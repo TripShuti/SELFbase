@@ -1,9 +1,12 @@
-//! Shared JSON decode helpers for the snapshot importer ([`super::pear_v2`]).
+//! Shared JSON decode helpers for the snapshot importer ([`super::snapshot_v2`]).
 //!
 //! Snapshot rows arrive in the web client's encoding: camelCase keys (the TS
-//! SDK's field names), `__pear`-tagged wrappers for bigints / identities /
+//! SDK's field names), `__selfbase`-tagged wrappers for bigints / identities /
 //! timestamps / bytes, and enums as `{tag: "Variant"}` (or `{tag, value}` for
 //! payload-carrying variants).
+//!
+//! The pre-rebrand `__pear` tag is accepted everywhere `__selfbase` is, so
+//! old snapshot files stay importable.
 
 use crate::{
     ActorType, ApiEndpoint, ApiEndpointKey, ApiFieldMapping, Attachment, BlockAccessRule,
@@ -16,6 +19,13 @@ use serde_json::Value;
 use spacetimedb::{Identity, Timestamp};
 
 // ── Generic value helpers ─────────────────────────────────────────────────────
+
+/// Tagged-wrapper check for snapshot scalar encodings (`{__selfbase: kind, v}`).
+/// The pre-rebrand `__pear` key is accepted as well so old exports import.
+fn is_tagged(o: &serde_json::Map<String, Value>, kind: &str) -> bool {
+    o.get("__selfbase").and_then(|x| x.as_str()) == Some(kind)
+        || o.get("__pear").and_then(|x| x.as_str()) == Some(kind)
+}
 
 pub(super) fn obj<'a>(
     v: &'a Value,
@@ -77,7 +87,7 @@ pub(super) fn decode_u64(v: &Value) -> Result<u64, String> {
         return s.parse().map_err(|e| format!("u64: {e}"));
     }
     if let Some(o) = v.as_object() {
-        if o.get("__pear").and_then(|x| x.as_str()) == Some("bigint") {
+        if is_tagged(o, "bigint") {
             let s = o.get("v").and_then(|x| x.as_str()).ok_or("bigint.v")?;
             return s.parse().map_err(|e| format!("bigint: {e}"));
         }
@@ -96,7 +106,7 @@ pub(super) fn decode_i64(v: &Value) -> Result<i64, String> {
         return s.parse().map_err(|e| format!("i64: {e}"));
     }
     if let Some(o) = v.as_object() {
-        if o.get("__pear").and_then(|x| x.as_str()) == Some("bigint") {
+        if is_tagged(o, "bigint") {
             let s = o.get("v").and_then(|x| x.as_str()).ok_or("bigint.v")?;
             return s.parse().map_err(|e| format!("bigint: {e}"));
         }
@@ -106,7 +116,7 @@ pub(super) fn decode_i64(v: &Value) -> Result<i64, String> {
 
 pub(super) fn decode_identity(v: &Value) -> Result<Identity, String> {
     if let Some(o) = v.as_object() {
-        if o.get("__pear").and_then(|x| x.as_str()) == Some("identity") {
+        if is_tagged(o, "identity") {
             let hex_str = o.get("v").and_then(|x| x.as_str()).ok_or("identity.v")?;
             return identity_from_hex(hex_str);
         }
@@ -122,7 +132,7 @@ pub(super) fn identity_from_hex(hex_str: &str) -> Result<Identity, String> {
 
 pub(super) fn decode_timestamp(v: &Value) -> Result<Timestamp, String> {
     if let Some(o) = v.as_object() {
-        if o.get("__pear").and_then(|x| x.as_str()) == Some("timestamp") {
+        if is_tagged(o, "timestamp") {
             let micros = decode_i64(o.get("v").ok_or("timestamp.v")?)?;
             return Ok(Timestamp::from_micros_since_unix_epoch(micros));
         }
@@ -145,7 +155,7 @@ pub(super) fn opt_timestamp_at(
 
 pub(super) fn decode_bytes(v: &Value) -> Result<Vec<u8>, String> {
     if let Some(o) = v.as_object() {
-        if o.get("__pear").and_then(|x| x.as_str()) == Some("bytes") {
+        if is_tagged(o, "bytes") {
             let b64 = o.get("v").and_then(|x| x.as_str()).ok_or("bytes.v")?;
             return base64_decode(b64);
         }
@@ -243,7 +253,6 @@ pub(super) fn decode_page_type(v: &Value) -> Result<PageType, String> {
     )
 }
 
-
 pub(super) fn decode_http_method(v: &Value) -> Result<HttpMethod, String> {
     decode_enum_tag2(
         v,
@@ -313,15 +322,21 @@ pub(super) fn decode_property_value(v: &Value) -> Result<PropertyValue, String> 
             Ok(PropertyValue::Person(xs))
         }
         "File" => {
-            let arr = o.get("value").and_then(Value::as_array).ok_or("File.value")?;
-            let refs = arr.iter().map(|value| {
-                let file = obj(value, "File entry")?;
-                Ok(crate::FileRef {
-                    name: string_at(file, "name")?,
-                    object_id: string_at(file, "objectId")?,
-                    external_url: string_at(file, "externalUrl")?,
+            let arr = o
+                .get("value")
+                .and_then(Value::as_array)
+                .ok_or("File.value")?;
+            let refs = arr
+                .iter()
+                .map(|value| {
+                    let file = obj(value, "File entry")?;
+                    Ok(crate::FileRef {
+                        name: string_at(file, "name")?,
+                        object_id: string_at(file, "objectId")?,
+                        external_url: string_at(file, "externalUrl")?,
+                    })
                 })
-            }).collect::<Result<Vec<_>, String>>()?;
+                .collect::<Result<Vec<_>, String>>()?;
             Ok(PropertyValue::File(refs))
         }
         "Ai" => {
@@ -564,27 +579,6 @@ pub(super) fn decode_block_access_rule(v: &Value) -> Result<BlockAccessRule, Str
     })
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 pub(super) fn decode_api_endpoint(v: &Value) -> Result<ApiEndpoint, String> {
     let m = obj(v, "api_endpoint")?;
     Ok(ApiEndpoint {
@@ -641,14 +635,43 @@ mod tests {
             {"name": "photo.png", "objectId": "blob-123", "externalUrl": ""},
             {"name": "manual.pdf", "objectId": "", "externalUrl": "https://example.com/manual.pdf"}
         ]});
-        assert_eq!(decode_property_value(&value).unwrap(), PropertyValue::File(vec![
-            crate::FileRef { name: "photo.png".into(), object_id: "blob-123".into(), external_url: "".into() },
-            crate::FileRef { name: "manual.pdf".into(), object_id: "".into(), external_url: "https://example.com/manual.pdf".into() },
-        ]));
-        assert_eq!(decode_property_value(&json!({"tag": "File", "value": []})).unwrap(), PropertyValue::File(vec![]));
+        assert_eq!(
+            decode_property_value(&value).unwrap(),
+            PropertyValue::File(vec![
+                crate::FileRef {
+                    name: "photo.png".into(),
+                    object_id: "blob-123".into(),
+                    external_url: "".into()
+                },
+                crate::FileRef {
+                    name: "manual.pdf".into(),
+                    object_id: "".into(),
+                    external_url: "https://example.com/manual.pdf".into()
+                },
+            ])
+        );
+        assert_eq!(
+            decode_property_value(&json!({"tag": "File", "value": []})).unwrap(),
+            PropertyValue::File(vec![])
+        );
         let mut invalid = value.clone();
-        invalid["value"][0].as_object_mut().unwrap().remove("objectId");
+        invalid["value"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("objectId");
         assert!(decode_property_value(&invalid).is_err());
+    }
+
+    #[test]
+    fn tagged_wrappers_accept_current_and_legacy_tags() {
+        for tag in ["__selfbase", "__pear"] {
+            let v: Value =
+                serde_json::from_str(&format!(r#"{{"{tag}":"bigint","v":"42"}}"#)).unwrap();
+            assert_eq!(decode_u64(&v), Ok(42));
+            let v: Value =
+                serde_json::from_str(&format!(r#"{{"{tag}":"bytes","v":"AQID"}}"#)).unwrap();
+            assert_eq!(decode_bytes(&v), Ok(vec![1, 2, 3]));
+        }
     }
 
     #[test]
@@ -656,9 +679,14 @@ mod tests {
         let value = json!({"tag": "Ai", "value": {
             "output": "classified", "evaluationId": {"__pear": "bigint", "v": "9007199254740993"}, "isStale": true
         }});
-        assert_eq!(decode_property_value(&value).unwrap(), PropertyValue::Ai(crate::AiPropertyValue {
-            output: "classified".into(), evaluation_id: 9007199254740993, is_stale: true,
-        }));
+        assert_eq!(
+            decode_property_value(&value).unwrap(),
+            PropertyValue::Ai(crate::AiPropertyValue {
+                output: "classified".into(),
+                evaluation_id: 9007199254740993,
+                is_stale: true,
+            })
+        );
         let mut invalid = value;
         invalid["value"]["isStale"] = Value::Null;
         assert!(decode_property_value(&invalid).is_err());
@@ -667,11 +695,16 @@ mod tests {
     #[test]
     fn snapshot_property_types_include_file_and_computed_columns() {
         for (tag, expected) in [
-            ("File", PropertyType::File), ("Ai", PropertyType::Ai),
-            ("Formula", PropertyType::Formula), ("Rollup", PropertyType::Rollup),
+            ("File", PropertyType::File),
+            ("Ai", PropertyType::Ai),
+            ("Formula", PropertyType::Formula),
+            ("Rollup", PropertyType::Rollup),
             ("Duration", PropertyType::Duration),
         ] {
-            assert_eq!(decode_property_type(&json!({"tag": tag})).unwrap(), expected);
+            assert_eq!(
+                decode_property_type(&json!({"tag": tag})).unwrap(),
+                expected
+            );
         }
         assert!(decode_property_type(&json!({"tag": "Unknown"})).is_err());
     }

@@ -6,7 +6,7 @@ import * as Y from "yjs";
  *
  * 1. Sprint 1 read-only `<RichText>` renderer — no prosemirror mount, just
  *    paint the current text.
- * 2. Sprint 2 viewport-aware mounting (`docs/PEAR_WEB_RENDERER.md` §
+ * 2. Sprint 2 viewport-aware mounting (`docs/SELFBASE_WEB_RENDERER.md` §
  *    Performance) — off-screen RichText blocks render through this path
  *    instead of mounting a full `y-prosemirror` view.
  *
@@ -149,7 +149,7 @@ function renderXmlElement(el: Y.XmlElement): string {
  * Render a single `Y.XmlText` (an inline run with marks). The y-prosemirror
  * encoding stores marks as a delta-like attribute map at each "format
  * change" point. We walk the deltas, opening/closing tags per the v1 mark
- * vocabulary declared in `docs/PEAR_WEB_RENDERER.md` § Editor stack.
+ * vocabulary declared in `docs/SELFBASE_WEB_RENDERER.md` § Editor stack.
  */
 function renderXmlText(node: Y.XmlText): string {
   const deltas = node.toDelta() as Array<{

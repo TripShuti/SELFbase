@@ -17,7 +17,7 @@ import {
   themeClasses,
   useThemeStyle,
 } from "@/src/components/component-renderers/style/themeStyles";
-import { usePearWorkspaceSlug } from "@/src/lib/blobUpload";
+import { useWorkspaceSlug } from "@/src/lib/blobUpload";
 
 /**
  * Built-in `Container` component. Layout primitive — flex / grid / stack
@@ -68,7 +68,7 @@ export function ContainerRenderer({ node, def, tree, children }: BlockRendererPr
   // wrapper means CSS's own inheritance carries font and accent to descendants
   // — no second cascade to reason about, which is what keeps the "tokens do not
   // cascade" rule honest while Theme still establishes page-level context.
-  const slug = usePearWorkspaceSlug();
+  const slug = useWorkspaceSlug();
   const theme = useMemo(() => parseTheme(props.theme), [props.theme]);
   const themeClassNames = themeClasses(theme);
   const themeInlineStyle = useThemeStyle(theme, slug);

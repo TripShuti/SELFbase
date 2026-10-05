@@ -1,7 +1,7 @@
 /**
  * `style_v1` — the style token vocabulary.
  *
- * Implements S1 of `docs/PEAR_STYLE_VOCABULARY_ADR.md`: the spacing scale plus
+ * Implements S1 of `docs/SELFBASE_STYLE_VOCABULARY_ADR.md`: the spacing scale plus
  * the parsing contract every later stage reuses.
  *
  * ## Why tokens rather than values (D1, D2)

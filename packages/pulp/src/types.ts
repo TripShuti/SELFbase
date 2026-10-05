@@ -1,7 +1,7 @@
 /**
  * Storage-agnostic block tree types for `@selfbase/pulp`.
  *
- * Pear's SpacetimeDB `ComponentNode` rows satisfy these shapes
+ * SELFbase's SpacetimeDB `ComponentNode` rows satisfy these shapes
  * structurally — the adapter layer maps substrate rows to `BlockTree`
  * without copying.
  */
@@ -20,7 +20,7 @@ export type BlockNode = {
   deletedAt?: unknown | null;
 };
 
-/** Declaration-side metadata for a block type (Pear: `ComponentTypeDefinition`). */
+/** Declaration-side metadata for a block type (host: `ComponentTypeDefinition`). */
 export type BlockTypeDefinition = {
   componentType: string;
   propSchema: string;
@@ -69,18 +69,18 @@ export type PulpMutations = {
     componentId: BlockId;
     data: Uint8Array;
   }) => void | Promise<void>;
-  /** Soft-undelete — Pear: `restore_component`. Optional; delete undo falls back to re-insert. */
+  /** Soft-undelete — host: `restore_component`. Optional; delete undo falls back to re-insert. */
   restoreBlock?: (args: { componentId: BlockId }) => void | Promise<void>;
 };
 
 export type PulpConfig = {
-  /** IndexedDB namespace prefix, e.g. `pear:my-workspace`. */
+  /** IndexedDB namespace prefix, e.g. `selfbase:my-workspace`. */
   idbPrefix: string;
   validateProps?: (
     props: string,
     schema: string,
   ) => PropValidationResult;
-  /** Override slash / turn-into menu items (Pear sprint 4+). */
+  /** Override slash / turn-into menu items (host sprint 4+). */
   slashItems?: import("./SlashMenu").SlashMenuItem[];
   /** Optional internal destinations for rich-text link insertion. */
   linkTargets?: Array<{

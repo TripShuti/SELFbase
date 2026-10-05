@@ -9,7 +9,7 @@ import { FloatingPopup } from "./FloatingPopup";
 import { PageIcon } from "./PageIcon";
 import { formatDateOnly } from "../lib/date-only";
 import { formatDuration, parseDurationText } from "../lib/duration";
-import { uploadWorkspaceBlob, useBlobSrc, usePearWorkspaceSlug } from "@/src/lib/blobUpload";
+import { uploadWorkspaceBlob, useBlobSrc, useWorkspaceSlug } from "@/src/lib/blobUpload";
 import {
   parseSelectConfig,
   serializeSelectConfig,
@@ -1366,7 +1366,7 @@ function FileCell({
   value: FileRefValue[];
   onSave: (v: FileRefValue[]) => void;
 }) {
-  const slug = usePearWorkspaceSlug();
+  const slug = useWorkspaceSlug();
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const anchorRef = useRef<HTMLDivElement>(null);

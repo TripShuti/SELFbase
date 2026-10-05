@@ -26,7 +26,7 @@ export type UndoEntry = YjsUndoEntry | StructuralUndoEntry;
  * Surface-level undo / redo coordinator — one chronological timeline per
  * (surface, user) mixing Yjs text edits and structural substrate ops.
  *
- * See `docs/PEAR_WEB_RENDERER.md` § Cross-block undo / redo.
+ * See `docs/SELFBASE_WEB_RENDERER.md` § Cross-block undo / redo.
  */
 export class SurfaceUndoCoordinator {
   private undoStack: UndoEntry[] = [];

@@ -1,11 +1,11 @@
 "use client";
 
 /**
- * Tiny leveled logger for the Pear editor. Replaces ad-hoc `console.log`
+ * Tiny leveled logger for the SELFbase editor. Replaces ad-hoc `console.log`
  * calls so:
  *   1. We can keep diagnostic lines checked in without spamming the
  *      console in production.
- *   2. Anyone embedding Pear (or Pear running standalone) can flip on
+ *   2. Anyone embedding SELFbase (or SELFbase running standalone) can flip on
  *      verbose output without rebuilding — either at build time with
  *      an env var, or live in the browser for the current tab only.
  *
@@ -13,7 +13,7 @@
  *   silent < error < warn < info < debug
  *
  * How to enable debug output:
- *   - Build-time:  set `NEXT_PUBLIC_PEAR_LOG_LEVEL=debug` in the host
+ *   - Build-time:  set `NEXT_PUBLIC_SELFBASE_LOG_LEVEL=debug` in the host
  *                  app's env config. NEXT_PUBLIC_* is baked at build
  *                  time, so this requires a redeploy.
  *   - Runtime:     in devtools console, run
@@ -70,9 +70,14 @@ const LEVEL_ORDER: Record<Level, number> = {
 /** sessionStorage key for the runtime override. */
 const STORAGE_KEY = "selfbase:log";
 
-/** NEXT_PUBLIC_ env var consulted at build time. */
+/** NEXT_PUBLIC_ env var consulted at build time (`PEAR_` legacy name still works). */
 const BUILD_LEVEL = (() => {
-  const raw = process.env.NEXT_PUBLIC_PEAR_LOG_LEVEL?.trim().toLowerCase();
+  const raw = (
+    process.env.NEXT_PUBLIC_SELFBASE_LOG_LEVEL ??
+    process.env.NEXT_PUBLIC_PEAR_LOG_LEVEL
+  )
+    ?.trim()
+    .toLowerCase();
   return raw && raw in LEVEL_ORDER ? (raw as Level) : null;
 })();
 
@@ -114,13 +119,13 @@ function maybeShowBanner(): void {
   const runtimeActive = readRuntimeLevel() !== null;
   const disableHint = runtimeActive
     ? `sessionStorage.removeItem("${STORAGE_KEY}"); location.reload()`
-    : "unset NEXT_PUBLIC_PEAR_LOG_LEVEL in the host env config and redeploy";
+    : "unset NEXT_PUBLIC_SELFBASE_LOG_LEVEL in the host env config and redeploy";
 
   // Use console.warn directly rather than `log.warn` so the banner
   // always surfaces regardless of whether other scopes exist, and
   // can't recurse through `maybeShowBanner`.
   console.warn(
-    `[pear] verbose logging is ON (level=${effective}). ` +
+    `[selfbase] verbose logging is ON (level=${effective}). ` +
       `Console output may include workspace / UI state. Disable with: ${disableHint}`
   );
 }
@@ -138,11 +143,11 @@ export interface Logger {
 
 /**
  * Build a logger tagged with an optional scope. The scope appears in
- * every message as `[pear/<scope>]` so it's greppable in a busy
+ * every message as `[selfbase/<scope>]` so it's greppable in a busy
  * console.
  */
 export function createLogger(scope?: string): Logger {
-  const tag = scope ? `[pear/${scope}]` : "[pear]";
+  const tag = scope ? `[selfbase/${scope}]` : "[selfbase]";
   return {
     error: (...args) => { if (gate("error")) { maybeShowBanner(); console.error(tag, ...args); } },
     warn:  (...args) => { if (gate("warn"))  { maybeShowBanner(); console.warn(tag, ...args); } },

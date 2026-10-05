@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { useTable } from "spacetimedb/react";
 import { tables } from "@/src/module_bindings";
-import { usePearWorkspaceSlug, useBlobSrc } from "@/src/lib/blobUpload";
+import { useWorkspaceSlug, useBlobSrc } from "@/src/lib/blobUpload";
 import type { BlockRendererProps } from "@selfbase/pulp";
 
 /**
@@ -31,7 +31,7 @@ type ImageProps = {
 
 export function ImageRenderer({ node }: BlockRendererProps) {
   const props = useMemo<ImageProps>(() => safeParse(node.props), [node.props]);
-  const slug = usePearWorkspaceSlug();
+  const slug = useWorkspaceSlug();
   const [attachments] = useTable(tables.attachment);
 
   const attachmentId = normalizeId(props.attachmentId);

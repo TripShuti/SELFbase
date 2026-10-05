@@ -14,12 +14,12 @@ export type BlockRendererProps = {
   children: ReactNode;
 };
 
-/** @deprecated Alias for Pear migration — prefer `BlockRendererProps`. */
+/** @deprecated Deprecated alias — prefer `BlockRendererProps`. */
 export type ComponentRendererProps = BlockRendererProps;
 
 export type BlockRenderer = FC<BlockRendererProps>;
 
-/** @deprecated Alias for Pear migration — prefer `BlockRenderer`. */
+/** @deprecated Deprecated alias — prefer `BlockRenderer`. */
 export type ComponentRenderer = BlockRenderer;
 
 const registry = new Map<string, BlockRenderer>();

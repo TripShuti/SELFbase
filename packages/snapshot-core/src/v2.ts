@@ -1,7 +1,7 @@
-import { encodePearValue } from "./encodePearValue";
+import { encodeSnapshotValue } from "./encodeSnapshotValue";
 import { SNAPSHOT_TABLES_V2 } from "./tablePolicy";
 
-/** Pear portable snapshot format (JSON). Version 2. */
+/** SELFbase portable snapshot format (JSON). Version 2. */
 export const SELFBASE_SNAPSHOT_FORMAT_V2 = "selfbase-snapshot-v2" as const;
 
 export type SelfbaseSnapshotV2 = {
@@ -101,7 +101,7 @@ export function buildSelfbaseSnapshotV2(db: unknown, meta: SelfbaseSnapshotV2Met
     const rows: unknown[] = [];
     for (const row of table.iter()) {
       collectBlobStorageKeys(name, row, storageKeys);
-      rows.push(encodePearValue(row));
+      rows.push(encodeSnapshotValue(row));
     }
     tables[name] = rows;
     counts[name] = rows.length;

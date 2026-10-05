@@ -83,12 +83,14 @@ async function sha256Hex(text: string): Promise<string> {
 }
 
 function generateRawKey(): string {
-  // 32 random bytes, hex-encoded → 64 hex chars after the `pear_` prefix.
+  // 32 random bytes, hex-encoded → 64 hex chars after the `selfbase_` prefix.
   // crypto.randomUUID gives 16 bytes; we want 32 to match the server's
   // documented "256-bit random secret" claim, so we concat two UUIDs.
+  // Older keys carry the `pear_` prefix — the server verifies by hash only,
+  // so they keep working.
   const u1 = crypto.randomUUID().replace(/-/g, "");
   const u2 = crypto.randomUUID().replace(/-/g, "");
-  return `pear_${u1}${u2}`;
+  return `selfbase_${u1}${u2}`;
 }
 
 function nowPlusDaysMicros(days: number): bigint {

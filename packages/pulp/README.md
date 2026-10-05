@@ -2,9 +2,9 @@
 
 Block editor for the web — registry, chrome, RichText (y-prosemirror), split/merge, viewport-aware mounting.
 
-**Pear consumes this package** via `pear/web/src/components/component-renderers/PearComponentTreeRenderer.tsx`, which wires SpacetimeDB subscriptions and reducers into pulp's storage-agnostic API.
+**SELFbase consumes this package** via `web/src/components/component-renderers/ComponentTreeRenderer.tsx`, which wires SpacetimeDB subscriptions and reducers into pulp's storage-agnostic API.
 
-## Quick start (inside the Pear monorepo)
+## Quick start (inside the SELFbase monorepo)
 
 ```tsx
 import {
@@ -15,12 +15,12 @@ import {
   registerCoreBlocks,
 } from "@eclosion-tech/pulp";
 
-// Host app provides tree + mutations + config — see PearComponentTreeRenderer.
+// Host app provides tree + mutations + config — see ComponentTreeRenderer.
 ```
 
 ## Package boundary
 
-| Pulp | Host (Pear) |
+| Pulp | Host (SELFbase) |
 |---|---|
 | `BlockTree`, `BlockNode`, registry | Substrate rows → `BlockTree` |
 | `PulpMutations` | SpacetimeDB reducers |
@@ -41,4 +41,4 @@ Vitest covers block navigation, structural actions (nest/merge/turn-into), headi
 
 ## Undo / redo
 
-`SurfaceUndoCoordinator` + `<SurfaceUndoProvider>` — document-wide Cmd-Z mixing Yjs text edits and structural ops. Host app wraps mutations via `coordinator.wrapMutations()` and wires `restoreBlock` for soft-delete undo (Pear: `restore_component`).
+`SurfaceUndoCoordinator` + `<SurfaceUndoProvider>` — document-wide Cmd-Z mixing Yjs text edits and structural ops. Host app wraps mutations via `coordinator.wrapMutations()` and wires `restoreBlock` for soft-delete undo (SELFbase: `restore_component`).

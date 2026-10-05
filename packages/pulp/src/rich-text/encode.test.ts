@@ -130,7 +130,7 @@ test("blank lines separate paragraphs; prose becomes RichText", () => {
 
 test("GFM tables become one static MarkdownTable component (#197)", () => {
   const blocks = markdownToComponentBlocks(
-    "Before\n\n| Name | Score | Note |\n| :--- | ---: | :---: |\n| Pear | 10 | fast \\| safe |\n| Pulp | 9 | tidy |\n\nAfter",
+    "Before\n\n| Name | Score | Note |\n| :--- | ---: | :---: |\n| Fig | 10 | fast \\| safe |\n| Pulp | 9 | tidy |\n\nAfter",
   );
   assert.deepEqual(blocks.map((block) => block.componentType), [
     "RichText",
@@ -140,13 +140,13 @@ test("GFM tables become one static MarkdownTable component (#197)", () => {
   assert.deepEqual(blocks[1].props, {
     headers: ["Name", "Score", "Note"],
     rows: [
-      ["Pear", "10", "fast | safe"],
+      ["Fig", "10", "fast | safe"],
       ["Pulp", "9", "tidy"],
     ],
     alignments: ["left", "right", "center"],
   });
   assert.equal(
     markdownTablePropsToMarkdown(blocks[1].props),
-    "| Name | Score | Note |\n| --- | ---: | :---: |\n| Pear | 10 | fast \\| safe |\n| Pulp | 9 | tidy |",
+    "| Name | Score | Note |\n| --- | ---: | :---: |\n| Fig | 10 | fast \\| safe |\n| Pulp | 9 | tidy |",
   );
 });

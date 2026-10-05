@@ -64,11 +64,16 @@ pub fn request_page_access(
         return Ok(());
     }
 
-    let has_pending = ctx.db.page_access_request().page_id().filter(&page_id).any(|r| {
-        principal_matches_identity(&r.principal, ctx.sender())
-            && r.permission == permission
-            && r.status == AccessRequestStatus::Pending
-    });
+    let has_pending = ctx
+        .db
+        .page_access_request()
+        .page_id()
+        .filter(&page_id)
+        .any(|r| {
+            principal_matches_identity(&r.principal, ctx.sender())
+                && r.permission == permission
+                && r.status == AccessRequestStatus::Pending
+        });
     if has_pending {
         return Ok(());
     }
@@ -231,4 +236,3 @@ pub fn clear_block_access_rule(
     }
     Ok(())
 }
-

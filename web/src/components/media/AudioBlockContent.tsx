@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { CreateAttachmentFn } from "@/src/components/AudioAttachmentContext";
 import {
   uploadWorkspaceBlob,
-  usePearWorkspaceSlug,
+  useWorkspaceSlug,
   useBlobSrc,
 } from "@/src/lib/blobUpload";
 
@@ -86,7 +86,7 @@ export function AudioBlockContent({
   onPatch,
   attachmentCtx,
 }: AudioBlockContentProps) {
-  const workspaceSlug = usePearWorkspaceSlug();
+  const workspaceSlug = useWorkspaceSlug();
   const [isRecording, setIsRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [liveTranscript, setLiveTranscript] = useState("");

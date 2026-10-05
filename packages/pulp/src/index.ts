@@ -46,7 +46,7 @@ export type {
 } from "./registry";
 export { registerCoreBlocks } from "./registerCoreBlocks";
 
-// Style vocabulary (style_v1 — PEAR_STYLE_VOCABULARY_ADR)
+// Style vocabulary (style_v1 — SELFBASE_STYLE_VOCABULARY_ADR)
 export {
   SPACE_TOKENS,
   parseStyleTokens,

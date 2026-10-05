@@ -320,8 +320,12 @@ pub(crate) fn effective_property_definitions(
 ) -> Vec<PropertyDefinition> {
     let mut defs = Vec::new();
     for sid in schema_ancestor_chain(ctx, schema_id).into_iter().rev() {
-        let mut block: Vec<PropertyDefinition> =
-            ctx.db.property_definition().schema_id().filter(&sid).collect();
+        let mut block: Vec<PropertyDefinition> = ctx
+            .db
+            .property_definition()
+            .schema_id()
+            .filter(&sid)
+            .collect();
         block.sort_by_key(|p| p.order);
         defs.extend(block);
     }
@@ -612,10 +616,7 @@ pub fn update_property_type(
         .ok_or("PropertyDefinition not found")?;
 
     let mut seed_options: Vec<String> = Vec::new();
-    if !matches!(
-        property_type,
-        PropertyType::Formula | PropertyType::Rollup
-    ) {
+    if !matches!(property_type, PropertyType::Formula | PropertyType::Rollup) {
         let mut rows: Vec<PagePropertyValue> = ctx
             .db
             .page_property_value()
@@ -649,8 +650,7 @@ pub fn update_property_type(
                         .page_id()
                         .filter(&row.page_id)
                         .filter(|h| {
-                            h.property_definition_id == property_definition_id
-                                && h.is_current
+                            h.property_definition_id == property_definition_id && h.is_current
                         })
                         .collect();
                     for hist in stale {
@@ -790,7 +790,11 @@ fn parse_duration_text(s: &str) -> Option<u64> {
         total = total.checked_add(n.round() as u64)?;
         any = true;
     }
-    if any { Some(total) } else { None }
+    if any {
+        Some(total)
+    } else {
+        None
+    }
 }
 
 /// Format a finite f64 without a trailing `.0` (`720.0` → `"720"`).
@@ -893,10 +897,7 @@ fn format_iso_date(ms: u64) -> String {
 
 /// Convert one stored value to the target column type.
 /// See the `update_property_type` docs for the contract.
-fn convert_property_value(
-    value: &PropertyValue,
-    target: &PropertyType,
-) -> ConvertOutcome {
+fn convert_property_value(value: &PropertyValue, target: &PropertyType) -> ConvertOutcome {
     use ConvertOutcome::{Clear, Convert, Keep};
     let converted = |v: PropertyValue| Convert(v, Vec::new());
     let with_option = |v: PropertyValue, opt: String| Convert(v, vec![opt]);
@@ -908,20 +909,16 @@ fn convert_property_value(
             }
             PropertyValue::Number(n) => converted(PropertyValue::Text(fmt_number(*n))),
             PropertyValue::Checkbox(b) => converted(PropertyValue::Text(b.to_string())),
-            PropertyValue::MultiSelect(v) => {
-                converted(PropertyValue::Text(v.join(", ")))
-            }
-            PropertyValue::Date(ms) => {
-                converted(PropertyValue::Text(format_iso_date(*ms)))
-            }
-            PropertyValue::Duration(m) => {
-                converted(PropertyValue::Text(format_duration(*m)))
-            }
-            PropertyValue::Ai(ai) => {
-                converted(PropertyValue::Text(ai.output.clone()))
-            }
+            PropertyValue::MultiSelect(v) => converted(PropertyValue::Text(v.join(", "))),
+            PropertyValue::Date(ms) => converted(PropertyValue::Text(format_iso_date(*ms))),
+            PropertyValue::Duration(m) => converted(PropertyValue::Text(format_duration(*m))),
+            PropertyValue::Ai(ai) => converted(PropertyValue::Text(ai.output.clone())),
             PropertyValue::File(files) => converted(PropertyValue::Text(
-                files.iter().map(|f| f.name.clone()).collect::<Vec<_>>().join(", "),
+                files
+                    .iter()
+                    .map(|f| f.name.clone())
+                    .collect::<Vec<_>>()
+                    .join(", "),
             )),
             _ => Clear,
         },
@@ -937,24 +934,20 @@ fn convert_property_value(
                 converted(PropertyValue::Number(if *b { 1.0 } else { 0.0 }))
             }
             PropertyValue::Duration(m) => converted(PropertyValue::Number(*m as f64)),
-            PropertyValue::MultiSelect(v) if v.len() == 1 => {
-                match parse_number_text(&v[0]) {
-                    Some(n) => converted(PropertyValue::Number(n)),
-                    None => Clear,
-                }
-            }
+            PropertyValue::MultiSelect(v) if v.len() == 1 => match parse_number_text(&v[0]) {
+                Some(n) => converted(PropertyValue::Number(n)),
+                None => Clear,
+            },
             _ => Clear,
         },
         PropertyType::Checkbox => match value {
             PropertyValue::Checkbox(_) => Keep,
             PropertyValue::Number(n) => converted(PropertyValue::Checkbox(*n != 0.0)),
             PropertyValue::Duration(m) => converted(PropertyValue::Checkbox(*m != 0)),
-            PropertyValue::Text(s) | PropertyValue::Select(s) => {
-                match parse_checkbox_text(s) {
-                    Some(b) => converted(PropertyValue::Checkbox(b)),
-                    None => Clear,
-                }
-            }
+            PropertyValue::Text(s) | PropertyValue::Select(s) => match parse_checkbox_text(s) {
+                Some(b) => converted(PropertyValue::Checkbox(b)),
+                None => Clear,
+            },
             _ => Clear,
         },
         PropertyType::Date => match value {
@@ -964,9 +957,7 @@ fn convert_property_value(
                 None => Clear,
             },
             // Plausible unix-millis range 2000-01-01 .. 2100-01-01.
-            PropertyValue::Number(n)
-                if *n >= 946_684_800_000.0 && *n <= 4_102_444_800_000.0 =>
-            {
+            PropertyValue::Number(n) if *n >= 946_684_800_000.0 && *n <= 4_102_444_800_000.0 => {
                 converted(PropertyValue::Date(*n as u64))
             }
             _ => Clear,
@@ -982,21 +973,17 @@ fn convert_property_value(
             PropertyValue::Number(n) if n.is_finite() && *n >= 0.0 => {
                 converted(PropertyValue::Duration(*n as u64))
             }
-            PropertyValue::MultiSelect(v) if v.len() == 1 => {
-                match parse_duration_text(&v[0]) {
-                    Some(m) => converted(PropertyValue::Duration(m)),
-                    None => Clear,
-                }
-            }
+            PropertyValue::MultiSelect(v) if v.len() == 1 => match parse_duration_text(&v[0]) {
+                Some(m) => converted(PropertyValue::Duration(m)),
+                None => Clear,
+            },
             _ => Clear,
         },
         PropertyType::Select => match value {
             PropertyValue::Select(s) if !s.trim().is_empty() => {
                 with_option(PropertyValue::Select(s.clone()), s.clone())
             }
-            PropertyValue::Text(s) | PropertyValue::Url(s)
-                if !s.trim().is_empty() =>
-            {
+            PropertyValue::Text(s) | PropertyValue::Url(s) if !s.trim().is_empty() => {
                 with_option(PropertyValue::Select(s.clone()), s.clone())
             }
             PropertyValue::Number(n) => {
@@ -1124,7 +1111,13 @@ pub fn set_property_value(
     value: PropertyValue,
 ) -> Result<(), String> {
     require_page_write(ctx, page_id)?;
-    set_property_value_inner(ctx, page_id, property_definition_id, value, ActorType::Human)
+    set_property_value_inner(
+        ctx,
+        page_id,
+        property_definition_id,
+        value,
+        ActorType::Human,
+    )
 }
 
 /// Body of `set_property_value`, minus the sender ACL gate — the live
@@ -1256,10 +1249,7 @@ mod conversion_tests {
             ConvertOutcome::Keep
         );
         assert_eq!(
-            convert_property_value(
-                &PropertyValue::Checkbox(true),
-                &PropertyType::Checkbox
-            ),
+            convert_property_value(&PropertyValue::Checkbox(true), &PropertyType::Checkbox),
             ConvertOutcome::Keep
         );
     }
@@ -1322,7 +1312,9 @@ mod conversion_tests {
     #[test]
     fn empty_matches_client() {
         assert!(is_empty_property_value(&text("   ")));
-        assert!(is_empty_property_value(&PropertyValue::Select(String::new())));
+        assert!(is_empty_property_value(&PropertyValue::Select(
+            String::new()
+        )));
         assert!(is_empty_property_value(&PropertyValue::MultiSelect(vec![])));
         assert!(is_empty_property_value(&PropertyValue::Relation(vec![])));
         assert!(is_empty_property_value(&PropertyValue::Date(0)));
@@ -1400,10 +1392,7 @@ mod duration_tests {
             convert_property_value(&dur(0), &PropertyType::Checkbox),
             Convert(PropertyValue::Checkbox(false), vec![])
         );
-        assert_eq!(
-            convert_property_value(&dur(90), &PropertyType::Date),
-            Clear
-        );
+        assert_eq!(convert_property_value(&dur(90), &PropertyType::Date), Clear);
         // Empty parity with the client (Duration(0) is empty like Date(0)).
         assert!(is_empty_property_value(&dur(0)));
         assert!(!is_empty_property_value(&dur(1)));

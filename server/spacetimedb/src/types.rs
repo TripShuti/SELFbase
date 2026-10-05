@@ -22,7 +22,7 @@ pub enum Permission {
 /// A grantee on an access rule. Today only `WorkspaceMember(Identity)` is
 /// populated; future variants (`EndUser(u64)`, etc.) can be appended without
 /// migrating existing rows because SpacetimeDB enums are forward-compatible
-/// when only adding variants. See PEAR_PROGRAMMING.md "Foundational
+/// when only adding variants. See SELFBASE_PROGRAMMING.md "Foundational
 /// decisions" #2 for the rationale.
 #[derive(SpacetimeType, Clone, Debug, PartialEq)]
 pub enum Principal {

@@ -1,18 +1,18 @@
 /**
  * URL template resolver for the public-facing endpoint URLs shown in the
- * Pear UI (`ApiEndpointsSettings.tsx`) and emitted in `_schema` (OpenAPI)
+ * SELFbase UI (`ApiEndpointsSettings.tsx`) and emitted in `_schema` (OpenAPI)
  * documents.
  *
  * Templates use `{placeholder}` substitution. Recognised placeholders:
  *
- *   {origin}         e.g. https://pear.example.com
+ *   {origin}         e.g. https://selfbase.example.com
  *   {workspaceSlug}  e.g. acme
  *   {endpointSlug}   e.g. fruit
  *
- * Self-hosted Pear ships with the default template, which routes through
- * the in-app Next.js handler. Pear-Cloud overrides via the
- * `NEXT_PUBLIC_PEAR_API_URL_TEMPLATE` env var to point at the multi-tenant
- * Cloudflare Worker on `*.api.pear.pro`.
+ * Self-hosted SELFbase ships with the default template, which routes through
+ * the in-app Next.js handler. Multi-tenant hosts override via the
+ * `NEXT_PUBLIC_SELFBASE_API_URL_TEMPLATE` env var
+ * (`NEXT_PUBLIC_PEAR_API_URL_TEMPLATE` still works as a fallback).
  */
 
 export const DEFAULT_API_URL_TEMPLATE = "{origin}/api/e/{endpointSlug}";

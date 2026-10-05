@@ -24,21 +24,21 @@ import { reducers, tables } from "@/src/module_bindings";
  * Call signatures of the v2 import reducers (single named-args object, like the
  * generated `conn.reducers.*` accessors).
  */
-type PearImportV2Reducers = {
+type SnapshotImportV2Reducers = {
   importV2Begin: (args: { headerJson: string }) => Promise<void>;
   importV2Chunk: (args: { seq: number; tableName: string; rowsJson: string }) => Promise<void>;
   importV2Commit: (args: { manifestJson: string }) => Promise<void>;
   importV2Abort: () => Promise<void>;
 };
 
-function getImportV2Reducers(conn: unknown): PearImportV2Reducers {
+function getImportV2Reducers(conn: unknown): SnapshotImportV2Reducers {
   // TODO(bindings-regen): the import_v2_* reducers are being added to the Rust
   // module concurrently and the generated bindings don't include them yet, so
   // we go through the connection's untyped reducers view. Once `spacetime
   // generate` runs against the new module, replace this cast with the typed
   // `reducers.importV2Begin` etc. accessors (and `useReducer`, mirroring v1).
   const r = (conn as { reducers?: Record<string, unknown> }).reducers as
-    | Partial<PearImportV2Reducers>
+    | Partial<SnapshotImportV2Reducers>
     | undefined;
   if (
     !r ||
@@ -51,7 +51,7 @@ function getImportV2Reducers(conn: unknown): PearImportV2Reducers {
       "This workspace's module does not support selfbase-snapshot-v2 import (import_v2_* reducers missing). Update the module and try again."
     );
   }
-  return r as PearImportV2Reducers;
+  return r as SnapshotImportV2Reducers;
 }
 
 /** Best-effort: newest module version recorded in the public migration_state table. */

@@ -6,8 +6,8 @@ import type { BlockRendererProps } from "@selfbase/pulp";
 /**
  * Built-in `CodeRef` component — typed pointer to code in an external
  * repository. Read-through is mediated by the outbound MCP server; no
- * direct authority on the workspace substrate (see `PEAR_PROGRAMMING.md` §
- * Code context and `docs/PEAR_RENDERING_SUBSTRATE.md` § What's shipped).
+ * direct authority on the workspace substrate (see `SELFBASE_PROGRAMMING.md` §
+ * Code context and `docs/SELFBASE_RENDERING_SUBSTRATE.md` § What's shipped).
  *
  * Sprint 1 renders the reference as a self-describing pill — repo / path /
  * range — without fetching the actual snippet. Sprint 4 (or a dedicated

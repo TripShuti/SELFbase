@@ -1,4 +1,4 @@
-export { encodePearValue } from "./encodePearValue";
+export { encodeSnapshotValue } from "./encodeSnapshotValue";
 
 export {
   SNAPSHOT_TABLE_POLICY_V2,

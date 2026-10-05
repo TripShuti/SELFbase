@@ -7,9 +7,7 @@ use spacetimedb::{reducer, table, ReducerContext, ScheduleAt, SpacetimeType, Tab
 
 use crate::access_control::helpers::{can_write_page, require_page_read, require_page_write};
 use crate::id_counters::alloc_id;
-use crate::pages::components::{
-    component_node, next_component_node_id, ComponentNode,
-};
+use crate::pages::components::{component_node, next_component_node_id, ComponentNode};
 use crate::pages::schemas::{
     database_schema, page_property_value, page_property_value_history, property_definition,
 };
@@ -77,7 +75,7 @@ pub struct Page {
     /// Discriminates how this page's content is stored during the BlockNote →
     /// component-tree migration window. `BlockNote` reads from `PageContent`
     /// + `PageYjsState`; `ComponentTree` reads from `ComponentNode` +
-    /// `ComponentYjsState`. See `docs/PEAR_COMPONENT_NODE_SCHEMA.md` §
+    /// `ComponentYjsState`. See `docs/SELFBASE_COMPONENT_NODE_SCHEMA.md` §
     /// Migration boundary. Becomes vestigial once the migration completes.
     ///
     /// Must be last for schema migration (STDB only allows additive changes
@@ -175,8 +173,14 @@ pub fn create_page(
         require_page_write(ctx, pid)?;
     }
     if page_type == PageType::Doc {
-        return create_component_tree_page_inner(ctx, parent_id, page_type, title, ActorType::Human)
-            .map(|_| ());
+        return create_component_tree_page_inner(
+            ctx,
+            parent_id,
+            page_type,
+            title,
+            ActorType::Human,
+        )
+        .map(|_| ());
     }
 
     let sort_order = next_sort_order(ctx, parent_id);
@@ -396,7 +400,11 @@ pub fn update_page_icon(ctx: &ReducerContext, page_id: u64, icon: String) -> Res
 /// caller's own identity: the route invokes this reducer with the caller's
 /// token and maps `Err` to 403.
 #[reducer]
-pub fn authorize_blob_access(ctx: &ReducerContext, page_id: u64, write: bool) -> Result<(), String> {
+pub fn authorize_blob_access(
+    ctx: &ReducerContext,
+    page_id: u64,
+    write: bool,
+) -> Result<(), String> {
     if write {
         require_page_write(ctx, page_id)
     } else {

@@ -4,7 +4,7 @@
  * Doc pages store content as `ComponentNode` rows (assessment #27). The
  * text of a Yjs-backed node (`RichText`, `Heading`, `*ListItem`) lives in a
  * per-node `ComponentYjsState` blob — `Y.encodeStateAsUpdate(ydoc)` of a
- * `y-prosemirror`-shaped `Y.Doc`. Programmatic authors (the pear worker's
+ * `y-prosemirror`-shaped `Y.Doc`. Programmatic authors (the worker's
  * chat tools, the stateless MCP core) must produce those bytes encoded
  * against pulp's exact ProseMirror schema so they round-trip in the live
  * editor — which is why the encoder lives here, next to `richTextSchema`.

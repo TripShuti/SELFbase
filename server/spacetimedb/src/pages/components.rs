@@ -1,6 +1,6 @@
 //! Component tree substrate — the universal document model.
 //!
-//! See `docs/PEAR_COMPONENT_NODE_SCHEMA.md` for the ADR this file implements.
+//! See `docs/SELFBASE_COMPONENT_NODE_SCHEMA.md` for the ADR this file implements.
 //!
 //! The substrate has three tables:
 //!
@@ -9,7 +9,7 @@
 //!   `PageContentFormat::ComponentTree` owns a tree of these.
 //! - [`ComponentYjsState`] — block-scoped Yjs blob. 1:1 with the `RichText`
 //!   (or other Yjs-backed) `ComponentNode` that owns it. Per-block, not
-//!   per-page — that's the resolution of `PEAR_RENDERING_SUBSTRATE.md` open
+//!   per-page — that's the resolution of `SELFBASE_RENDERING_SUBSTRATE.md` open
 //!   question #5.
 //! - [`ComponentTypeDefinition`] — the type registry. Seeded with built-ins at
 //!   init; extensible via [`register_component_type`] for tier-5 component
@@ -42,7 +42,7 @@ use crate::types::ActorType;
 // ============================================================
 
 /// Coarse-grained authority declared by a component type. Lives on the
-/// registry entry, not the instance — see `PEAR_COMPONENT_NODE_SCHEMA.md`
+/// registry entry, not the instance — see `SELFBASE_COMPONENT_NODE_SCHEMA.md`
 /// open question #7 resolution.
 ///
 /// The enum is small by design. Its job is to give the harness layer
@@ -82,7 +82,7 @@ pub enum PageContentFormat {
 /// the tree; tree shape via `parent_id` + `order`. Every node belongs to
 /// exactly one Surface (today: `Page.id`).
 ///
-/// See `docs/PEAR_COMPONENT_NODE_SCHEMA.md` § Schema.
+/// See `docs/SELFBASE_COMPONENT_NODE_SCHEMA.md` § Schema.
 #[table(
     accessor = component_node,
     public,
@@ -120,7 +120,7 @@ pub struct ComponentNode {
     /// `Page.sort_order`) so insertions rarely need a renumber.
     ///
     /// The intended end state is a fractional-indexing `String` (see
-    /// `docs/PEAR_COMPONENT_NODE_SCHEMA.md` § Sort key — fractional indexing,
+    /// `docs/SELFBASE_COMPONENT_NODE_SCHEMA.md` § Sort key — fractional indexing,
     /// deferred). That swap is a column-type change SpacetimeDB requires a
     /// manual migration for, so it's parked until it can ride along with the
     /// BlockNote → `ComponentTree` migration tool, which already needs to
@@ -238,10 +238,10 @@ pub(crate) fn next_component_type_definition_id(ctx: &ReducerContext) -> u64 {
 // ============================================================
 
 /// Prop schemas for the v1 built-in components. JSON Schema today; namespace-
-/// prefixed extensions (e.g. `"$pear:propertyRef"`) can be added later
+/// prefixed extensions (e.g. `"$selfbase:propertyRef"`) can be added later
 /// without changing the storage format.
 mod prop_schemas {
-    /// `style_v1` token block (PEAR_STYLE_VOCABULARY_ADR, S1).
+    /// `style_v1` token block (SELFBASE_STYLE_VOCABULARY_ADR, S1).
     ///
     /// Inlined per component rather than shared, because `BuiltinSpec.prop_schema`
     /// is `&'static str` and Rust cannot concatenate consts at compile time
@@ -918,7 +918,7 @@ pub(crate) fn migrate_heading_yjs_registry_v1(ctx: &ReducerContext) {
 }
 
 /// Publish the `style_v1` token block on the live `Container` definition
-/// (PEAR_STYLE_VOCABULARY_ADR, S1).
+/// (SELFBASE_STYLE_VOCABULARY_ADR, S1).
 ///
 /// `seed_builtin_component_types` only *inserts* missing types, so an existing
 /// workspace keeps its original `Container` schema forever without this — same
@@ -1129,7 +1129,6 @@ fn touch_page(ctx: &ReducerContext, page: Page) {
         updated_at: ctx.timestamp,
         ..page
     });
-
 }
 
 /// Debounce window for content-autosave page touches. Matches the client's
@@ -1434,21 +1433,19 @@ pub fn migrate_page_to_component_tree(
     let page = require_blocknote_page(ctx, page_id)?;
     require_page_write(ctx, page_id)?;
 
-    if ctx.db.component_node().iter().any(|n| {
-        n.surface_id == page_id && n.deleted_at.is_none()
-    }) {
-        return Err(
-            "Page already has ComponentNode rows — refusing to migrate twice".to_string(),
-        );
+    if ctx
+        .db
+        .component_node()
+        .iter()
+        .any(|n| n.surface_id == page_id && n.deleted_at.is_none())
+    {
+        return Err("Page already has ComponentNode rows — refusing to migrate twice".to_string());
     }
 
-    let payload: BlockNoteMigrationPayload = serde_json::from_str(&payload_json)
-        .map_err(|e| format!("migration payload json: {e}"))?;
+    let payload: BlockNoteMigrationPayload =
+        serde_json::from_str(&payload_json).map_err(|e| format!("migration payload json: {e}"))?;
     if payload.v != "blocknote_migration_v1" {
-        return Err(format!(
-            "Unknown migration payload version: {}",
-            payload.v
-        ));
+        return Err(format!("Unknown migration payload version: {}", payload.v));
     }
 
     let root_id = next_component_node_id(ctx);
@@ -1499,8 +1496,7 @@ pub fn migrate_page_to_component_tree(
 
             let parent_type = require_type_def(
                 ctx,
-                &ctx
-                    .db
+                &ctx.db
                     .component_node()
                     .id()
                     .find(parent_id)
@@ -1545,12 +1541,7 @@ pub fn migrate_page_to_component_tree(
                 }
                 let bytes = base64::engine::general_purpose::STANDARD
                     .decode(b64.trim())
-                    .map_err(|e| {
-                        format!(
-                            "yjs_data_b64 decode for {}: {e}",
-                            row.source_block_id
-                        )
-                    })?;
+                    .map_err(|e| format!("yjs_data_b64 decode for {}: {e}", row.source_block_id))?;
                 ctx.db.component_yjs_state().insert(ComponentYjsState {
                     component_node_id: new_id,
                     data: bytes,
@@ -1566,17 +1557,11 @@ pub fn migrate_page_to_component_tree(
         ..page
     });
 
-
     Ok(())
 }
 
 fn require_blocknote_page(ctx: &ReducerContext, page_id: u64) -> Result<Page, String> {
-    let page = ctx
-        .db
-        .page()
-        .id()
-        .find(page_id)
-        .ok_or("Page not found")?;
+    let page = ctx.db.page().id().find(page_id).ok_or("Page not found")?;
     if page.deleted_at.is_some() {
         return Err("Page is deleted".to_string());
     }
@@ -1818,7 +1803,9 @@ fn write_page_doc(
         }
         1000u32
     } else {
-        existing.last().map_or(1000, |n| n.order.saturating_add(1000))
+        existing
+            .last()
+            .map_or(1000, |n| n.order.saturating_add(1000))
     };
 
     for block in blocks {

@@ -60,7 +60,7 @@ import type { SlashMenuItem } from "../SlashMenu";
 
 export type { EditorSurfaceMode } from "./richTextKeymap";
 
-/** Cadence — see `docs/PEAR_WEB_RENDERER.md` § Editor stack — Save cycle. */
+/** Cadence — see `docs/SELFBASE_WEB_RENDERER.md` § Editor stack — Save cycle. */
 const SAVE_INTERVAL_MS = 30_000;
 
 const EDITOR_PROSE_DEFAULT =
@@ -83,10 +83,10 @@ const HEADING_EDITOR_PROSE: Record<number, string> = {
  *
  * Mounts a `y-prosemirror` view on top of the per-component Y.Doc. Wires:
  *   - IndexedDB persistence (`y-indexeddb`) per component, namespace
- *     `pear:{idbNamespace}:component:{componentId}`
+ *     `selfbase:{idbNamespace}:component:{componentId}`
  *   - 30s debounced `save_component_yjs_state` push (local-origin only;
  *     remote-origin updates skip the save loop to prevent echo)
- *   - Base + Pear keybindings (Mod-Z/Mod-Y undo via y-prosemirror's stack;
+ *   - Base + app keybindings (Mod-Z/Mod-Y undo via y-prosemirror's stack;
  *     Mod-B/I/U/Shift-S inline mark toggles; Mod-` inline code; Shift-Enter
  *     hard-break)
  *

@@ -160,10 +160,14 @@ pub fn run_pending_migrations(ctx: &ReducerContext) -> Result<(), String> {
     });
     // Style vocabulary S1: publishes the `style_v1` token block on the live
     // `Container` definition (the seed only inserts missing types).
-    run_step!(ctx, "component_container_style_v1", |ctx: &ReducerContext| {
-        migrate_container_style_v1(ctx);
-        Ok::<(), String>(())
-    });
+    run_step!(
+        ctx,
+        "component_container_style_v1",
+        |ctx: &ReducerContext| {
+            migrate_container_style_v1(ctx);
+            Ok::<(), String>(())
+        }
+    );
     // Interactive generated UI: publish the current UpdateProperty schema
     // (including payload-backed values).
     run_step!(
@@ -176,10 +180,14 @@ pub fn run_pending_migrations(ctx: &ReducerContext) -> Result<(), String> {
     );
     // Generic file attachment block: seeds the `FileBlock` component type so
     // the slash menu can offer "File" next to Image / Audio.
-    run_step!(ctx, "component_type_file_block_v1", |ctx: &ReducerContext| {
-        seed_builtin_component_types(ctx);
-        Ok::<(), String>(())
-    });
+    run_step!(
+        ctx,
+        "component_type_file_block_v1",
+        |ctx: &ReducerContext| {
+            seed_builtin_component_types(ctx);
+            Ok::<(), String>(())
+        }
+    );
     Ok(())
 }
 

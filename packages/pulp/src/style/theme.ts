@@ -1,5 +1,5 @@
 /**
- * `Theme` — the page/workspace styling layer (PEAR_STYLE_VOCABULARY_ADR, S2).
+ * `Theme` — the page/workspace styling layer (SELFBASE_STYLE_VOCABULARY_ADR, S2).
  *
  * ## Why a second layer exists
  *

@@ -35,12 +35,12 @@ import { useSyncChildPageLinks } from "@/src/hooks/useSyncChildPageLinks";
 import { useWorkspace } from "@/src/providers/WorkspaceProvider";
 import { AudioAttachmentContext } from "@/src/components/AudioAttachmentContext";
 import { useCreateAttachment } from "@/src/hooks/usePages";
-import { registerPearBuiltinRenderers } from "./built-in";
-import { PEAR_SLASH_ITEMS, slashItemsForDefs } from "./pearSlashItems";
+import { registerBuiltinRenderers } from "./built-in";
+import { SLASH_ITEMS, slashItemsForDefs } from "./slashItems";
 import { useQueryResolver } from "@/src/lib/repeater/queryResolver";
 
 registerCoreBlocks();
-registerPearBuiltinRenderers();
+registerBuiltinRenderers();
 
 /**
  * Jump-to-change highlight (#32): when the page is opened via a chat tool-call
@@ -88,7 +88,7 @@ function useHighlightNodeFromUrl(surfaceId: bigint): void {
 }
 
 /**
- * Pear's ComponentTree page surface — wires SpacetimeDB subscriptions
+ * SELFbase's ComponentTree page surface — wires SpacetimeDB subscriptions
  * and reducers into `@selfbase/pulp`'s storage-agnostic editor.
  */
 export function ComponentTreeRenderer({
@@ -145,7 +145,7 @@ export function ComponentTreeRenderer({
 
   // Purge a node's per-component IndexedDB doc so removed content can't linger
   // locally or resurface via a stale local↔server Yjs merge. Keyed exactly as
-  // pulp's RichTextEditor persistence: `pear:{idbNamespace}:component:{id}`.
+  // pulp's RichTextEditor persistence: `selfbase:{idbNamespace}:component:{id}`.
   // Best-effort and idempotent. Restore is unaffected: the server keeps the
   // node's authoritative `component_yjs_state`, so a re-shown block rehydrates
   // from the server blob (RichText.tsx applies it with origin="remote").
@@ -212,7 +212,7 @@ export function ComponentTreeRenderer({
         if (!treeRef.current.defs.has(componentType)) {
           console.warn(
             `[ComponentTree] cannot insert "${componentType}" — not registered in this workspace. ` +
-              "Publish Pear module ≥0.11.3 and run migrations.",
+              "Publish SELFbase module ≥0.11.3 and run migrations.",
           );
           return;
         }
@@ -332,7 +332,7 @@ export function ComponentTreeRenderer({
     () => ({
       idbPrefix: `selfbase:${idbNamespace}`,
       validateProps: validateComponentProps,
-      slashItems: slashItemsForDefs(PEAR_SLASH_ITEMS, tree.defs),
+      slashItems: slashItemsForDefs(SLASH_ITEMS, tree.defs),
       linkTargets,
       queryResolver,
       onCommentBlock: onCommentBlock

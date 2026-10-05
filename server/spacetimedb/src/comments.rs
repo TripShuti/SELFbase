@@ -174,7 +174,12 @@ pub fn delete_block_comment(ctx: &ReducerContext, comment_id: u64) -> Result<(),
     let mut to_delete = Vec::new();
     while let Some(id) = stack.pop() {
         to_delete.push(id);
-        for child in ctx.db.block_comment().iter().filter(|c| c.parent_id == Some(id)) {
+        for child in ctx
+            .db
+            .block_comment()
+            .iter()
+            .filter(|c| c.parent_id == Some(id))
+        {
             stack.push(child.id);
         }
     }

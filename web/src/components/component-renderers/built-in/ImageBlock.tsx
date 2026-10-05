@@ -6,7 +6,7 @@ import { useAudioAttachment } from "@/src/components/AudioAttachmentContext";
 import {
   uploadWorkspaceBlob,
   useBlobSrc,
-  usePearWorkspaceSlug,
+  useWorkspaceSlug,
 } from "@/src/lib/blobUpload";
 
 /**
@@ -27,7 +27,7 @@ type ImageBlockProps = {
 export function ImageBlockRenderer({ node }: BlockRendererProps) {
   const props = useMemo<ImageBlockProps>(() => safeParse(node.props), [node.props]);
   const { updateBlockProps } = usePulp();
-  const slug = usePearWorkspaceSlug();
+  const slug = useWorkspaceSlug();
   const attachmentCtx = useAudioAttachment();
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);

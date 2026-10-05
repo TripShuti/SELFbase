@@ -15,8 +15,8 @@
  *
  * Read the numbers from devtools:
  *
- *     __pearPaintMetrics.report()
- *     __pearPaintMetrics.reset()
+ *     __selfbasePaintMetrics.report()
+ *     __selfbasePaintMetrics.reset()
  */
 
 export type PaintSource = "bespoke-sidebar" | "repeater-sidebar";
@@ -211,7 +211,7 @@ export function reset(): void {
 
 // Exposed for devtools; the dogfood loop is a human reading numbers, not CI.
 if (typeof window !== "undefined") {
-  (window as unknown as Record<string, unknown>).__pearPaintMetrics = {
+  (window as unknown as Record<string, unknown>).__selfbasePaintMetrics = {
     report,
     reset,
     statsFor,

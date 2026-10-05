@@ -107,7 +107,7 @@ export function useMoveComponent() {
  * `delete_component(component_id)` — soft-deletes a live node (sets
  * `deleted_at`, clamps any pending children to the parent). Used by the
  * BlockChrome trash button and Backspace-at-start-of-empty-RichText.
- * The root component is rejected server-side per `PEAR_COMPONENT_NODE_
+ * The root component is rejected server-side per `SELFBASE_COMPONENT_NODE_
  * SCHEMA.md` § Integrity model — delete the whole page instead.
  */
 export function useDeleteComponent() {
@@ -230,7 +230,7 @@ export function useSaveYjsState() {
 /**
  * Per-`RichText`-component Yjs state save. Mirrors `useSaveYjsState`'s
  * shape but targets `save_component_yjs_state(componentId, data)` — see
- * `docs/PEAR_WEB_RENDERER.md` § Editor stack — Save cycle.
+ * `docs/SELFBASE_WEB_RENDERER.md` § Editor stack — Save cycle.
  */
 export function useSaveComponentYjsState() {
   return useReducer(reducers.saveComponentYjsState);

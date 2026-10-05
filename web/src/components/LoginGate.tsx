@@ -57,7 +57,7 @@ export function LoginGate() {
       <div className="w-full max-w-sm px-6">
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100 tracking-tight">
-            Pear
+            SELFbase
           </h1>
           <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-500">
             {mode === "login" ? "Sign in to your workspace" : "Create your account"}

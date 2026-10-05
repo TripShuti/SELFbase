@@ -59,7 +59,7 @@ function deleteIdb(name: string): Promise<void> {
 }
 
 /**
- * Delete all Pear IndexedDB caches for the current origin.
+ * Delete all SELFbase IndexedDB caches for the current origin.
  * Clears both the current namespace and any legacy `selfbase-page-*` entries
  * from older naming schemes.
  * Call this from the settings panel after a server reset, then reload.
@@ -125,7 +125,7 @@ export function clearSavedToken(connectionId?: string) {
 }
 
 /**
- * Builds a DbConnectionBuilder configured for a Pear workspace.
+ * Builds a DbConnectionBuilder configured for a SELFbase workspace.
  * Pass an OIDC id_token to authenticate via OIDC; omit for native/anonymous auth
  * (falls back to the locally-persisted SpacetimeDB identity token for that workspace).
  * Returns `null` if the address is invalid or the client cannot construct a connection (never throws).

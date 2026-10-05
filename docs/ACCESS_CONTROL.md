@@ -3,7 +3,7 @@
 > **Fork notice (SELFbase).** Upstream document; conversations/AI-user sections
 > do not apply — this fork keeps pages, rules, and human-only access requests.
 
-Introduced in module `1.0.0-beta.35`, addressing Pear tasks 14437 and 333.
+Introduced in module `1.0.0-beta.35`, addressing tasks 14437 and 333.
 
 ## Enforced boundary
 
@@ -66,7 +66,7 @@ change, not a workspace-wide audit of unrelated operational tables.
 Run a separate local host (the suite refuses non-localhost URLs):
 
 ```sh
-spacetime start --listen-addr 127.0.0.1:3098 --data-dir /tmp/pear-access-stdb --in-memory --non-interactive
+spacetime start --listen-addr 127.0.0.1:3098 --data-dir /tmp/selfbase-access-stdb --in-memory --non-interactive
 ```
 
 From `server/spacetimedb`:

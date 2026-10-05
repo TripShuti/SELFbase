@@ -1,4 +1,4 @@
-# Garage config for the pear docker-compose stack (single node).
+# Garage config for the selfbase docker-compose stack (single node).
 #
 # Secrets are NOT in this file: `rpc_secret` and `admin_token` come from the
 # GARAGE_RPC_SECRET / GARAGE_ADMIN_TOKEN env vars set on the service (Garage

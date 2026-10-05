@@ -1,4 +1,4 @@
-/** Format Pear Date-column values as timezone-neutral calendar dates. */
+/** Format Date-column values as timezone-neutral calendar dates. */
 export function formatDateOnly(
   timestampMs: number,
   locales?: Intl.LocalesArgument,

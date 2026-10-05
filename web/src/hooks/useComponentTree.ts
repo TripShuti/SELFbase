@@ -10,10 +10,10 @@ import type {
   ComponentTypeDefinition,
   ComponentYjsState,
 } from "@/src/module_bindings/types";
-import { PEAR_REGISTRY_REQUIRED_TYPES } from "@/src/components/component-renderers/pearSlashItems";
+import { REGISTRY_REQUIRED_TYPES } from "@/src/components/component-renderers/slashItems";
 import { useRunPendingMigrations } from "@/src/hooks/usePages";
 
-/** Pear substrate tree — structurally compatible with pulp's `BlockTree`. */
+/** SELFbase substrate tree — structurally compatible with pulp's `BlockTree`. */
 export type ComponentTree = BlockTree & {
   root: ComponentNode | null;
   byId: Map<bigint, ComponentNode>;
@@ -104,7 +104,7 @@ export function useComponentTree(
 
   return useMemo(() => {
     // Filter to live nodes on this surface. Soft-deleted leaves are excluded
-    // from the render walk per `docs/PEAR_COMPONENT_NODE_SCHEMA.md` §
+    // from the render walk per `docs/SELFBASE_COMPONENT_NODE_SCHEMA.md` §
     // Integrity model (leaf-only soft delete).
     const live: ComponentNode[] = [];
     for (const n of nodes) {
@@ -159,7 +159,7 @@ export function useComponentTree(
 }
 
 /**
- * When Pear-only built-ins are missing from `component_type_definition`,
+ * When SELFbase-only built-ins are missing from `component_type_definition`,
  * invoke `run_pending_migrations` once. This seeds rows added after the
  * workspace was first provisioned (e.g. document list types). Production
  * upgrades normally run the same reducer from lifecycle after publish.
@@ -174,7 +174,7 @@ export function useEnsureBuiltinComponentTypes(
   useEffect(() => {
     if (!ready || inflightRef.current) return;
 
-    const missing = PEAR_REGISTRY_REQUIRED_TYPES.filter((t) => !defs.has(t));
+    const missing = REGISTRY_REQUIRED_TYPES.filter((t) => !defs.has(t));
     if (missing.length === 0) return;
 
     inflightRef.current = true;
@@ -182,7 +182,7 @@ export function useEnsureBuiltinComponentTypes(
       .catch((err: unknown) => {
         console.warn(
           `[ComponentTree] Missing builtin types (${missing.join(", ")}). ` +
-            "Republish Pear module and run run_pending_migrations (local: restart STDB container).",
+            "Republish SELFbase module and run run_pending_migrations (local: restart STDB container).",
           err,
         );
       })

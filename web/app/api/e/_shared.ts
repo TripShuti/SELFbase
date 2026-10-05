@@ -1,8 +1,8 @@
 /**
- * Wiring for the default Pear Next.js custom-API handler. Reads
- * `PEAR_STDB_*` env vars, validates the request's Bearer key, and self-
- * disables when an external gateway is configured via
- * `NEXT_PUBLIC_PEAR_API_URL_TEMPLATE`.
+ * Wiring for the default SELFbase Next.js custom-API handler. Reads
+ * `SELFBASE_STDB_*` env vars (`PEAR_STDB_*` legacy names still work),
+ * validates the request's Bearer key, and self-disables when an external
+ * gateway is configured via `NEXT_PUBLIC_SELFBASE_API_URL_TEMPLATE`.
  *
  * All HTTP-method routes ([slug]/route.ts, [slug]/[id]/route.ts,
  * [slug]/_schema/route.ts) defer to `serveEndpointRequest()` here.
@@ -23,20 +23,25 @@ const SHARED_CACHE = new EndpointConfigCache({ maxEntries: 256, ttlMs: 60_000 })
 
 let cachedTransport: StdbTransport | null = null;
 
+function env(name: string, legacyName: string): string | undefined {
+  // Rebrand-tolerant read: `SELFBASE_*` wins, pre-rebrand `PEAR_*` still works.
+  return process.env[name]?.trim() || process.env[legacyName]?.trim() || undefined;
+}
+
 function getConfiguredDbName(): string {
-  return process.env.PEAR_STDB_DB_NAME?.trim() || "pear";
+  return env("SELFBASE_STDB_DB_NAME", "PEAR_STDB_DB_NAME") || "selfbase";
 }
 
 function getTransport(): StdbTransport {
   if (cachedTransport) return cachedTransport;
-  const baseUrl = process.env.PEAR_STDB_URL?.trim() || "http://localhost:3000";
+  const baseUrl = env("SELFBASE_STDB_URL", "PEAR_STDB_URL") || "http://localhost:3000";
   const dbName = getConfiguredDbName();
-  const token = process.env.PEAR_STDB_TOKEN?.trim();
+  const token = env("SELFBASE_STDB_TOKEN", "PEAR_STDB_TOKEN");
   if (!token) {
     throw new ApiEndpointError(
       503,
       "stdb_not_configured",
-      "PEAR_STDB_TOKEN is not set. Set it in your environment so the API handler can authenticate to SpacetimeDB.",
+      "SELFBASE_STDB_TOKEN is not set. Set it in your environment so the API handler can authenticate to SpacetimeDB.",
     );
   }
   cachedTransport = new HttpStdbTransport({ baseUrl, dbName, token });
@@ -118,7 +123,7 @@ async function authenticateRequest(
   }
 
   // No bearer header. Fall back to "open" — the dispatcher will reject the
-  // request when `endpoint.requireAuth` is true. Self-hosted Pear can later
+  // request when `endpoint.requireAuth` is true. Self-hosted SELFbase can later
   // wire its OIDC session here to elevate to `kind: "session"`.
   return { kind: "open" };
 }
@@ -144,12 +149,15 @@ interface ServeOptions {
 /**
  * Entry point shared by every method/route file. Returns either the
  * dispatcher's `Response` or a 410-with-`Location` redirect when an
- * external gateway has taken over via `NEXT_PUBLIC_PEAR_API_URL_TEMPLATE`.
+ * external gateway has taken over via `NEXT_PUBLIC_SELFBASE_API_URL_TEMPLATE`.
  */
 export async function serveEndpointRequest(opts: ServeOptions): Promise<Response> {
   const { request, slug, trailing } = opts;
   const url = new URL(request.url);
-  const template = process.env.NEXT_PUBLIC_PEAR_API_URL_TEMPLATE?.trim();
+  const template = (
+    process.env.NEXT_PUBLIC_SELFBASE_API_URL_TEMPLATE ??
+    process.env.NEXT_PUBLIC_PEAR_API_URL_TEMPLATE
+  )?.trim();
   if (isCustomTemplate(template)) {
     const target = resolveEndpointUrl({
       template,
@@ -195,7 +203,7 @@ export async function serveEndpointRequest(opts: ServeOptions): Promise<Response
     transport,
     auth,
     cache: SHARED_CACHE,
-    // This handler owns one process-wide transport configured by PEAR_STDB_*.
+    // This handler owns one process-wide transport configured by SELFBASE_STDB_*.
     // Supplying an explicit namespace opts it into the dispatcher's cache;
     // multi-tenant hosts must use a distinct stable identity per database.
     cacheNamespace: `self-hosted-db:${getConfiguredDbName()}`,

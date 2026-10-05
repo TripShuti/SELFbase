@@ -1,12 +1,12 @@
 "use client";
 
-// Pear portable snapshot formats now live in the shared workspace package
+// SELFbase portable snapshot formats now live in the shared workspace package
 // @selfbase/snapshot-core (packages/snapshot-core). This module re-exports
 // them and keeps only the browser-specific download helper.
 
 export {
   // shared encoding
-  encodePearValue,
+  encodeSnapshotValue,
   // v2
   SELFBASE_SNAPSHOT_FORMAT_V2,
   SNAPSHOT_TABLE_POLICY_V2,

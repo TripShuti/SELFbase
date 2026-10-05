@@ -1,9 +1,9 @@
 import { Schema, type DOMOutputSpec } from "prosemirror-model";
 
 /**
- * Pear's v1 web ProseMirror schema for `RichText` component nodes.
+ * SELFbase's v1 web ProseMirror schema for `RichText` component nodes.
  *
- * Per `docs/PEAR_WEB_RENDERER.md` § Editor stack — Mark schema, the v1 mark
+ * Per `docs/SELFBASE_WEB_RENDERER.md` § Editor stack — Mark schema, the v1 mark
  * vocabulary is: bold / italic / underline / strikethrough / inline code /
  * link. The block-level shape is **flat** — a `RichText` doc is a sequence
  * of `paragraph` ProseMirror nodes plus `hard_break` for soft line breaks.

@@ -226,7 +226,7 @@ export function workspaceBlobDownloadHref(
  *      backed). This is the fallback for standalone workspaces where there
  *      is no slug-based URL.
  */
-export function usePearWorkspaceSlug(): string {
+export function useWorkspaceSlug(): string {
   const params = useParams() as { slug?: string | string[] } | null;
   const rawSlug = params?.slug;
   const urlSlug = Array.isArray(rawSlug) ? rawSlug[0] : rawSlug;

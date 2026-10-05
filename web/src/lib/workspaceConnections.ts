@@ -172,15 +172,15 @@ export function readActiveWorkspaceToken(): string | null {
 }
 
 /**
- * Pear Cloud: ensure the workspace identified by (wsUri, dbName) is the
- * active entry in localStorage. Matches existing entries by identity
+ * Shared-workspace links: ensure the workspace identified by (wsUri, dbName)
+ * is the active entry in localStorage. Matches existing entries by identity
  * (wsUri + dbName), inserting a new one only when absent.
  *
- * Why this exists: `WorkspaceProvider` is a standalone-Pear concept that
+ * Why this exists: `WorkspaceProvider` is a standalone-SELFbase concept that
  * treats localStorage as the source of truth for the "active" workspace.
- * In Pear Cloud the URL slug is the real source of truth, and the same
- * browser profile may see many accounts / workspaces. Without this sync,
- * `activeWorkspace.dbName` (and anything derived from it — notably
+ * When opening a shared link, the URL slug is the real source of truth, and
+ * the same browser profile may see many accounts / workspaces. Without this
+ * sync, `activeWorkspace.dbName` (and anything derived from it — notably
  * `idbNamespace` used for Yjs IDB persistence keys) can point at a
  * previously-visited workspace, causing page-N in workspace B to
  * hydrate from workspace A's IndexedDB (cross-workspace data leak).
@@ -190,7 +190,7 @@ export function readActiveWorkspaceToken(): string | null {
  * `WorkspaceProvider` mounts (which reads localStorage once in an
  * effect on first render).
  */
-export function ensureCloudWorkspaceActive(params: {
+export function ensureSharedWorkspaceActive(params: {
   name?: string;
   wsUri: string;
   dbName: string;
@@ -237,7 +237,7 @@ export function ensureCloudWorkspaceActive(params: {
 }
 
 /**
- * Purge all Pear-owned browser storage (localStorage + IndexedDB). Intended
+ * Purge all SELFbase-owned browser storage (localStorage + IndexedDB). Intended
  * for logout / account-switch, so the next user of this browser profile
  * doesn't inherit the previous session's workspace list, tokens, or Yjs
  * editor IDB snapshots.
@@ -246,15 +246,16 @@ export function ensureCloudWorkspaceActive(params: {
  * tabs hold the database open. We fire-and-forget and let the next user's
  * login recreate what's needed.
  */
-export async function purgePearBrowserState(): Promise<void> {
+export async function purgeBrowserState(): Promise<void> {
   if (typeof window === "undefined") return;
 
-  // 1. localStorage — everything under the `pear_` prefix.
+  // 1. localStorage — everything under the `selfbase_` prefix, plus the
+  // pre-rebrand `pear_` prefix (one-time orphan cleanup).
   try {
     const keysToDelete: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && k.startsWith("pear_")) keysToDelete.push(k);
+      if (k && (k.startsWith("selfbase_") || k.startsWith("pear_"))) keysToDelete.push(k);
     }
     for (const k of keysToDelete) localStorage.removeItem(k);
   } catch {

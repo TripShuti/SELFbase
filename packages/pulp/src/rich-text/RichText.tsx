@@ -50,7 +50,7 @@ import {
 /**
  * Built-in `RichText` component — viewport-aware switcher.
  *
- * Per `docs/PEAR_WEB_RENDERER.md` § Performance — Viewport-aware editor
+ * Per `docs/SELFBASE_WEB_RENDERER.md` § Performance — Viewport-aware editor
  * mounting, every `RichText` has two render modes:
  *
  *   1. **Static** — renders the `Y.Doc` through `yDocToHtml`. No

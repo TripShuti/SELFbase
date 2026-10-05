@@ -7,8 +7,8 @@ use crate::access_control::{page_access_rule__view, PageAccessRule};
 use crate::auth::user__view;
 use crate::pages::components::component_node__view;
 use crate::pages::schemas::database_schema__view;
-use crate::pages::{page__view, Page};
 use crate::pages::snapshots::page_snapshot__view;
+use crate::pages::{page__view, Page};
 use crate::types::Principal;
 use spacetimedb::{client_visibility_filter, view, Filter, Identity, SpacetimeType, ViewContext};
 use std::collections::{BTreeMap, HashSet};
@@ -141,10 +141,16 @@ pub fn readable_schemas(ctx: &ViewContext) -> Vec<ReadableResource> {
 #[view(accessor=readable_review_snapshots, public)]
 pub fn readable_review_snapshots(ctx: &ViewContext) -> Vec<ReadableResource> {
     let policy = PagePolicy::load(ctx);
-    if !policy.authenticated { return vec![]; }
-    ctx.db.page_snapshot().page_id().filter(0u64..)
+    if !policy.authenticated {
+        return vec![];
+    }
+    ctx.db
+        .page_snapshot()
+        .page_id()
+        .filter(0u64..)
         .filter(|s| policy.can_read(s.page_id))
-        .map(|s| ReadableResource { id: s.id }).collect()
+        .map(|s| ReadableResource { id: s.id })
+        .collect()
 }
 
 // Direct joins only; publisher access retains the host-provided bypass.

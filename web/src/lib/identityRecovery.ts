@@ -36,11 +36,15 @@
 
 import { clearSavedToken } from "@/src/lib/spacetime";
 
-const REASON_KEY = "pear_identity_drift_reason";
-const TRIGGERED_KEY = "pear_identity_drift_in_progress";
+const REASON_KEY = "selfbase_identity_drift_reason";
+const TRIGGERED_KEY = "selfbase_identity_drift_in_progress";
+// Pre-rebrand keys — read once so an in-flight drift recovery survives the
+// rename, then dropped.
+const LEGACY_REASON_KEY = "pear_identity_drift_reason";
+const LEGACY_TRIGGERED_KEY = "pear_identity_drift_in_progress";
 
 /**
- * Reducer rejection messages emitted by Pear's `created_by` ownership
+ * Reducer rejection messages emitted by SELFbase's `created_by` ownership
  * checks. New reducers that gate on `ctx.sender() == row.created_by` should
  * either reuse one of these phrasings or extend this list.
  *
@@ -67,8 +71,12 @@ export function isIdentityOwnershipError(err: unknown): boolean {
 export function consumeIdentityDriftReason(): string | null {
   if (typeof window === "undefined") return null;
   try {
-    const reason = sessionStorage.getItem(REASON_KEY);
-    if (reason) sessionStorage.removeItem(REASON_KEY);
+    const reason =
+      sessionStorage.getItem(REASON_KEY) ?? sessionStorage.getItem(LEGACY_REASON_KEY);
+    if (reason) {
+      sessionStorage.removeItem(REASON_KEY);
+      sessionStorage.removeItem(LEGACY_REASON_KEY);
+    }
     return reason;
   } catch {
     return null;

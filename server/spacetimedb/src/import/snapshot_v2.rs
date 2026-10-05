@@ -20,15 +20,14 @@ use super::decode::*;
 use crate::auth::sender_is_admin;
 use crate::{
     api_call_log, api_endpoint, api_endpoint_key, api_field_mapping, attachment, block_access_rule,
-    block_comment, component_node, component_type_definition, component_yjs_state, database_row_marker,
-    database_schema, database_view, id_counter, page, page_access_request, page_access_rule,
-    page_content, page_property_value, page_property_value_history, page_snapshot, page_yjs_state,
-    property_definition, user, user_preference, workspace_setting,
+    block_comment, component_node, component_type_definition, component_yjs_state,
+    database_row_marker, database_schema, database_view, id_counter, page, page_access_request,
+    page_access_rule, page_content, page_property_value, page_property_value_history,
+    page_snapshot, page_yjs_state, property_definition, user, user_preference, workspace_setting,
 };
 use crate::{
-    AccessRequestStatus, ApiCallLog, ComponentCapability, ComponentNode,
-    ComponentTypeDefinition, ComponentYjsState, DatabaseRowMarker, Page, PageAccessRequest,
-    PageContentFormat,
+    AccessRequestStatus, ApiCallLog, ComponentCapability, ComponentNode, ComponentTypeDefinition,
+    ComponentYjsState, DatabaseRowMarker, Page, PageAccessRequest, PageContentFormat,
 };
 use serde_json::Value;
 use spacetimedb::{reducer, table, Identity, ReducerContext, Table, Timestamp};
@@ -36,6 +35,8 @@ use spacetimedb::{reducer, table, Identity, ReducerContext, Table, Timestamp};
 /// Keep in sync with `SELFBASE_SNAPSHOT_V2_FORMAT` in `web/src/lib/selfbaseExport.ts`
 /// and the `format` field of `snapshot_tables_v2.json`.
 const FORMAT: &str = "selfbase-snapshot-v2";
+/// Pre-rebrand format name — accepted on import so old exports still load.
+const LEGACY_FORMAT: &str = "pear-snapshot-v2";
 
 /// The fixed primary key of the single [`ImportSession`] row — at most one
 /// import session may exist at a time.
@@ -152,7 +153,7 @@ pub fn import_v2_begin(ctx: &ReducerContext, header_json: String) -> Result<(), 
         .get("format")
         .and_then(|v| v.as_str())
         .ok_or("missing format")?;
-    if format != FORMAT {
+    if format != FORMAT && format != LEGACY_FORMAT {
         return Err(format!("unsupported format: {format}"));
     }
 
@@ -166,7 +167,7 @@ pub fn import_v2_begin(ctx: &ReducerContext, header_json: String) -> Result<(), 
 }
 
 /// Apply one chunk of snapshot rows. `rows_json` is a JSON array of rows in
-/// the same camelCase `__pear`-tagged encoding v1 uses. Chunks are strictly
+/// the same camelCase `__selfbase`-tagged encoding. Chunks are strictly
 /// sequenced: `seq` must be `last_seq + 1`. Only the session creator may call.
 #[reducer]
 pub fn import_v2_chunk(
@@ -281,9 +282,7 @@ pub fn import_v2_abort(ctx: &ReducerContext) -> Result<(), String> {
         .find(IMPORT_SESSION_ID)
         .ok_or("No import session in progress.")?;
     if ctx.sender() != session.created_by && !sender_is_admin(ctx) {
-        return Err(
-            "Only the import session creator or a workspace admin may abort.".to_string(),
-        );
+        return Err("Only the import session creator or a workspace admin may abort.".to_string());
     }
     clear_session(ctx);
     Ok(())
@@ -309,11 +308,14 @@ fn record_counts(ctx: &ReducerContext, table_name: &str, applied: u64, skipped: 
         Some(c) => {
             let applied = c.applied + applied;
             let skipped = c.skipped + skipped;
-            ctx.db.import_session_count().id().update(ImportSessionCount {
-                applied,
-                skipped,
-                ..c
-            });
+            ctx.db
+                .import_session_count()
+                .id()
+                .update(ImportSessionCount {
+                    applied,
+                    skipped,
+                    ..c
+                });
         }
         None => {
             ctx.db.import_session_count().insert(ImportSessionCount {
@@ -339,7 +341,11 @@ fn counts_for(ctx: &ReducerContext, table_name: &str) -> (u64, u64) {
 
 /// Decode + insert every row of one chunk. Returns `(applied, skipped)`;
 /// guard-skipped rows count as skipped, never as applied.
-fn import_rows(ctx: &ReducerContext, table_name: &str, arr: &[Value]) -> Result<(u64, u64), String> {
+fn import_rows(
+    ctx: &ReducerContext,
+    table_name: &str,
+    arr: &[Value],
+) -> Result<(u64, u64), String> {
     // Plain arm: decode each row and insert it; nothing is ever skipped.
     macro_rules! plain {
         ($accessor:ident, $decode:path) => {{
@@ -384,7 +390,10 @@ fn import_rows(ctx: &ReducerContext, table_name: &str, arr: &[Value]) -> Result<
         "database_view" => plain!(database_view, decode_database_view),
         "page_property_value" => plain!(page_property_value, decode_page_property_value),
         "page_property_value_history" => {
-            plain!(page_property_value_history, decode_page_property_value_history)
+            plain!(
+                page_property_value_history,
+                decode_page_property_value_history
+            )
         }
         "database_row_marker" => plain!(database_row_marker, decode_database_row_marker),
         "attachment" => plain!(attachment, decode_attachment),
@@ -455,8 +464,6 @@ fn decode_page(v: &Value) -> Result<Page, String> {
     })
 }
 
-
-
 // ── Decoders for tables new in v2 ─────────────────────────────────────────────
 
 fn decode_component_node(v: &Value) -> Result<ComponentNode, String> {
@@ -496,7 +503,10 @@ fn decode_component_capability(v: &Value) -> Result<ComponentCapability, String>
             ("DeletesRow", ComponentCapability::DeletesRow),
             ("NavigatesToPage", ComponentCapability::NavigatesToPage),
             ("OpensExternalUrl", ComponentCapability::OpensExternalUrl),
-            ("TriggersAutomation", ComponentCapability::TriggersAutomation),
+            (
+                "TriggersAutomation",
+                ComponentCapability::TriggersAutomation,
+            ),
         ],
         "ComponentCapability",
     )
@@ -535,7 +545,6 @@ fn decode_database_row_marker(v: &Value) -> Result<DatabaseRowMarker, String> {
         created_at: decode_timestamp(m.get("createdAt").ok_or("createdAt")?)?,
     })
 }
-
 
 fn decode_access_request_status(v: &Value) -> Result<AccessRequestStatus, String> {
     decode_enum_tag2(
@@ -581,7 +590,6 @@ fn decode_api_call_log(v: &Value) -> Result<ApiCallLog, String> {
     })
 }
 
-
 fn decode_block_comment(v: &Value) -> Result<crate::comments::BlockComment, String> {
     use crate::comments::BlockComment;
     let m = obj(v, "block_comment")?;
@@ -598,11 +606,10 @@ fn decode_block_comment(v: &Value) -> Result<crate::comments::BlockComment, Stri
     })
 }
 
-
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
-mod pear_v2_tests {
+mod snapshot_v2_tests {
     use super::*;
     use serde_json::json;
 
@@ -642,7 +649,11 @@ mod pear_v2_tests {
         let policy_set: std::collections::BTreeSet<&str> = include.iter().copied().collect();
         let dispatch_set: std::collections::BTreeSet<&str> =
             IMPORT_V2_TABLES.iter().copied().collect();
-        assert_eq!(include.len(), policy_set.len(), "duplicate in policy include list");
+        assert_eq!(
+            include.len(),
+            policy_set.len(),
+            "duplicate in policy include list"
+        );
         assert_eq!(
             IMPORT_V2_TABLES.len(),
             dispatch_set.len(),

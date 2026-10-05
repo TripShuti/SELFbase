@@ -4,7 +4,7 @@
  *
  * The substrate stores `props` as opaque JSON and stores `prop_schema` as
  * opaque JSON Schema — server-side enforcement is post-v1 per
- * `docs/PEAR_COMPONENT_NODE_SCHEMA.md` § Prop-schema validation. This module
+ * `docs/SELFBASE_COMPONENT_NODE_SCHEMA.md` § Prop-schema validation. This module
  * is the client-side authority that fills the gap: every renderer / editor /
  * AI authoring surface should pipe candidate `props` through
  * `validateComponentProps` before calling `insert_component` or
@@ -12,7 +12,7 @@
  *
  * Intentionally a small dependency-free subset of JSON Schema. Covers
  * everything the v1 built-in registry (`prop_schemas` module in
- * `pear/server/spacetimedb/src/pages/components.rs`) actually uses:
+ * `server/spacetimedb/src/pages/components.rs`) actually uses:
  *
  * - `type: "object" | "string" | "number" | "integer" | "boolean" | "array"`
  * - `properties: { [key]: schema }` (on objects)

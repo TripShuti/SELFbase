@@ -1,9 +1,9 @@
 /**
  * Shared types for the platform-agnostic custom API endpoint library.
  *
- * This module ships with open-source Pear and is imported by both the
+ * This module ships with open-source SELFbase and is imported by both the
  * default Next.js handler ([../../../app/api/e/[slug]/route.ts]) and any
- * external gateway implementations (e.g. the Pear-Cloud Cloudflare Worker
+ * external gateway implementations (e.g. the hosted Cloudflare Worker
  * at `workers/api/`).
  *
  * It MUST stay free of platform-specific imports — no `next/*`, no
@@ -98,7 +98,7 @@ export type AuthResult =
 /**
  * Transport abstraction for talking to one workspace's SpacetimeDB. Hosts
  * supply an implementation bound to a specific `(server, database, token)`
- * tuple — Next.js single-tenant handler binds to `PEAR_STDB_*` env vars,
+ * tuple — Next.js single-tenant handler binds to `SELFBASE_STDB_*` env vars,
  * the multi-tenant Worker binds per request from a Postgres lookup.
  */
 export interface StdbTransport {

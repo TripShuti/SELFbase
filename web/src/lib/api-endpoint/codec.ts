@@ -200,7 +200,7 @@ function formatIsoDuration(minutes: number): string {
 
 /**
  * Variant ordering for the Rust enum `PropertyValue` in
- * `pear/server/spacetimedb/src/lib.rs`. STDB's HTTP `/sql` endpoint
+ * `server/spacetimedb/src/lib.rs`. STDB's HTTP `/sql` endpoint
  * encodes sum-type values positionally as `[variantIndex, payload]`, so we
  * need a stable tag → name map. If you reorder the Rust enum, this list
  * must move with it.

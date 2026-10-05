@@ -26,7 +26,7 @@ import type { PageRow } from "@/src/hooks/usePages";
 import { filterNavVisiblePages } from "@/src/hooks/usePages";
 import { useWorkspace } from "@/src/providers/WorkspaceProvider";
 /** DataTransfer MIME type for dragged sidebar page rows. */
-const PAGE_DRAG_MIME = "application/x-pear-page";
+const PAGE_DRAG_MIME = "application/x-selfbase-page";
 
 // ─── Drag state shared across the whole sidebar ───────────────────────────────
 
@@ -687,11 +687,11 @@ export function Sidebar() {
             </button>
           )}
         </div>
-        <label className="sr-only" htmlFor="pear-workspace-select">
+        <label className="sr-only" htmlFor="selfbase-workspace-select">
           Workspace
         </label>
         <select
-          id="pear-workspace-select"
+          id="selfbase-workspace-select"
           value={activeWorkspaceId ?? ""}
           onChange={(e) => switchWorkspace(e.target.value)}
           className="mt-2 w-full text-xs bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded px-2 py-1.5 text-neutral-800 dark:text-neutral-200"

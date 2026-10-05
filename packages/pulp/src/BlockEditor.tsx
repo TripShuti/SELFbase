@@ -38,7 +38,7 @@ import type { BlockId, BlockTree } from "./types";
 
 /**
  * Top-level block tree editor shell. Consumes tree + mutations from
- * `<PulpProvider>` — the host app wires storage (Pear: SpacetimeDB).
+ * `<PulpProvider>` — the host app wires storage (host: SpacetimeDB).
  */
 export function BlockEditor() {
   const { tree } = usePulp();
@@ -202,5 +202,5 @@ function blockIdOfNode(node: Node | null): BlockId | null {
   return match ? BigInt(match[1]) : null;
 }
 
-/** @deprecated Pear alias — prefer `BlockEditor`. */
+/** @deprecated Deprecated alias — prefer `BlockEditor`. */
 export const ComponentTreeRenderer = BlockEditor;

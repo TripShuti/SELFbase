@@ -217,7 +217,7 @@ async function listRows(
   //   • enum/sum-typed columns like `page_type` can't be compared to a
   //     string literal at the planner level
   // We CAN now filter on `parent_pk` (the non-nullable indexed shadow of
-  // `parent_id` added in pear's STDB module) — the original `parent_id`
+  // `parent_id` added in the STDB module) — the original `parent_id`
   // is `Option<u64>` and STDB rejects `WHERE parent_id = 1` because it
   // can't parse the literal as a sum type (clockworklabs/SpacetimeDB#2696).
   // So fetch a bounded window keyed on the indexed `parent_pk` predicate,
@@ -540,7 +540,7 @@ function endpointConfigCacheKey(
 
 /**
  * Tag-index order MUST match the order of variants on the Rust enum
- * `HttpMethod` in `pear/server/spacetimedb/src/lib.rs`. SpacetimeDB's
+ * `HttpMethod` in `server/spacetimedb/src/lib.rs`. SpacetimeDB's
  * SQL HTTP response sometimes encodes a `Vec<HttpMethod>` as a list of
  * BSATN tag indices (e.g. `[0, 1, 2, 3]`) instead of named-variant objects,
  * so we need a stable index → name map.

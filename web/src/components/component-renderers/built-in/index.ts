@@ -20,12 +20,12 @@ import {
 } from "./DocumentListItem";
 
 /**
- * Pear-specific block renderers — registered alongside pulp's core
- * `RichText` via `registerCoreBlocks()` in `PearComponentTreeRenderer`.
+ * SELFbase-specific block renderers — registered alongside pulp's core
+ * `RichText` via `registerCoreBlocks()` in `ComponentTreeRenderer`.
  */
 let registered = false;
 
-export function registerPearBuiltinRenderers(): void {
+export function registerBuiltinRenderers(): void {
   if (registered) return;
   registered = true;
 

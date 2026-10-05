@@ -7,7 +7,7 @@ import {
   uploadWorkspaceBlob,
   useBlobDownloadHref,
   useBlobSrc,
-  usePearWorkspaceSlug,
+  useWorkspaceSlug,
 } from "@/src/lib/blobUpload";
 import { formatBytes } from "@/src/lib/formatBytes";
 import { PageIcon } from "@/src/components/PageIcon";
@@ -37,7 +37,7 @@ const DEFAULT_CONTENT_TYPE = "application/octet-stream";
 export function FileBlockRenderer({ node }: BlockRendererProps) {
   const props = useMemo<FileBlockProps>(() => safeParse(node.props), [node.props]);
   const { updateBlockProps } = usePulp();
-  const slug = usePearWorkspaceSlug();
+  const slug = useWorkspaceSlug();
   const attachmentCtx = useAudioAttachment();
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);

@@ -1,7 +1,7 @@
 /**
  * `dataSource` — the query half of the repeater primitive.
  *
- * Implements D5 of `docs/PEAR_CUSTOM_VIEW_RUNTIME_ADR.md`: a versioned,
+ * Implements D5 of `docs/SELFBASE_CUSTOM_VIEW_RUNTIME_ADR.md`: a versioned,
  * bounded, typed config. Deliberately **not** Turing-shaped — no expressions,
  * no joins, no aggregation, no OR-trees. When a view outgrows this the answer
  * is a sandboxed expression (tier 4) or a module (tier 5), never query-language

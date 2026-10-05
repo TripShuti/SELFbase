@@ -2,8 +2,8 @@
  * Public entry for the platform-agnostic custom API endpoint library.
  *
  * Imported by:
- *   - The default Next.js handler at `pear/web/app/api/e/[slug]/...`.
- *   - External gateways such as the Pear-Cloud Cloudflare Worker.
+ *   - The default Next.js handler at `web/app/api/e/[slug]/...`.
+ *   - External gateways such as the hosted Cloudflare Worker.
  *
  * Anything not re-exported here is considered internal and may change.
  */

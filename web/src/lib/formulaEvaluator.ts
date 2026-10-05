@@ -1,5 +1,5 @@
 /**
- * Client-side formula evaluator for Pear Formula and Rollup property types.
+ * Client-side formula evaluator for SELFbase Formula and Rollup property types.
  *
  * Supports a Notion-compatible expression language parsed via a recursive
  * descent parser. The evaluator NEVER throws — all errors return null.
@@ -382,7 +382,7 @@ function toNum(v: FormulaValue): number {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
- * Evaluate a Pear formula expression against a map of property name → value.
+ * Evaluate a SELFbase formula expression against a map of property name → value.
  * Returns string | number | boolean, or null on any error.
  */
 export function evaluateFormula(

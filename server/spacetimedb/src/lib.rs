@@ -1,4 +1,4 @@
-//! Pear SpacetimeDB module: workspace persistence layer.
+//! SELFbase SpacetimeDB module: workspace persistence layer.
 //!
 //! This crate is split by subsystem (auth, pages, access control, custom API
 //! endpoints). Each subsystem owns its own tables, reducers, and helpers.
@@ -45,9 +45,8 @@ pub use crate::pages::components::{
     ComponentNode, ComponentTypeDefinition, ComponentYjsState, PageContentFormat,
 };
 pub use crate::pages::schemas::{
-    FileRef,
     database_schema, page_property_value, page_property_value_history, property_definition,
-    AiPrimitive, AiPropertyValue, DatabaseSchema, InvalidationPolicy, PagePropertyValue,
+    AiPrimitive, AiPropertyValue, DatabaseSchema, FileRef, InvalidationPolicy, PagePropertyValue,
     PagePropertyValueHistory, PropertyDefinition, PropertyType, PropertyValue,
 };
 pub use crate::pages::snapshots::{page_snapshot, PageSnapshot, SnapshotType};

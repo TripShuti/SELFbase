@@ -1,5 +1,5 @@
 /**
- * Web renderer mapping for `Theme` (PEAR_STYLE_VOCABULARY_ADR, S2).
+ * Web renderer mapping for `Theme` (SELFBASE_STYLE_VOCABULARY_ADR, S2).
  *
  * Like `spaceClasses.ts`, this is one of the only places Tailwind is permitted
  * to appear for styling, and every class is a **static literal** so the JIT
@@ -138,8 +138,8 @@ export function useThemeStyle(theme: Theme | null, slug: string): React.CSSPrope
 
     if (theme.accent) {
       const vars = ACCENT_VARS[theme.accent];
-      (style as Record<string, string>)["--pear-accent"] = vars.accent;
-      (style as Record<string, string>)["--pear-accent-on"] = vars.on;
+      (style as Record<string, string>)["--selfbase-accent"] = vars.accent;
+      (style as Record<string, string>)["--selfbase-accent-on"] = vars.on;
     }
 
     const bg = theme.background;

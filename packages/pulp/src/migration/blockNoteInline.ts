@@ -30,7 +30,7 @@ export type BlockNoteInlineStyles = {
   backgroundColor?: string;
 };
 
-/** BlockNote named swatches → Pear toolbar hex (see `TEXT_COLOR_SWATCHES`). */
+/** BlockNote named swatches → toolbar hex (see `TEXT_COLOR_SWATCHES`). */
 const BLOCKNOTE_TEXT_COLOR: Record<string, string> = {
   gray: "#787774",
   brown: "#9f6b53",

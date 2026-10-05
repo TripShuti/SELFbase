@@ -2,7 +2,7 @@
  * Reusable `StdbTransport` implementation backed by SpacetimeDB's HTTP API.
  *
  * Platform-agnostic: this module has zero process/env reads. The OSS Next.js
- * handler constructs one bound to `PEAR_STDB_*` env vars; the Cloudflare
+ * handler constructs one bound to `SELFBASE_STDB_*` env vars; the Cloudflare
  * Worker constructs one per workspace bound to that workspace's
  * server_ip + service token.
  *
@@ -17,7 +17,7 @@ import { readVisibilityViews } from "./read-visibility";
 export interface HttpTransportOptions {
   /** Base URL for the SpacetimeDB HTTP API, e.g. `http://stdb:3000`. */
   baseUrl: string;
-  /** Database name, e.g. `pear` or `acme`. */
+  /** Database name, e.g. `selfbase` or `acme`. */
   dbName: string;
   /** Bearer token for the gateway/service identity. */
   token: string;

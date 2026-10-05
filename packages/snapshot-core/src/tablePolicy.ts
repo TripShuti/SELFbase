@@ -1,6 +1,6 @@
 // The canonical table policy lives next to the Rust module so both sides of the
 // snapshot format (this exporter and the import reducers in
-// pear/server/spacetimedb/src/import/pear_v2.rs) are driven by the same file.
+// server/spacetimedb/src/import/snapshot_v2.rs) are driven by the same file.
 // It is imported directly — there is no copied/duplicated list to drift.
 import tablePolicy from "../../../server/spacetimedb/snapshot_tables_v2.json";
 

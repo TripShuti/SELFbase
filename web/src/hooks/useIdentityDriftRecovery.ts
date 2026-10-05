@@ -46,7 +46,7 @@ export function useIdentityDriftRecovery() {
     (err: unknown, actionLabel: string): boolean => {
       if (!isIdentityOwnershipError(err)) return false;
 
-      const reason = `Pear noticed your local session was out of sync with the workspace while trying to ${actionLabel}. You've been signed out so the connection can be re-established.`;
+      const reason = `SELFbase noticed your local session was out of sync with the workspace while trying to ${actionLabel}. You've been signed out so the connection can be re-established.`;
 
       triggerIdentityDriftRecovery({
         workspaceId: activeId ?? undefined,

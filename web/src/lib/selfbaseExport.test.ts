@@ -6,7 +6,7 @@ import {
   SNAPSHOT_TABLES_V2,
   buildSelfbaseSnapshotV2,
   chunkSelfbaseSnapshotV2,
-  encodePearValue,
+  encodeSnapshotValue,
   parseSelfbaseSnapshotJson,
   resolveSnapshotTableAccessors,
   type SelfbaseSnapshotV2,
@@ -54,7 +54,7 @@ function makeFakeDb(
 
 const BASE_META = {
   wsUri: "ws://localhost:3000",
-  dbName: "pear-test",
+  dbName: "selfbase-test",
   tablesRegistry: registry,
 };
 
@@ -111,54 +111,54 @@ describe("snapshot_tables_v2.json drift", () => {
   });
 });
 
-describe("encodePearValue", () => {
+describe("encodeSnapshotValue", () => {
   test("bigint", () => {
-    expect(encodePearValue(123n)).toEqual({ __pear: "bigint", v: "123" });
-    expect(encodePearValue(-9007199254740993n)).toEqual({
-      __pear: "bigint",
+    expect(encodeSnapshotValue(123n)).toEqual({ __selfbase: "bigint", v: "123" });
+    expect(encodeSnapshotValue(-9007199254740993n)).toEqual({
+      __selfbase: "bigint",
       v: "-9007199254740993",
     });
   });
 
   test("Uint8Array → base64 bytes", () => {
-    expect(encodePearValue(new Uint8Array([1, 2, 3]))).toEqual({ __pear: "bytes", v: "AQID" });
-    expect(encodePearValue(new Uint8Array([]))).toEqual({ __pear: "bytes", v: "" });
+    expect(encodeSnapshotValue(new Uint8Array([1, 2, 3]))).toEqual({ __selfbase: "bytes", v: "AQID" });
+    expect(encodeSnapshotValue(new Uint8Array([]))).toEqual({ __selfbase: "bytes", v: "" });
   });
 
   test("Identity-like ({toHexString})", () => {
     const identity = { toHexString: () => "0xdeadbeef" };
-    expect(encodePearValue(identity)).toEqual({ __pear: "identity", v: "0xdeadbeef" });
+    expect(encodeSnapshotValue(identity)).toEqual({ __selfbase: "identity", v: "0xdeadbeef" });
   });
 
   test("Timestamp-like ({microsSinceUnixEpoch: bigint})", () => {
     const ts = { microsSinceUnixEpoch: 1720000000000000n };
-    expect(encodePearValue(ts)).toEqual({ __pear: "timestamp", v: "1720000000000000" });
+    expect(encodeSnapshotValue(ts)).toEqual({ __selfbase: "timestamp", v: "1720000000000000" });
   });
 
   test("ScheduleAt Interval variant → { tag, value: tagged bigint micros }", () => {
     // Real SDK runtime shape: { tag: "Interval", value: TimeDuration }.
     const row = { scheduledId: 1n, scheduledAt: ScheduleAt.interval(5_000_000n) };
-    expect(encodePearValue(row)).toEqual({
-      scheduledId: { __pear: "bigint", v: "1" },
-      scheduledAt: { tag: "Interval", value: { __pear: "bigint", v: "5000000" } },
+    expect(encodeSnapshotValue(row)).toEqual({
+      scheduledId: { __selfbase: "bigint", v: "1" },
+      scheduledAt: { tag: "Interval", value: { __selfbase: "bigint", v: "5000000" } },
     });
   });
 
   test("ScheduleAt Time variant → { tag, value: tagged timestamp }", () => {
     // Real SDK runtime shape: { tag: "Time", value: Timestamp }.
     const row = { scheduledId: 2n, scheduledAt: ScheduleAt.time(1_720_000_000_000_000n) };
-    expect(encodePearValue(row)).toEqual({
-      scheduledId: { __pear: "bigint", v: "2" },
-      scheduledAt: { tag: "Time", value: { __pear: "timestamp", v: "1720000000000000" } },
+    expect(encodeSnapshotValue(row)).toEqual({
+      scheduledId: { __selfbase: "bigint", v: "2" },
+      scheduledAt: { tag: "Time", value: { __selfbase: "timestamp", v: "1720000000000000" } },
     });
   });
 
   test("primitives and null/undefined pass through", () => {
-    expect(encodePearValue(null)).toBeNull();
-    expect(encodePearValue(undefined)).toBeUndefined();
-    expect(encodePearValue(42)).toBe(42);
-    expect(encodePearValue(true)).toBe(true);
-    expect(encodePearValue("hi")).toBe("hi");
+    expect(encodeSnapshotValue(null)).toBeNull();
+    expect(encodeSnapshotValue(undefined)).toBeUndefined();
+    expect(encodeSnapshotValue(42)).toBe(42);
+    expect(encodeSnapshotValue(true)).toBe(true);
+    expect(encodeSnapshotValue("hi")).toBe("hi");
   });
 
   test("nested arrays and objects encode recursively", () => {
@@ -168,12 +168,12 @@ describe("encodePearValue", () => {
       list: [1n, { at: { microsSinceUnixEpoch: 5n }, name: "x" }],
       plain: { n: 1 },
     };
-    expect(encodePearValue(input)).toEqual({
-      id: { __pear: "bigint", v: "7" },
-      blob: { __pear: "bytes", v: "/w==" },
+    expect(encodeSnapshotValue(input)).toEqual({
+      id: { __selfbase: "bigint", v: "7" },
+      blob: { __selfbase: "bytes", v: "/w==" },
       list: [
-        { __pear: "bigint", v: "1" },
-        { at: { __pear: "timestamp", v: "5" }, name: "x" },
+        { __selfbase: "bigint", v: "1" },
+        { at: { __selfbase: "timestamp", v: "5" }, name: "x" },
       ],
       plain: { n: 1 },
     });
@@ -221,8 +221,8 @@ describe("buildSelfbaseSnapshotV2 rows, counts and blobManifest", () => {
     expect(snap.counts.user).toBe(2);
     expect(snap.counts.page).toBe(0);
     expect(snap.tables.user).toEqual([
-      { id: { __pear: "bigint", v: "1" }, name: "a" },
-      { id: { __pear: "bigint", v: "2" }, name: "b" },
+      { id: { __selfbase: "bigint", v: "1" }, name: "a" },
+      { id: { __selfbase: "bigint", v: "2" }, name: "b" },
     ]);
   });
 

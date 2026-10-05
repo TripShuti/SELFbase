@@ -161,7 +161,7 @@ export function FormattingToolbar({
 
     // ProseMirror fires its own selection events; piggyback DOM
     // selectionchange to catch native shifts (e.g. arrow keys held).
-    // Scroll is included because Pear documents scroll inside app
+    // Scroll is included because documents scroll inside the app
     // containers, not always through `window`.
     let frame: number | null = null;
     const scheduleCompute = () => {

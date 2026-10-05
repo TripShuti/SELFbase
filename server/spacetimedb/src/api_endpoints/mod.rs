@@ -1,4 +1,4 @@
-//! Custom API endpoints: a stable HTTP-facing surface over a Pear
+//! Custom API endpoints: a stable HTTP-facing surface over a SELFbase
 //! database. Endpoints (slug + allowed methods), per-property field
 //! mappings, scoped Bearer keys, an anonymous-public lookup view for the
 //! gateway, an audit log, and an idempotency marker for atomic row
@@ -93,8 +93,8 @@ pub struct PropertyValueInput {
 // ============================================================
 
 /// A user-defined REST API endpoint that projects a clean HTTP interface
-/// onto a specific Pear database. External tools can interact with workspace
-/// data via /api/e/{slug} without understanding Pear internals.
+/// onto a specific SELFbase database. External tools can interact with workspace
+/// data via /api/e/{slug} without understanding SELFbase internals.
 #[table(accessor = api_endpoint, public)]
 pub struct ApiEndpoint {
     #[primary_key]
@@ -115,7 +115,7 @@ pub struct ApiEndpoint {
 }
 
 /// Maps a database property to an external-facing API field name.
-/// Decouples the Pear UI column name from the API contract so renaming
+/// Decouples the grid UI column name from the API contract so renaming
 /// columns doesn't break external integrations.
 #[table(accessor = api_field_mapping, public)]
 pub struct ApiFieldMapping {

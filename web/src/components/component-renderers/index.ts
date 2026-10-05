@@ -1,4 +1,4 @@
-export { ComponentTreeRenderer } from "./PearComponentTreeRenderer";
+export { ComponentTreeRenderer } from "./ComponentTreeRenderer";
 export {
   registerRenderer,
   getRenderer,

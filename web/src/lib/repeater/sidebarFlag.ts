@@ -20,14 +20,16 @@ import { useEffect, useState } from "react";
  *
  * Two ways to set it, so the comparison can be made without a rebuild:
  *
- * - build default: `NEXT_PUBLIC_PEAR_REPEATER_SIDEBAR=1`
+ * - build default: `NEXT_PUBLIC_SELFBASE_REPEATER_SIDEBAR=1`
  * - runtime override, wins over the default:
  *   `localStorage.setItem("selfbase:repeater-sidebar", "1" | "0")` then reload
  */
 
 const STORAGE_KEY = "selfbase:repeater-sidebar";
 
-const BUILD_DEFAULT = process.env.NEXT_PUBLIC_PEAR_REPEATER_SIDEBAR === "1";
+const BUILD_DEFAULT =
+  process.env.NEXT_PUBLIC_SELFBASE_REPEATER_SIDEBAR === "1" ||
+  process.env.NEXT_PUBLIC_PEAR_REPEATER_SIDEBAR === "1";
 
 export function readRepeaterSidebarFlag(): boolean {
   if (typeof window === "undefined") return BUILD_DEFAULT;
