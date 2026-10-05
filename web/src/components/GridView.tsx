@@ -212,6 +212,112 @@ type PropValRow = { pageId: bigint; propertyDefinitionId: bigint; value: { tag: 
 type RowPropertyValues = ReturnType<typeof usePagePropertyValues>;
 const NO_ROW_VALUES: RowPropertyValues = [];
 
+// ── Change-type conversion preview ─────────────────────────────────────────
+// Mirrors `convert_property_value` in `server/spacetimedb/src/pages/schemas.rs`
+// (convert-or-clear + empty skipping) — keep the two in sync. Used only to
+// warn how many cells a type change will clear; the real migration runs
+// transactionally server-side.
+function parsePreviewNumber(v: unknown): number | null {
+  if (typeof v !== "string") return null;
+  const t = v.trim();
+  if (t === "") return null;
+  const direct = Number(t);
+  if (Number.isFinite(direct)) return direct;
+  const withDot = Number(t.replace(",", "."));
+  return Number.isFinite(withDot) ? withDot : null;
+}
+
+const PREVIEW_TRUTHY = new Set(["true", "1", "yes", "y", "так", "+", "on", "checked"]);
+const PREVIEW_FALSY = new Set(["false", "0", "no", "n", "ні", "-", "off", "unchecked"]);
+
+function parsePreviewCheckbox(v: unknown): boolean | null {
+  if (typeof v !== "string") return null;
+  const t = v.trim().toLowerCase();
+  if (PREVIEW_TRUTHY.has(t)) return true;
+  if (PREVIEW_FALSY.has(t)) return false;
+  return null;
+}
+
+function isPreviewIsoDate(v: unknown): boolean {
+  if (typeof v !== "string") return false;
+  const t = v.trim();
+  const m = /^(\d{4})[-/](\d{2})[-/](\d{2})$/.exec(t);
+  if (!m) return false;
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return false;
+  // Day-level validity (Feb 30 etc.) is enforced server-side; the preview
+  // only needs the shape check so counts stay close without duplicating
+  // the full calendar math.
+  return true;
+}
+
+function isNonEmptyString(v: unknown): boolean {
+  return typeof v === "string" && v.trim() !== "";
+}
+
+/** Would this stored cell survive a change to `target` (empties excluded by caller)? */
+function willConvertCellValue(
+  value: { tag: string; value: unknown },
+  target: string,
+): boolean {
+  const v = value.value;
+  switch (target) {
+    case "Text":
+      return ["Text", "Url", "Number", "Checkbox", "Select", "MultiSelect", "Date", "Ai", "File"].includes(value.tag);
+    case "Number": {
+      if (value.tag === "Number" || value.tag === "Checkbox") return true;
+      if (value.tag === "Text" || value.tag === "Url" || value.tag === "Select")
+        return parsePreviewNumber(v) !== null;
+      if (value.tag === "MultiSelect")
+        return Array.isArray(v) && v.length === 1 && parsePreviewNumber(v[0]) !== null;
+      return false;
+    }
+    case "Checkbox": {
+      if (value.tag === "Checkbox" || value.tag === "Number") return true;
+      if (value.tag === "Text" || value.tag === "Select")
+        return parsePreviewCheckbox(v) !== null;
+      return false;
+    }
+    case "Date": {
+      if (value.tag === "Date") return true;
+      if (value.tag === "Text") return isPreviewIsoDate(v);
+      if (value.tag === "Number")
+        return typeof v === "number" && v >= 946684800000 && v <= 4102444800000;
+      return false;
+    }
+    case "Select": {
+      if (value.tag === "MultiSelect")
+        return Array.isArray(v) && v.length === 1 && isNonEmptyString(v[0]);
+      if (value.tag === "Text" || value.tag === "Select" || value.tag === "Url")
+        return isNonEmptyString(v);
+      return value.tag === "Number" || value.tag === "Checkbox" || value.tag === "Date";
+    }
+    case "MultiSelect": {
+      if (value.tag === "MultiSelect") return Array.isArray(v) && v.length > 0;
+      if (value.tag === "Text" || value.tag === "Select" || value.tag === "Url")
+        return isNonEmptyString(v);
+      return value.tag === "Number" || value.tag === "Checkbox" || value.tag === "Date";
+    }
+    case "Url":
+      if (value.tag === "Url") return true;
+      return value.tag === "Text" && isNonEmptyString(v);
+    case "Relation":
+      return value.tag === "Relation";
+    case "Person":
+      return value.tag === "Person";
+    case "File":
+      return value.tag === "File";
+    case "Ai":
+      return value.tag === "Ai";
+    case "Formula":
+    case "Rollup":
+      return true; // server leaves rows untouched for these targets
+    default:
+      return false;
+  }
+}
+
 /**
  * Column footer calculations (Notion-style): per-column aggregation over the
  * visible rows, configured per view and stored in `database_view.config`
@@ -823,6 +929,24 @@ export function GridView({ page }: GridViewProps) {
       viewId: v.id,
       config: serializeViewConfig({ ...existing, columnCalculations: next }),
     });
+  }
+
+  // ── Change-type preview (counts for the convert-or-clear confirm) ─────────
+  // Non-empty cells only — empties are skipped server-side too, so they must
+  // not inflate the warning.
+  function previewTypeChange(
+    propId: bigint,
+    target: string,
+  ): { total: number; cleared: number } {
+    let total = 0;
+    let cleared = 0;
+    for (const pv of allPropertyValues as unknown as PropValRow[]) {
+      if (pv.propertyDefinitionId !== propId) continue;
+      if (isPropValueEmpty(pv.value)) continue;
+      total++;
+      if (!willConvertCellValue(pv.value, target)) cleared++;
+    }
+    return { total, cleared };
   }
 
   // Persist sorts in the view config (shared across devices, survives
@@ -1666,6 +1790,7 @@ export function GridView({ page }: GridViewProps) {
                   onToggleSort={() => toggleHeaderSort(prop.id)}
                   calculation={viewCalculations.get(String(prop.id))}
                   onSetCalculation={(calc) => saveColumnCalculation(prop.id, calc)}
+                  previewTypeChange={(tag) => previewTypeChange(prop.id, tag)}
                 />
               ))}
               <th
@@ -2055,6 +2180,7 @@ function ColumnHeader({
   onToggleSort,
   calculation,
   onSetCalculation,
+  previewTypeChange,
 }: {
   prop: NonNullable<PropertyDefinitionRow>;
   schemaId: bigint;
@@ -2069,9 +2195,14 @@ function ColumnHeader({
   onToggleSort: () => void;
   calculation: ColumnCalculation | undefined;
   onSetCalculation: (calc: ColumnCalculation | "none") => void;
+  previewTypeChange: (tag: string) => { total: number; cleared: number };
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [mode, setMode] = useState<"idle" | "rename" | "change-type" | "relation-target" | "edit-options" | "set-default" | "calculate">("idle");
+  const [mode, setMode] = useState<"idle" | "rename" | "change-type" | "relation-target" | "edit-options" | "set-default" | "calculate" | "confirm-type">("idle");
+  const [pendingType, setPendingType] = useState<{
+    tag: PropertyTypeTag;
+    relTarget: bigint | null;
+  } | null>(null);
   const [renameValue, setRenameValue] = useState(prop.name);
   const [relTargetId, setRelTargetId] = useState<bigint | null>(null);
   const [defaultDraft, setDefaultDraft] = useState("");
@@ -2090,6 +2221,7 @@ function ColumnHeader({
     setRenameValue(prop.name);
     setRelTargetId(null);
     setDefaultDraft("");
+    setPendingType(null);
   }
 
   async function commitRename() {
@@ -2098,6 +2230,39 @@ function ColumnHeader({
       await renameProperty({ propertyDefinitionId: prop.id, name });
     }
     closeMenu();
+  }
+
+  // Type change runs through a confirm step when the column holds values:
+  // the server migrates convert-or-clear (transactional), and anything that
+  // can't convert stays recoverable via cell History.
+  async function applyChangeType(tag: PropertyTypeTag, relTarget: bigint | null) {
+    if (tag === "Relation" && relTarget) {
+      await updatePropertyType({
+        propertyDefinitionId: prop.id,
+        propertyType: { tag: "Relation" },
+      });
+      await updatePropertyConfig({
+        propertyDefinitionId: prop.id,
+        config: JSON.stringify({ targetPageId: String(relTarget) }),
+      });
+    } else {
+      await updatePropertyType({
+        propertyDefinitionId: prop.id,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        propertyType: { tag } as any,
+      });
+    }
+    closeMenu();
+  }
+
+  function requestChangeType(tag: PropertyTypeTag, relTarget: bigint | null) {
+    const preview = previewTypeChange(tag);
+    if (preview.total === 0) {
+      void applyChangeType(tag, relTarget);
+      return;
+    }
+    setPendingType({ tag, relTarget });
+    setMode("confirm-type");
   }
 
   async function handleChangeType(tag: PropertyTypeTag) {
@@ -2116,25 +2281,12 @@ function ColumnHeader({
       setMode("relation-target");
       return;
     }
-    await updatePropertyType({
-      propertyDefinitionId: prop.id,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      propertyType: { tag } as any,
-    });
-    closeMenu();
+    requestChangeType(tag, null);
   }
 
   async function commitRelationTarget() {
     if (!relTargetId) return;
-    await updatePropertyType({
-      propertyDefinitionId: prop.id,
-      propertyType: { tag: "Relation" },
-    });
-    await updatePropertyConfig({
-      propertyDefinitionId: prop.id,
-      config: JSON.stringify({ targetPageId: String(relTargetId) }),
-    });
-    closeMenu();
+    requestChangeType("Relation", relTargetId);
   }
 
   async function handleDelete() {
@@ -2266,6 +2418,52 @@ function ColumnHeader({
           <PropertyTypePicker onSelect={handleChangeType} />
         </FloatingPopup>
       )}
+
+      {mode === "confirm-type" && pendingType && (() => {
+        const preview = previewTypeChange(pendingType.tag);
+        const converted = preview.total - preview.cleared;
+        return (
+          <FloatingPopup
+            anchorRef={buttonRef}
+            onClose={closeMenu}
+            className="w-64 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-xl p-3"
+          >
+            <div className="text-xs text-neutral-500 dark:text-neutral-400 mb-1.5 font-medium">
+              Change type to {pendingType.tag}
+            </div>
+            <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-snug">
+              {preview.cleared > 0 ? (
+                <>
+                  {converted} of {preview.total} value{preview.total !== 1 ? "s" : ""} convert
+                  {converted !== 1 ? "" : "s"}.{" "}
+                  <span className="text-red-600 dark:text-red-400 font-medium">
+                    {preview.cleared} will be cleared
+                  </span>{" "}
+                  (kept in cell History).
+                </>
+              ) : (
+                <>
+                  All {preview.total} value{preview.total !== 1 ? "s" : ""} convert cleanly.
+                </>
+              )}
+            </p>
+            <div className="flex gap-2 mt-2 border-t border-neutral-100 dark:border-neutral-700 pt-2">
+              <button
+                className="flex-1 text-xs py-1 rounded bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600"
+                onClick={closeMenu}
+              >
+                Cancel
+              </button>
+              <button
+                className="flex-1 text-xs py-1 rounded bg-blue-500 text-white hover:bg-blue-600"
+                onClick={() => void applyChangeType(pendingType.tag, pendingType.relTarget)}
+              >
+                Convert
+              </button>
+            </div>
+          </FloatingPopup>
+        );
+      })()}
 
       {mode === "calculate" && (
         <FloatingPopup
