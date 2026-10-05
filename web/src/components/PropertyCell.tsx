@@ -1342,7 +1342,7 @@ function FileCell({
   );
 }
 
-function renderValueFallback(value: PropertyValue): string {
+export function renderValueFallback(value: PropertyValue): string {
   switch (value.tag) {
     case "Text":
     case "Select":

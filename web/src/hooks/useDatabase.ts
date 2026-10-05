@@ -76,6 +76,25 @@ export function useUpdateDatabaseSchemaConfig() {
   return useReducer(reducers.updateDatabaseSchemaConfig);
 }
 
+/** Full change history of one cell, newest first. Append-only server-side. */
+export function usePropertyValueHistory(pageId: bigint, propertyDefinitionId: bigint) {
+  const [history] = useTable(tables.page_property_value_history);
+  return useMemo(
+    () =>
+      history
+        .filter(
+          (h) => h.pageId === pageId && h.propertyDefinitionId === propertyDefinitionId,
+        )
+        .sort(
+          (a, b) =>
+            Number(
+              b.changedAt.microsSinceUnixEpoch - a.changedAt.microsSinceUnixEpoch,
+            ),
+        ),
+    [history, pageId, propertyDefinitionId],
+  );
+}
+
 // Row types inferred from table query builders
 export type DatabaseSchemaRow = ReturnType<typeof useDatabaseSchema>["schema"];
 export type PropertyDefinitionRow = ReturnType<typeof usePropertyDefinitions>[number];

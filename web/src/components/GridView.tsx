@@ -62,6 +62,7 @@ import {
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { FloatingPopup } from "./FloatingPopup";
 import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
+import { CellHistoryPopup } from "./CellHistoryPopup";
 
 // ──── Filter types & helpers ──────────────────────────────────────────────────
 
@@ -1038,6 +1039,13 @@ export function GridView({ page }: GridViewProps) {
     items: ContextMenuItem[];
   } | null>(null);
 
+  // Cell history popup (per-cell undo via page_property_value_history).
+  const [cellHistory, setCellHistory] = useState<{
+    pageId: bigint;
+    propId: bigint;
+    anchor: HTMLElement;
+  } | null>(null);
+
   function cellKey(rowId: bigint, propId: bigint) {
     return `${rowId}|${propId}`;
   }
@@ -1744,6 +1752,7 @@ export function GridView({ page }: GridViewProps) {
                   e.stopPropagation();
                   const prop = properties.find((p) => p.id === propId);
                   if (!prop) return;
+                  const cellEl = e.currentTarget as HTMLElement;
                   setContextMenu({
                     x: e.clientX,
                     y: e.clientY,
@@ -1760,6 +1769,11 @@ export function GridView({ page }: GridViewProps) {
                             pageId: row.id,
                             propertyDefinitionId: propId,
                           }),
+                      },
+                      {
+                        label: "History",
+                        onClick: () =>
+                          setCellHistory({ pageId: row.id, propId, anchor: cellEl }),
                       },
                     ],
                   });
@@ -1928,6 +1942,14 @@ export function GridView({ page }: GridViewProps) {
           y={contextMenu.y}
           items={contextMenu.items}
           onClose={() => setContextMenu(null)}
+        />
+      )}
+      {cellHistory && (
+        <CellHistoryPopup
+          pageId={cellHistory.pageId}
+          propertyDefinitionId={cellHistory.propId}
+          anchor={cellHistory.anchor}
+          onClose={() => setCellHistory(null)}
         />
       )}
     </div>
