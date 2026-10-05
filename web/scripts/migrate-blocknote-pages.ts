@@ -14,7 +14,7 @@
  *
  * Examples:
  *   pnpm --filter web migrate-blocknote selfbase ws://localhost:3000 --dry-run
- *   SPACETIMEDB_TOKEN=eyJ… pnpm --filter web migrate-blocknote eclosion wss://eclosion.cloud.pear.pro
+ *   SPACETIMEDB_TOKEN=eyJ… pnpm --filter web migrate-blocknote <slug> wss://<slug>.<host>
  *
  * Requires module >= 0.11.6. Run against dev/staging first.
  */

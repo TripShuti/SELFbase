@@ -35,8 +35,6 @@ use spacetimedb::{reducer, table, Identity, ReducerContext, Table, Timestamp};
 /// Keep in sync with `SELFBASE_SNAPSHOT_V2_FORMAT` in `web/src/lib/selfbaseExport.ts`
 /// and the `format` field of `snapshot_tables_v2.json`.
 const FORMAT: &str = "selfbase-snapshot-v2";
-/// Pre-rebrand format name — accepted on import so old exports still load.
-const LEGACY_FORMAT: &str = "pear-snapshot-v2";
 
 /// The fixed primary key of the single [`ImportSession`] row — at most one
 /// import session may exist at a time.
@@ -153,7 +151,7 @@ pub fn import_v2_begin(ctx: &ReducerContext, header_json: String) -> Result<(), 
         .get("format")
         .and_then(|v| v.as_str())
         .ok_or("missing format")?;
-    if format != FORMAT && format != LEGACY_FORMAT {
+    if format != FORMAT {
         return Err(format!("unsupported format: {format}"));
     }
 
@@ -613,7 +611,7 @@ mod snapshot_v2_tests {
     use super::*;
     use serde_json::json;
 
-    const TS: &str = r#"{"__pear":"timestamp","v":"1700000000000000"}"#;
+    const TS: &str = r#"{"__selfbase":"timestamp","v":"1700000000000000"}"#;
     const ID_HEX: &str = "c200000000000000000000000000000000000000000000000000000000000042";
 
     fn ts() -> Value {
@@ -621,7 +619,7 @@ mod snapshot_v2_tests {
     }
 
     fn ident() -> Value {
-        json!({"__pear": "identity", "v": ID_HEX})
+        json!({"__selfbase": "identity", "v": ID_HEX})
     }
 
     /// Keep in sync with `SELFBASE_SNAPSHOT_V2_FORMAT` in
@@ -668,7 +666,7 @@ mod snapshot_v2_tests {
     #[test]
     fn decodes_component_node() {
         let row = json!({
-            "id": {"__pear": "bigint", "v": "12"},
+            "id": {"__selfbase": "bigint", "v": "12"},
             "surfaceId": 7,
             "parentId": null,
             "componentType": "Container",

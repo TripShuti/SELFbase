@@ -222,14 +222,7 @@ pub fn login(ctx: &ReducerContext, email: String, password: String) -> Result<()
     }
     attempts.attempts += 1;
     let digest = current_password_digest(&email, &password);
-    let mut valid = verify_password_digest(&cred.password_hash, &digest);
-    if !valid && verify_password_digest(&cred.password_hash, &legacy_password_digest(&email, &password)) {
-        // Pre-rebrand fallback: the stored hash predates the V2 domain.
-        // Upgrade it in place so the next login takes the fast path.
-        cred.password_hash = harden_digest(&digest, &crate::stable_ids::generate_external_id(ctx, "password-salt", &email));
-        ctx.db.user_credential().email().update(cred.clone());
-        valid = true;
-    }
+    let valid = verify_password_digest(&cred.password_hash, &digest);
     if valid { attempts.attempts = 0; }
     if ctx.db.local_login_attempt().email().find(&email).is_some() {
         ctx.db.local_login_attempt().email().update(attempts);
@@ -391,13 +384,10 @@ fn trusted_oidc_claims(claims: &serde_json::Value, issuer: &str, audience: &str)
             claims["aud"].as_str() == Some(audience)
             || claims["aud"].as_array().is_some_and(|a| a.iter().any(|v| v.as_str() == Some(audience))))
 }
-/// Domain separator for password hashing. New hashes use the V2 domain;
-/// `LEGACY_AUTH_DOMAIN_V1` ("pear-auth-v1") is verified as a fallback so
-/// pre-rebrand credentials keep working, and transparently upgraded on next
-/// login (see `login`). NEVER remove the V1 string without a completed
-/// migration — every pre-rebrand stored hash was computed with it.
+/// Domain separator for password hashing. All hashes use the V2 domain.
+/// (Pre-rebrand `pear-auth-v1` hashes were transparently upgraded on login
+/// while the fallback existed; it has since been removed.)
 const AUTH_DOMAIN_V2: &str = "selfbase-auth-v1";
-const LEGACY_AUTH_DOMAIN_V1: &str = "pear-auth-v1";
 
 /// SHA-256( email + NUL + password + NUL + domain ) as lowercase hex.
 /// The email acts as a per-user salt — simple and deterministic, fine for local use.
@@ -409,10 +399,6 @@ fn password_digest(email: &str, password: &str, domain: &str) -> String {
     hasher.update(b"\x00");
     hasher.update(domain.as_bytes());
     hex::encode(hasher.finalize())
-}
-
-fn legacy_password_digest(email: &str, password: &str) -> String {
-    password_digest(email, password, LEGACY_AUTH_DOMAIN_V1)
 }
 
 fn current_password_digest(email: &str, password: &str) -> String {
@@ -635,29 +621,22 @@ pub fn harden_local_passwords(ctx: &ReducerContext, limit: u32) -> Result<(), St
 mod security_tests {
     use super::*;
     #[test]
-    fn password_domain_upgrade_verifies_both() {
+    fn password_digest_verifies_current_domain() {
         let email = "user@test";
         let pw = "a sufficiently long password";
-        let new_digest = current_password_digest(email, pw);
-        let legacy = legacy_password_digest(email, pw);
-        // Domains actually separate the hashes.
-        assert_ne!(new_digest, legacy);
-        // New-domain stored hash: new verifies, legacy does not.
-        let stored_new = harden_digest(&new_digest, "unique-salt");
-        assert!(verify_password_digest(&stored_new, &new_digest));
-        assert!(!verify_password_digest(&stored_new, &legacy));
-        assert!(!verify_password_digest(&stored_new, &current_password_digest(email, "wrong")));
-        // Legacy stored hash: legacy verifies (fallback path input), new does not.
-        let stored_legacy = harden_digest(&legacy, "unique-salt");
-        assert!(verify_password_digest(&stored_legacy, &legacy));
-        assert!(!verify_password_digest(&stored_legacy, &new_digest));
+        let digest = current_password_digest(email, pw);
+        let stored = harden_digest(&digest, "unique-salt");
+        assert!(verify_password_digest(&stored, &digest));
+        assert!(!verify_password_digest(&stored, &current_password_digest(email, "wrong")));
+        assert!(!verify_password_digest(&stored, &current_password_digest("other@test", pw)));
+        assert_ne!(stored, harden_digest(&digest, "another-salt"));
     }
     #[test]
     fn password_envelope_preserves_legacy_migration_without_accepting_wrong_password() {
-        let digest = legacy_password_digest("user@test", "a sufficiently long password");
+        let digest = current_password_digest("user@test", "a sufficiently long password");
         let hardened = harden_digest(&digest, "unique-salt");
         assert!(verify_password_digest(&hardened, &digest));
-        assert!(!verify_password_digest(&hardened, &legacy_password_digest("user@test", "wrong")));
+        assert!(!verify_password_digest(&hardened, &current_password_digest("user@test", "wrong")));
         assert_ne!(hardened, harden_digest(&digest, "another-salt"));
     }
     #[test]
@@ -667,7 +646,7 @@ mod security_tests {
         assert!(trusted_oidc_claims(&good, "https://trusted.test", "selfbase-mobile, selfbase"));
         assert!(!trusted_oidc_claims(&good, "https://trusted.test", "selfbase-mobile"));
         assert!(!trusted_oidc_claims(&good, "https://trusted.test", ", ,"));
-        assert!(!trusted_oidc_claims(&good, "https://attacker.test", "pear"));
+        assert!(!trusted_oidc_claims(&good, "https://attacker.test", "othercorp"));
         assert!(!trusted_oidc_claims(&good, "https://trusted.test", "other"));
         assert!(!trusted_oidc_claims(&serde_json::json!({"email":"admin@test"}), "https://trusted.test", "selfbase"));
     }

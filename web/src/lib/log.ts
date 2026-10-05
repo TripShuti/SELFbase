@@ -70,14 +70,9 @@ const LEVEL_ORDER: Record<Level, number> = {
 /** sessionStorage key for the runtime override. */
 const STORAGE_KEY = "selfbase:log";
 
-/** NEXT_PUBLIC_ env var consulted at build time (`PEAR_` legacy name still works). */
+/** NEXT_PUBLIC_ env var consulted at build time. */
 const BUILD_LEVEL = (() => {
-  const raw = (
-    process.env.NEXT_PUBLIC_SELFBASE_LOG_LEVEL ??
-    process.env.NEXT_PUBLIC_PEAR_LOG_LEVEL
-  )
-    ?.trim()
-    .toLowerCase();
+  const raw = process.env.NEXT_PUBLIC_SELFBASE_LOG_LEVEL?.trim().toLowerCase();
   return raw && raw in LEVEL_ORDER ? (raw as Level) : null;
 })();
 

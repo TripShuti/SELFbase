@@ -4,9 +4,6 @@
 //! SDK's field names), `__selfbase`-tagged wrappers for bigints / identities /
 //! timestamps / bytes, and enums as `{tag: "Variant"}` (or `{tag, value}` for
 //! payload-carrying variants).
-//!
-//! The pre-rebrand `__pear` tag is accepted everywhere `__selfbase` is, so
-//! old snapshot files stay importable.
 
 use crate::{
     ActorType, ApiEndpoint, ApiEndpointKey, ApiFieldMapping, Attachment, BlockAccessRule,
@@ -21,10 +18,8 @@ use spacetimedb::{Identity, Timestamp};
 // ── Generic value helpers ─────────────────────────────────────────────────────
 
 /// Tagged-wrapper check for snapshot scalar encodings (`{__selfbase: kind, v}`).
-/// The pre-rebrand `__pear` key is accepted as well so old exports import.
 fn is_tagged(o: &serde_json::Map<String, Value>, kind: &str) -> bool {
     o.get("__selfbase").and_then(|x| x.as_str()) == Some(kind)
-        || o.get("__pear").and_then(|x| x.as_str()) == Some(kind)
 }
 
 pub(super) fn obj<'a>(
@@ -663,21 +658,19 @@ mod tests {
     }
 
     #[test]
-    fn tagged_wrappers_accept_current_and_legacy_tags() {
-        for tag in ["__selfbase", "__pear"] {
-            let v: Value =
-                serde_json::from_str(&format!(r#"{{"{tag}":"bigint","v":"42"}}"#)).unwrap();
-            assert_eq!(decode_u64(&v), Ok(42));
-            let v: Value =
-                serde_json::from_str(&format!(r#"{{"{tag}":"bytes","v":"AQID"}}"#)).unwrap();
-            assert_eq!(decode_bytes(&v), Ok(vec![1, 2, 3]));
-        }
+    fn tagged_wrappers_decode() {
+        let v: Value =
+            serde_json::from_str(r#"{"__selfbase":"bigint","v":"42"}"#).unwrap();
+        assert_eq!(decode_u64(&v), Ok(42));
+        let v: Value =
+            serde_json::from_str(r#"{"__selfbase":"bytes","v":"AQID"}"#).unwrap();
+        assert_eq!(decode_bytes(&v), Ok(vec![1, 2, 3]));
     }
 
     #[test]
     fn snapshot_ai_values_preserve_output_and_provenance() {
         let value = json!({"tag": "Ai", "value": {
-            "output": "classified", "evaluationId": {"__pear": "bigint", "v": "9007199254740993"}, "isStale": true
+            "output": "classified", "evaluationId": {"__selfbase": "bigint", "v": "9007199254740993"}, "isStale": true
         }});
         assert_eq!(
             decode_property_value(&value).unwrap(),

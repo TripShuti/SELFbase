@@ -20,7 +20,7 @@
  *   pnpm --filter web e2e:snapshot <db-name> [<ws-uri>] [<module-wasm-path>]
  * Example (local scratch db — NEVER run against a real workspace; step 4
  * erases the database):
- *   pnpm --filter web e2e:snapshot pear-v2-e2e ws://localhost:3100 \
+ *   pnpm --filter web e2e:snapshot selfbase-v2-e2e ws://localhost:3100 \
  *     ../server/spacetimedb/target/wasm32-unknown-unknown/release/server.wasm
  *
  * The publish step shells out to the `spacetime` CLI; the server name is

@@ -52,9 +52,7 @@ function buildEndpointUrl(endpointSlug: string): string {
   const origin =
     typeof window !== "undefined" ? window.location.origin : "";
   return resolveEndpointUrl({
-    template:
-      process.env.NEXT_PUBLIC_SELFBASE_API_URL_TEMPLATE ??
-      process.env.NEXT_PUBLIC_PEAR_API_URL_TEMPLATE,
+    template: process.env.NEXT_PUBLIC_SELFBASE_API_URL_TEMPLATE,
     workspaceSlug: getCurrentWorkspaceSlug(),
     endpointSlug,
     origin,

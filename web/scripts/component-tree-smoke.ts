@@ -27,13 +27,13 @@
  *   # access rules on the workspace.
  *   pnpm --filter web smoke selfbase ws://localhost:3000
  *
- *   # Remote env — the lifecycle proxy at cloud.pear.pro enforces OIDC
+ *   # Remote env — a lifecycle proxy in front of the module enforces OIDC
  *   # bearer auth on every WebSocket upgrade. Grab a session token from
  *   # the browser (DevTools → Application → Local Storage on the
- *   # workspace, key `pear_spacetimedb_token__<workspace-id>`) and pass
- *   # via env:
+ *   # workspace, key `selfbase_spacetimedb_token__<connection-id>`) and
+ *   # pass via env:
  *   SPACETIMEDB_TOKEN=eyJhbGc... \
- *     pnpm --filter web smoke eclosion wss://eclosion.cloud.pear.pro
+ *     pnpm --filter web smoke <slug> wss://<slug>.<host>
  *
  * The script writes test data into the target database. Run against dev /
  * staging instances, not production. The cleanup step removes the test
@@ -61,7 +61,7 @@ if (!dbName) {
   console.error(
     "Usage: pnpm --filter web smoke <db-name> [<uri>]\n" +
       "  Local : pnpm --filter web smoke selfbase ws://localhost:3000\n" +
-      "  Remote: SPACETIMEDB_TOKEN=eyJ... pnpm --filter web smoke <slug> wss://<slug>.cloud.pear.pro",
+      "  Remote: SPACETIMEDB_TOKEN=eyJ... pnpm --filter web smoke <slug> wss://<slug>.<host>",
   );
   process.exit(1);
 }
@@ -141,7 +141,7 @@ function callReducer(
 // Connect + subscribe.
 //
 // The script body lives inside an async `main()` because tsx evaluates it
-// in CommonJS mode (pear/web/package.json is not "type": "module" — that
+// in CommonJS mode (web/package.json is not "type": "module" — that
 // would break Next.js). CJS doesn't allow top-level await, so we wrap.
 // ============================================================
 

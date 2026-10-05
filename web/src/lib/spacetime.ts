@@ -69,14 +69,14 @@ export async function clearIdbCache(namespace?: string): Promise<void> {
 
   const dbs = await indexedDB.databases();
   const ns = namespace ?? idbNamespace;
-  const pearDbs = dbs.filter(
+  const staleDbs = dbs.filter(
     (db) =>
       db.name?.startsWith(ns) ||
       db.name?.startsWith("selfbase-page-") ||
       db.name?.startsWith("selfbase_idb_")
   );
 
-  await Promise.all(pearDbs.map((db) => deleteIdb(db.name!)));
+  await Promise.all(staleDbs.map((db) => deleteIdb(db.name!)));
 }
 
 /**

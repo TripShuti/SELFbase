@@ -27,9 +27,7 @@ import { useEffect, useState } from "react";
 
 const STORAGE_KEY = "selfbase:repeater-sidebar";
 
-const BUILD_DEFAULT =
-  process.env.NEXT_PUBLIC_SELFBASE_REPEATER_SIDEBAR === "1" ||
-  process.env.NEXT_PUBLIC_PEAR_REPEATER_SIDEBAR === "1";
+const BUILD_DEFAULT = process.env.NEXT_PUBLIC_SELFBASE_REPEATER_SIDEBAR === "1";
 
 export function readRepeaterSidebarFlag(): boolean {
   if (typeof window === "undefined") return BUILD_DEFAULT;

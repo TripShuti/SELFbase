@@ -1,6 +1,6 @@
 /**
  * Wiring for the default SELFbase Next.js custom-API handler. Reads
- * `SELFBASE_STDB_*` env vars (`PEAR_STDB_*` legacy names still work),
+ * `SELFBASE_STDB_*` env vars,
  * validates the request's Bearer key, and self-disables when an external
  * gateway is configured via `NEXT_PUBLIC_SELFBASE_API_URL_TEMPLATE`.
  *
@@ -23,20 +23,19 @@ const SHARED_CACHE = new EndpointConfigCache({ maxEntries: 256, ttlMs: 60_000 })
 
 let cachedTransport: StdbTransport | null = null;
 
-function env(name: string, legacyName: string): string | undefined {
-  // Rebrand-tolerant read: `SELFBASE_*` wins, pre-rebrand `PEAR_*` still works.
-  return process.env[name]?.trim() || process.env[legacyName]?.trim() || undefined;
+function env(name: string): string | undefined {
+  return process.env[name]?.trim() || undefined;
 }
 
 function getConfiguredDbName(): string {
-  return env("SELFBASE_STDB_DB_NAME", "PEAR_STDB_DB_NAME") || "selfbase";
+  return env("SELFBASE_STDB_DB_NAME") || "selfbase";
 }
 
 function getTransport(): StdbTransport {
   if (cachedTransport) return cachedTransport;
-  const baseUrl = env("SELFBASE_STDB_URL", "PEAR_STDB_URL") || "http://localhost:3000";
+  const baseUrl = env("SELFBASE_STDB_URL") || "http://localhost:3000";
   const dbName = getConfiguredDbName();
-  const token = env("SELFBASE_STDB_TOKEN", "PEAR_STDB_TOKEN");
+  const token = env("SELFBASE_STDB_TOKEN");
   if (!token) {
     throw new ApiEndpointError(
       503,
@@ -154,10 +153,7 @@ interface ServeOptions {
 export async function serveEndpointRequest(opts: ServeOptions): Promise<Response> {
   const { request, slug, trailing } = opts;
   const url = new URL(request.url);
-  const template = (
-    process.env.NEXT_PUBLIC_SELFBASE_API_URL_TEMPLATE ??
-    process.env.NEXT_PUBLIC_PEAR_API_URL_TEMPLATE
-  )?.trim();
+  const template = process.env.NEXT_PUBLIC_SELFBASE_API_URL_TEMPLATE?.trim();
   if (isCustomTemplate(template)) {
     const target = resolveEndpointUrl({
       template,

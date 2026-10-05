@@ -11,8 +11,7 @@
  *
  * Self-hosted SELFbase ships with the default template, which routes through
  * the in-app Next.js handler. Multi-tenant hosts override via the
- * `NEXT_PUBLIC_SELFBASE_API_URL_TEMPLATE` env var
- * (`NEXT_PUBLIC_PEAR_API_URL_TEMPLATE` still works as a fallback).
+ * `NEXT_PUBLIC_SELFBASE_API_URL_TEMPLATE` env var.
  */
 
 export const DEFAULT_API_URL_TEMPLATE = "{origin}/api/e/{endpointSlug}";

@@ -26,7 +26,7 @@ const nextConfig: NextConfig = {
     if (spacetimeProxyOrigin) {
       // SpacetimeDB SDK issues requests to /v1/... from the host root.
       // Proxy those paths to the internal SpacetimeDB origin so clients only
-      // need the Pear web URL.
+      // need the SELFbase web URL.
       rules.push({ source: "/v1/:path*", destination: `${spacetimeProxyOrigin}/v1/:path*` });
     }
     return rules;
