@@ -51,12 +51,13 @@ account email matches the snapshot, so a comment survives its author losing
 that browser identity. New comments snapshot the email automatically;
 legacy rows (and rows restored from snapshots exported before this column
 existed) arrive with `author_email` empty and are repaired automatically by
-the `block_comment_author_email_backfill_v1` step of `run_pending_migrations`
+the `block_comment_author_email_backfill_v2` step of `run_pending_migrations`
 (invoked by the docker entrypoint after every publish). The publisher-only
 `backfill_comment_authors` reducer re-runs the same link later for comments
-whose author identity had no authenticated `User` row at migration time.
-Comments whose author identity has no authenticated `User` row cannot be
-linked.
+whose author identity had no known email at migration time. Historical email
+is retained on logout, so backfill includes logged-out `User` rows; authorization
+still requires the caller to be authenticated. The v2 step repairs rows skipped
+by the v1 session-state filter. Authors with no known email remain unlinked.
 
 Page rules retain their existing semantics: no rule on the page or its ancestors
 means open to workspace principals; otherwise an explicit ancestor/page grant

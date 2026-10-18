@@ -26,11 +26,12 @@ References:
    entrypoint already does, with `--break-clients`. No data deletion or database
    recreation is needed for the pre-commit schema.
 3. After a successful publish, invoke `run_pending_migrations` as the publisher
-   (the entrypoint does this automatically). The existing
-   `block_comment_author_email_backfill_v1` step copies normalized emails only
-   from authenticated `User` rows, preserving all legacy comment fields.
-4. Check comments and migration state. Comments with no authenticated author row
-   remain unlinked. After the old identity authenticates, the publisher can run
+   (the entrypoint does this automatically). The
+   `block_comment_author_email_backfill_v2` step copies normalized emails from
+   historical `User` rows, including logged-out identities, preserving all legacy
+   comment fields. Its new key repairs databases where v1 already completed.
+4. Check comments and migration state. Comments with no known author email
+   remain unlinked. Once an email is available, the publisher can run
    `backfill_comment_authors` again. Existing email snapshots are never replaced.
 
 A failed publish now logs the error, retains credentials and leaves the server
@@ -59,7 +60,8 @@ Validated locally using the SpacetimeDB 2.0.3 CLI and standalone server with an
 isolated database and credentials. The full module from the parent commit was
 published with legacy comment fixtures; the original broken WASM was rejected,
 and the corrected WASM upgraded the same database while preserving every legacy
-comment field. Normalized email backfill, orphan preservation, repeat migrations
+comment field. Normalized email backfill from logged-out identities after v1 was already
+marked complete, orphan preservation, repeat migrations
 and publish, and authorization from another non-admin identity with the same
 email all passed. Four entrypoint subprocess tests, shell syntax validation and
 `git diff --check` also passed. Test scripts are retained locally and are not

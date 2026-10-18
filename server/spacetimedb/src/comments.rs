@@ -217,12 +217,12 @@ pub fn delete_block_comment(ctx: &ReducerContext, comment_id: u64) -> Result<(),
 /// each comment's author identity — the same migration pattern as
 /// `backfill_credential_admin`: safe to re-run, no batching (one bounded
 /// index lookup per comment, unlike the PBKDF2 rounds the password backfill
-/// has to budget for). Comments whose author identity has no authenticated
-/// `User` row yet are left unlinked; a later run links them once the row is
-/// authenticated.
+/// has to budget for). Comments whose author identity has no
+/// `User` row with a known email are left unlinked. A logged-out row still
+/// retains its historical email, so session state must not gate this backfill.
 ///
 /// Run automatically via `run_pending_migrations`
-/// (`"block_comment_author_email_backfill_v1"`, invoked by the docker
+/// (`"block_comment_author_email_backfill_v2"`, invoked by the docker
 /// entrypoint after every publish); the publisher-gated reducer stays as the
 /// re-runnable escape hatch for rows linked late.
 #[reducer]
@@ -248,7 +248,6 @@ pub(crate) fn backfill_comment_authors_inner(ctx: &ReducerContext) -> u32 {
             .user()
             .identity()
             .find(comment.author)
-            .filter(|u| u.is_authenticated)
             .map(|u| u.email.trim().to_lowercase())
             .unwrap_or_default();
         if email.is_empty() {

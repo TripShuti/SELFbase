@@ -204,6 +204,17 @@ pub fn run_pending_migrations(ctx: &ReducerContext) -> Result<(), String> {
             Ok::<(), String>(())
         }
     );
+    // v1 skipped logged-out identities even though logout retains their email.
+    // A new key also repairs databases where v1 already completed with zero links.
+    run_step!(
+        ctx,
+        "block_comment_author_email_backfill_v2",
+        |ctx: &ReducerContext| {
+            let linked = crate::comments::backfill_comment_authors_inner(ctx);
+            log::info!("block_comment_author_email_backfill_v2: linked {linked} comments");
+            Ok::<(), String>(())
+        }
+    );
     Ok(())
 }
 
