@@ -63,3 +63,20 @@ export function parseRecordLink(raw: string): { id: string; label: string } | nu
     return typeof value.id === "string" && typeof value.label === "string" ? value : null;
   } catch { return null; }
 }
+
+/** Links remain persisted for compatibility, but are managed from the row name. */
+export function visibleSourceProperties<T extends { id: bigint; config: string }>(
+  properties: readonly T[], source: SourceConfig | null = null,
+): T[] {
+  return properties.filter(property => String(property.id) !== source?.linkPropertyId && !isExternalLinkColumn(property.config));
+}
+export function externalLinkValue(
+  values: readonly { propertyDefinitionId: bigint; value: { tag: string; value?: unknown } }[],
+  source: SourceConfig | null | undefined,
+): string {
+  const value = values.find(v => String(v.propertyDefinitionId) === source?.linkPropertyId)?.value;
+  return value?.tag === "Text" && typeof value.value === "string" ? value.value : "";
+}
+export function isEmptyRowTitle(title: string): boolean {
+  return !title.trim() || title.trim() === "Untitled";
+}

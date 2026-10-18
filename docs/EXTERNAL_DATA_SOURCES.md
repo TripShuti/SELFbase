@@ -2,7 +2,7 @@
 
 A database can connect to an HTTP JSON API without provider-specific SELFbase
 code. The connection defines search/detail paths, JSON field selectors, a stable
-record ID, authentication and column mappings. Selecting a result in a link cell
+record ID, authentication and column mappings. Selecting a result beside a row name
 imports its mapped fields; a server worker refreshes links while browsers are
 closed. This first version supports one source per database and GET-based search
 and detail APIs.
@@ -44,11 +44,15 @@ network and its service DNS name work too.
    `Authorization`, prefix `Bearer ` (including the space), and the raw API key.
    For an API-key header use e.g. `X-API-Key` with an empty prefix. Leave the
    header name blank for an unauthenticated API.
-5. Create a dedicated link column (the default) or select a Text column. Map
-   source fields to destination columns and choose transforms where needed.
-   Each target can be mapped once. The link column is reserved for the selector.
-6. Save, then **Test saved connection**. In a row's link cell, search and select
-   the desired record. You can also **Refresh now** or **Unlink · keep values**.
+5. Map source fields to destination columns and choose transforms where needed.
+   Each target can be mapped once. Record links are managed automatically.
+6. Save, then **Test saved connection**. In a new row, click **Untitled** or
+   **Add from source**, search and select a record. Its name replaces Untitled
+   (when filling empty titles is enabled), and mapped fields are filled immediately.
+   For an existing named row use the link icon beside its name; the custom title
+   stays unchanged. For a linked row the same icon opens **Refresh now**, record
+   selection, and **Unlink · keep values**. These actions are also available in
+   list/board views and the row's property panel.
 
 Selectors support own-property dot paths and numeric array indexes, e.g.
 `data.items`, `stats.total` or `items.0.name`; JSONPath expressions are not used.
@@ -57,8 +61,11 @@ in the search path when the API supports one.
 
 ## Values, ownership and refresh
 
-- A link stores `{ "id": "stable-id", "label": "Display name" }` in a Text
-  cell. The ID controls synchronization; renaming a row does not break it.
+- A link stores `{ "id": "stable-id", "label": "Display name" }` internally.
+  The ID controls synchronization; renaming a row does not break it. Existing
+  link-property data remains intact for backward compatibility, but the property
+  is hidden from grids, lists, boards and row property panels. No schema migration
+  or rebinding is needed. It remains included in exports and background refresh.
 - Only configured destination columns are written. User notes, ratings and other
   columns are untouched. Optionally, the source name fills an empty/`Untitled`
   row title; existing titles remain user-owned.

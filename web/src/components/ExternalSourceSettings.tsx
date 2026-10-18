@@ -6,7 +6,7 @@ import { reducers } from "@/src/module_bindings";
 import { useDatabaseSchema, usePropertyDefinitions } from "@/src/hooks/useDatabase";
 import { useCurrentUser } from "@/src/hooks/useUser";
 import { useWorkspace } from "@/src/providers/WorkspaceProvider";
-import { EMPTY_SOURCE, TARGET_TYPES, TRANSFORMS, parseSourceConfig, type SourceConfig, type SourceStatus, type ExternalRecord } from "@/src/lib/external-sources/types";
+import { EMPTY_SOURCE, TARGET_TYPES, TRANSFORMS, parseSourceConfig, isExternalLinkColumn, type SourceConfig, type SourceStatus, type ExternalRecord } from "@/src/lib/external-sources/types";
 import { externalSourceFetch } from "@/src/lib/external-sources/client";
 import { FloatingPopup } from "./FloatingPopup";
 
@@ -57,7 +57,7 @@ export function ExternalSourceSettings({ databaseId }: { databaseId: bigint }) {
       if (!["http:", "https:"].includes(url.protocol)) throw new Error("Use an HTTP or HTTPS URL");
       if (form.mappings.some(m => !m.sourcePath || !m.targetPropertyId)) throw new Error("Choose a source field and destination for each mapping");
       await configure({ databaseId, configJson: JSON.stringify(form), secret: secret || undefined });
-      setSecret(""); setMessage("Connection saved. Use the link column to find and select a record.");
+      setSecret(""); setMessage("Connection saved. Use Add from source beside a row name to select a record.");
     } catch (e) { setError(e instanceof Error ? e.message : "Could not save connection"); }
     finally { setBusy(false); }
   }
@@ -79,7 +79,7 @@ export function ExternalSourceSettings({ databaseId }: { databaseId: bigint }) {
     {open && <FloatingPopup anchorRef={anchor} onClose={() => setOpen(false)}
       className="z-50 w-[min(520px,calc(100vw-16px))] max-h-[85vh] overflow-auto rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-4 shadow-xl text-neutral-900 dark:text-neutral-100">
       <h3 className="font-semibold">External data source</h3>
-      <p className="mt-1 mb-3 text-xs text-neutral-500">Search an HTTP API from a table cell and keep selected fields up to date. Each database can connect to one source. Other columns stay yours.</p>
+      <p className="mt-1 mb-3 text-xs text-neutral-500">Search an HTTP API from the Name column and keep selected fields up to date. Each database can connect to one source. Other columns stay yours.</p>
       {status && <p className="mb-3 text-xs text-neutral-500">
         {!status.serviceConfigured ? "Set up the server service token to enable external connections."
           : status.automaticSync ? "Background updates are active, including when your browser is closed."
@@ -117,12 +117,8 @@ export function ExternalSourceSettings({ databaseId }: { databaseId: bigint }) {
           </div>
         </details>
         <details open><summary className="cursor-pointer text-sm font-medium">Columns to update</summary>
-          <label className="mt-2 block text-xs">Record search column
-            <select value={form.linkPropertyId} onChange={e => setForm(p => ({ ...p, linkPropertyId: e.target.value }))} className={inputClass}>
-              <option value="">Create “External record” column</option>
-              {properties.filter(p => p.propertyType.tag === "Text").map(p => <option value={String(p.id)} key={String(p.id)}>{p.name}</option>)}
-            </select>
-          </label>
+          <p className="mt-2 text-xs text-neutral-500">Use Add from source or the link icon beside a row name. Existing record links are kept automatically.</p>
+          {form.mappings.length === 0 && <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">No fields are mapped yet. Selecting a record can fill its name; map fields below to also fill other columns.</p>}
           <p className="mt-2 text-[11px] text-neutral-500">Create destination columns in your table first, then map the API fields below. Missing or null source values preserve existing data.</p>
           {form.mappings.map((mapping, index) => <div key={index} className="mt-3 rounded border border-neutral-200 dark:border-neutral-700 p-2">
             <input aria-label={`Source field ${index + 1}`} placeholder="Source field path" value={mapping.sourcePath} className={inputClass}
@@ -133,7 +129,7 @@ export function ExternalSourceSettings({ databaseId }: { databaseId: bigint }) {
               setForm(p => ({ ...p, mappings: p.mappings.map((m, i) => i === index ? { ...m, targetPropertyId: String(property.id), targetType: property.propertyType.tag as typeof m.targetType } : m) }));
             }}>
               <option value="">Choose destination column</option>
-              {properties.filter(p => (TARGET_TYPES as readonly string[]).includes(p.propertyType.tag) && String(p.id) !== form.linkPropertyId).map(p => <option key={String(p.id)} value={String(p.id)}>{p.name} · {p.propertyType.tag}</option>)}
+              {properties.filter(p => (TARGET_TYPES as readonly string[]).includes(p.propertyType.tag) && String(p.id) !== form.linkPropertyId && !isExternalLinkColumn(p.config)).map(p => <option key={String(p.id)} value={String(p.id)}>{p.name} · {p.propertyType.tag}</option>)}
             </select>
             <div className="flex gap-2">
               <select aria-label={`Value transform ${index + 1}`} className={inputClass} value={mapping.transform}

@@ -19,6 +19,7 @@ import { CommentsSection } from "./CommentsSection";
 import { useBlockComments } from "@/src/hooks/useBlockComments";
 import { useSearchParams } from "next/navigation";
 import { PagePropertiesPanel } from "./PagePropertiesPanel";
+import { parseSourceConfig } from "@/src/lib/external-sources/types";
 import { Breadcrumb } from "./Breadcrumb";
 import { useDatabaseSchema, usePropertyDefinitions } from "@/src/hooks/useDatabase";
 import { clearIdbCache, clearIdbCacheForPage } from "@/src/lib/spacetime";
@@ -201,7 +202,7 @@ export function DocPage({ page }: DocPageProps) {
         </div>
         {parentIsDatabase && properties.length > 0 && (
           <div className="mb-6 pb-4 border-b border-neutral-100 dark:border-neutral-800">
-            <PagePropertiesPanel pageId={page.id} properties={properties} />
+            <PagePropertiesPanel pageId={page.id} properties={properties} externalSource={parseSourceConfig(schema?.config)} />
           </div>
         )}
         {/*
