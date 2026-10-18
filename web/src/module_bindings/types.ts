@@ -134,6 +134,7 @@ export const BlockComment = __t.object("BlockComment", {
   blockId: __t.option(__t.string()),
   parentId: __t.option(__t.u64()),
   author: __t.identity(),
+  authorEmail: __t.option(__t.string()),
   content: __t.string(),
   resolved: __t.bool(),
   createdAt: __t.timestamp(),
@@ -552,6 +553,7 @@ export const UserCredential = __t.object("UserCredential", {
   name: __t.string(),
   passwordHash: __t.string(),
   createdAt: __t.timestamp(),
+  isAdmin: __t.bool(),
 });
 export type UserCredential = __Infer<typeof UserCredential>;
 

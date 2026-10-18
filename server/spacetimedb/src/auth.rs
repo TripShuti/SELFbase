@@ -407,6 +407,22 @@ pub(crate) fn sender_is_admin(ctx: &ReducerContext) -> bool {
         .unwrap_or(false)
 }
 
+/// The calling identity's *account* email — the durable person behind a
+/// session. An identity lives in one browser's localStorage; the email on its
+/// authenticated `User` row follows the credential across devices and
+/// re-logins. Authorship and similar "who did this" records snapshot this at
+/// write time, so rows survive an identity being lost (cleared storage,
+/// signing in from a new machine). Empty for unauthenticated callers.
+pub(crate) fn sender_account_email(ctx: &ReducerContext) -> String {
+    ctx.db
+        .user()
+        .identity()
+        .find(ctx.sender())
+        .filter(|u| u.is_authenticated)
+        .map(|u| u.email.trim().to_lowercase())
+        .unwrap_or_default()
+}
+
 /// True iff the workspace has no administrator, including logged-out admins.
 /// The first authenticated user on a fresh database is auto-promoted; logging
 /// out must not reopen this bootstrap path.

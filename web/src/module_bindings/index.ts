@@ -37,6 +37,8 @@ import {
 import AddPropertyReducer from "./add_property_reducer";
 import AppendPageDocReducer from "./append_page_doc_reducer";
 import AuthorizeBlobAccessReducer from "./authorize_blob_access_reducer";
+import BackfillCommentAuthorsReducer from "./backfill_comment_authors_reducer";
+import BackfillCredentialAdminReducer from "./backfill_credential_admin_reducer";
 import ClearBlockAccessRuleReducer from "./clear_block_access_rule_reducer";
 import ClearPageAccessRuleReducer from "./clear_page_access_rule_reducer";
 import ClearPropertyValueReducer from "./clear_property_value_reducer";
@@ -76,6 +78,7 @@ import MoveComponentReducer from "./move_component_reducer";
 import MovePageReducer from "./move_page_reducer";
 import PromoteToInstructionReducer from "./promote_to_instruction_reducer";
 import PurgePageReducer from "./purge_page_reducer";
+import RecoverAdminReducer from "./recover_admin_reducer";
 import RegisterReducer from "./register_reducer";
 import RegisterComponentTypeReducer from "./register_component_type_reducer";
 import RenamePropertyReducer from "./rename_property_reducer";
@@ -618,6 +621,8 @@ const reducersSchema = __reducers(
   __reducerSchema("add_property", AddPropertyReducer),
   __reducerSchema("append_page_doc", AppendPageDocReducer),
   __reducerSchema("authorize_blob_access", AuthorizeBlobAccessReducer),
+  __reducerSchema("backfill_comment_authors", BackfillCommentAuthorsReducer),
+  __reducerSchema("backfill_credential_admin", BackfillCredentialAdminReducer),
   __reducerSchema("clear_block_access_rule", ClearBlockAccessRuleReducer),
   __reducerSchema("clear_page_access_rule", ClearPageAccessRuleReducer),
   __reducerSchema("clear_property_value", ClearPropertyValueReducer),
@@ -657,6 +662,7 @@ const reducersSchema = __reducers(
   __reducerSchema("move_page", MovePageReducer),
   __reducerSchema("promote_to_instruction", PromoteToInstructionReducer),
   __reducerSchema("purge_page", PurgePageReducer),
+  __reducerSchema("recover_admin", RecoverAdminReducer),
   __reducerSchema("register", RegisterReducer),
   __reducerSchema("register_component_type", RegisterComponentTypeReducer),
   __reducerSchema("rename_property", RenamePropertyReducer),

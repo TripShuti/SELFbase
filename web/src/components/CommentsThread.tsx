@@ -31,11 +31,34 @@ export function formatTime(ts: { microsSinceUnixEpoch: bigint }): string {
 
 export function authorName(
   authorHex: string,
+  authorEmail: string | undefined,
   meHex: string | undefined,
   users: ReturnType<typeof useUsers>["users"]
 ): string {
+  // Authorship follows the account, not the identity (same trust model as
+  // admin authority — see BlockComment.author_email). An identity match is
+  // only the fast path: comments written before the email snapshot existed,
+  // or under a different identity of the same account, are resolved by
+  // email. The deduped users list keeps one row per email, so the email
+  // lookup finds the author even when their old identity row is not in it.
+  const meEmail = users.find(
+    (x) => meHex && x.identity.toHexString() === meHex
+  )?.email?.trim().toLowerCase();
   if (meHex && authorHex === meHex) return "You";
-  const u = users.find((x) => x.identity.toHexString() === authorHex);
+  if (
+    meEmail &&
+    authorEmail &&
+    authorEmail.trim().toLowerCase() === meEmail
+  ) {
+    return "You";
+  }
+  const byEmail = authorEmail
+    ? users.find(
+        (x) => x.email.trim().toLowerCase() === authorEmail.trim().toLowerCase()
+      )
+    : undefined;
+  const u =
+    byEmail ?? users.find((x) => x.identity.toHexString() === authorHex);
   return u?.name || u?.email || `${authorHex.slice(0, 8)}…`;
 }
 
@@ -76,7 +99,15 @@ export function CommentCard({
   const [error, setError] = useState<string | null>(null);
 
   const meHex = identity?.toHexString();
-  const mine = meHex != null && comment.author.toHexString() === meHex;
+  // `mine` follows the account (email snapshot), not just the session
+  // identity — comments written under an older identity of this account
+  // remain editable by their author.
+  const meEmail = currentUser?.email?.trim().toLowerCase();
+  const mine =
+    (meHex != null && comment.author.toHexString() === meHex) ||
+    (!!meEmail &&
+      !!comment.authorEmail &&
+      comment.authorEmail.trim().toLowerCase() === meEmail);
   const canModerate = mine || (currentUser?.isAdmin ?? false);
 
   async function run(fn: () => Promise<unknown>) {
@@ -95,7 +126,12 @@ export function CommentCard({
     <div className={depth > 0 ? "ml-4 border-l border-neutral-200 dark:border-neutral-800 pl-3" : ""}>
       <div className="flex items-baseline gap-2">
         <span className="text-xs font-medium text-neutral-900 dark:text-white truncate">
-          {authorName(comment.author.toHexString(), meHex, users)}
+          {authorName(
+            comment.author.toHexString(),
+            comment.authorEmail ?? undefined,
+            meHex,
+            users
+          )}
         </span>
         <span className="text-[10px] text-neutral-400 dark:text-neutral-500 shrink-0">
           {formatTime(comment.createdAt)}

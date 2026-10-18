@@ -37,6 +37,27 @@ the most recently active authenticated user, or flags the newest credential
 when nobody is signed in). Both refuse when an authenticated admin already
 exists.
 
+## Comment authorship belongs to the account, not the device
+
+Block comments record their author the same way: `author` keeps the writing
+identity (fast equality path, legacy rows), while the normalized email taken
+from the author's authenticated `User` row is snapshotted into
+`BlockComment.author_email` at write time. Editing, resolving and deleting a
+comment previously required an *identity* match with the author — clearing
+browser storage orphaned the user's own comments, leaving them editable only
+by an admin and displayed as an unresolvable truncated identity (`bc542ff4…`
+in the UI). `author_or_admin` now also accepts the caller whose authenticated
+account email matches the snapshot, so a comment survives its author losing
+that browser identity. New comments snapshot the email automatically;
+legacy rows (and rows restored from snapshots exported before this column
+existed) arrive with `author_email` empty and are repaired automatically by
+the `block_comment_author_email_backfill_v1` step of `run_pending_migrations`
+(invoked by the docker entrypoint after every publish). The publisher-only
+`backfill_comment_authors` reducer re-runs the same link later for comments
+whose author identity had no authenticated `User` row at migration time.
+Comments whose author identity has no authenticated `User` row cannot be
+linked.
+
 Page rules retain their existing semantics: no rule on the page or its ancestors
 means open to workspace principals; otherwise an explicit ancestor/page grant
 or an authenticated administrator is required. Write implies read. New child

@@ -10,8 +10,9 @@
 use spacetimedb::{reducer, table, Identity, ReducerContext, Table, Timestamp};
 
 use crate::access_control::helpers::require_page_read;
-use crate::auth::sender_is_admin;
+use crate::auth::{sender_account_email, sender_is_admin, user};
 use crate::id_counters::alloc_id;
+use crate::module_install::sender_is_module_publisher;
 use crate::pages::page;
 
 pub(crate) fn next_block_comment_id(ctx: &ReducerContext) -> u64 {
@@ -29,6 +30,16 @@ pub(crate) fn next_block_comment_id(ctx: &ReducerContext) -> u64 {
 /// otherwise it anchors to a component-node id (opaque string — the node
 /// may be deleted later, the comment survives with a stale anchor).
 /// `parent_id == None` means a thread root, otherwise a reply.
+///
+/// Authorship belongs to the **account**, not the identity — the same trust
+/// model as admin authority (`UserCredential.is_admin`). `author` keeps the
+/// writing identity for the fast equality path and legacy rows;
+/// `author_email` is the normalized email snapshot taken at write time, so a
+/// comment survives its author losing that browser identity (cleared
+/// storage, new device). `None` only on rows written before the column
+/// existed, on rows restored from old snapshots, or by a caller with no
+/// authenticated account — `backfill_comment_authors` repairs the legacy
+/// rows from the old identity's `User` row.
 #[table(accessor = block_comment, public)]
 pub struct BlockComment {
     #[primary_key]
@@ -39,6 +50,10 @@ pub struct BlockComment {
     pub block_id: Option<String>,
     pub parent_id: Option<u64>,
     pub author: Identity,
+    // String cannot be a `#[default]` const (String has a destructor); the
+    // None default is the established pattern for the same purpose on Page.
+    #[default(Option::<String>::None)]
+    pub author_email: Option<String>,
     pub content: String,
     pub resolved: bool,
     pub created_at: Timestamp,
@@ -57,7 +72,11 @@ pub(crate) fn validate_comment_content(content: &str) -> Result<String, String> 
 }
 
 fn author_or_admin(ctx: &ReducerContext, comment: &BlockComment) -> Result<(), String> {
-    if comment.author == ctx.sender() || sender_is_admin(ctx) {
+    let same_account = comment
+        .author_email
+        .as_deref()
+        .is_some_and(|email| !email.is_empty() && sender_account_email(ctx) == email);
+    if comment.author == ctx.sender() || same_account || sender_is_admin(ctx) {
         Ok(())
     } else {
         Err("Only the author or a workspace admin can do this".to_string())
@@ -98,6 +117,7 @@ pub fn create_block_comment(
         block_id,
         parent_id,
         author: ctx.sender(),
+        author_email: Some(sender_account_email(ctx)),
         content,
         resolved: false,
         created_at: ctx.timestamp,
@@ -187,4 +207,58 @@ pub fn delete_block_comment(ctx: &ReducerContext, comment_id: u64) -> Result<(),
         ctx.db.block_comment().id().delete(id);
     }
     Ok(())
+}
+
+/// Link legacy comments to their author's account.
+///
+/// Comments written before `author_email` existed carry only the ephemeral
+/// identity; when that identity is lost the UI can no longer tell whose
+/// comment it was. This copies the normalized email from the `User` row of
+/// each comment's author identity — the same migration pattern as
+/// `backfill_credential_admin`: safe to re-run, no batching (one bounded
+/// index lookup per comment, unlike the PBKDF2 rounds the password backfill
+/// has to budget for). Comments whose author identity has no authenticated
+/// `User` row yet are left unlinked; a later run links them once the row is
+/// authenticated.
+///
+/// Run automatically via `run_pending_migrations`
+/// (`"block_comment_author_email_backfill_v1"`, invoked by the docker
+/// entrypoint after every publish); the publisher-gated reducer stays as the
+/// re-runnable escape hatch for rows linked late.
+#[reducer]
+pub fn backfill_comment_authors(ctx: &ReducerContext) -> Result<(), String> {
+    if !sender_is_module_publisher(ctx) {
+        return Err("Only the publisher may migrate comment authors".into());
+    }
+    let linked = backfill_comment_authors_inner(ctx);
+    log::info!("backfill_comment_authors: linked {linked} comments to accounts");
+    Ok(())
+}
+
+pub(crate) fn backfill_comment_authors_inner(ctx: &ReducerContext) -> u32 {
+    let mut linked = 0u32;
+    for comment in ctx
+        .db
+        .block_comment()
+        .iter()
+        .filter(|c| c.author_email.is_none())
+    {
+        let email = ctx
+            .db
+            .user()
+            .identity()
+            .find(comment.author)
+            .filter(|u| u.is_authenticated)
+            .map(|u| u.email.trim().to_lowercase())
+            .unwrap_or_default();
+        if email.is_empty() {
+            continue;
+        }
+        ctx.db.block_comment().id().update(BlockComment {
+            author_email: Some(email),
+            ..comment
+        });
+        linked += 1;
+    }
+    linked
 }

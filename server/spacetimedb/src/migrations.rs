@@ -188,6 +188,22 @@ pub fn run_pending_migrations(ctx: &ReducerContext) -> Result<(), String> {
             Ok::<(), String>(())
         }
     );
+    // Account-level comment authorship (same trust model as admin authority,
+    // commit "Admin authority belongs to the account, not the identity"):
+    // snapshot each legacy comment's author account email from the User row
+    // of its writing identity. Publisher reducers remain as the re-runnable
+    // escape hatch for identities that only become authenticated later.
+    run_step!(
+        ctx,
+        "block_comment_author_email_backfill_v1",
+        |ctx: &ReducerContext| {
+            let linked = crate::comments::backfill_comment_authors_inner(ctx);
+            log::info!(
+                "block_comment_author_email_backfill_v1: linked {linked} comments"
+            );
+            Ok::<(), String>(())
+        }
+    );
     Ok(())
 }
 

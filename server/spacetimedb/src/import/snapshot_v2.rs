@@ -597,6 +597,9 @@ fn decode_block_comment(v: &Value) -> Result<crate::comments::BlockComment, Stri
         block_id: opt_string_at(m, "blockId")?,
         parent_id: opt_u64_at(m, "parentId")?,
         author: decode_identity(m.get("author").ok_or("author")?)?,
+        // Snapshots exported before account-level authorship have no
+        // authorEmail; leave None so `backfill_comment_authors` can link them.
+        author_email: opt_string_at(m, "authorEmail")?,
         content: string_at(m, "content")?,
         resolved: bool_at(m, "resolved")?,
         created_at: decode_timestamp(m.get("createdAt").ok_or("createdAt")?)?,

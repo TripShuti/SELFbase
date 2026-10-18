@@ -16,6 +16,7 @@ export default __t.row({
   blockId: __t.option(__t.string()).name("block_id"),
   parentId: __t.option(__t.u64()).name("parent_id"),
   author: __t.identity(),
+  authorEmail: __t.option(__t.string()).name("author_email"),
   content: __t.string(),
   resolved: __t.bool(),
   createdAt: __t.timestamp().name("created_at"),
