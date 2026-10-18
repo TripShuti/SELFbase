@@ -3,7 +3,7 @@ import { HttpStdbTransport } from "../api-endpoint/http-transport";
 import { decodePropertyValue, unwrapScalar } from "../api-endpoint/codec";
 import type { StdbTransport } from "../api-endpoint/types";
 import { atPath, describeRecord, mappedValues, latestDate } from "./mapping";
-import { parseSourceConfig, parseSourceConfigs, parseRecordLink, refreshInterval, type SourceConfig, type SourceStatus, type ExternalRecord } from "./types";
+import { parseSourceConfig, parseSourceConfigs, parseRecordLink, refreshInterval, type SourceConfig, type SourceStatus, type ExternalRecord, type SourceEnrichment } from "./types";
 
 export function sourceEnvironment() {
   return {
@@ -45,6 +45,9 @@ export function configsFromSchema(schema: Schema): SourceConfig[] {
   const raw = unwrapScalar(schema.config);
   return parseSourceConfigs(typeof raw === "string" ? raw : null);
 }
+function listSignature(rules: SourceEnrichment[] = []): string {
+  return JSON.stringify(rules.map(rule => [rule.path, rule.resultsPath, rule.recordMatchPath, rule.matchPath, rule.targetField]));
+}
 export async function loadSource(transport: StdbTransport, databaseId: string, sourceId?: string): Promise<LoadedSource> {
   const [schema] = await transport.sql<Schema>("SELECT page_id, config FROM database_schema WHERE page_id = ?", [BigInt(databaseId)]);
   const configs = schema ? configsFromSchema(schema) : [];
@@ -58,7 +61,7 @@ export async function loadSource(transport: StdbTransport, databaseId: string, s
     settings = shared;
     const keys = ["name", "baseUrl", "searchPath", "queryParam", "resultsPath", "detailPath", "detailResultPath",
       "idPath", "labelPath", "subtitlePath", "imagePath", "authHeader", "authPrefix"] as const;
-    if (!shared || keys.some(key => shared[key] !== config[key]) || (shared.recordMode || "detail") !== (config.recordMode || "detail") || (shared.imageUrlTemplate || "") !== (config.imageUrlTemplate || "")) throw new Error("Workspace source changed; save this database connection again");
+    if (!shared || listSignature(shared.enrichments) !== listSignature(config.enrichments) || keys.some(key => shared[key] !== config[key]) || (shared.recordMode || "detail") !== (config.recordMode || "detail") || (shared.imageUrlTemplate || "") !== (config.imageUrlTemplate || "")) throw new Error("Workspace source changed; save this database connection again");
     if (config.authHeader) {
       const [row] = await transport.sql<{ secret: string; scope: string }>("SELECT secret, scope FROM shared_external_source_secret WHERE source_id = ?", [config.sourceId]);
       if (!row?.secret || row.scope !== JSON.stringify([config.baseUrl, config.authHeader, config.authPrefix])) {
@@ -125,20 +128,75 @@ const collections = memory.__externalCollections ??= new Map();
 function collectionKey(source: LoadedSource): string {
   // Fingerprint credentials privately; cache keys and entries are never persisted.
   return createHash("sha256").update(JSON.stringify([sourceEnvironment().db, sourceEnvironment().stdb,
-    source.config.sourceId, source.config.baseUrl, source.config.searchPath, source.config.resultsPath,
-    source.config.idPath, source.config.labelPath, source.config.subtitlePath, source.config.imagePath, source.config.imageUrlTemplate, source.config.authHeader, source.config.authPrefix, source.secret])).digest("hex");
+    source.config.sourceId, source.config.recordMode, source.config.baseUrl, source.config.searchPath, source.config.resultsPath,
+    source.config.idPath, source.config.labelPath, source.config.subtitlePath, source.config.imagePath, source.config.imageUrlTemplate, listSignature(source.config.enrichments), source.config.authHeader, source.config.authPrefix, source.secret])).digest("hex");
 }
-export function invalidateSourceCache(source: LoadedSource) { collections.delete(collectionKey(source)); source.requestCache?.clear(); }
+interface EnrichmentEntry { expires: number; promise: Promise<Map<string, unknown>> }
+const enrichmentMemory = globalThis as typeof globalThis & { __externalEnrichmentLists?: Map<string, EnrichmentEntry> };
+const enrichmentLists = enrichmentMemory.__externalEnrichmentLists ??= new Map();
+function enrichmentKey(source: LoadedSource, rule: SourceEnrichment) { return collectionKey(source) + ":" + listSignature([rule]); }
+function joinKey(value: unknown): string | null {
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return typeof value === "string" && value.trim() ? value : null;
+}
+async function enrichmentIndex(source: LoadedSource, rule: SourceEnrichment): Promise<Map<string, unknown>> {
+  const key = enrichmentKey(source, rule), cached = enrichmentLists.get(key);
+  if (cached && cached.expires > Date.now()) return cached.promise;
+  if (enrichmentLists.size >= 128 && !enrichmentLists.has(key)) enrichmentLists.delete(enrichmentLists.keys().next().value!);
+  const entry: EnrichmentEntry = { expires: Date.now() + Math.max(60, refreshInterval(source.settings || source.config)) * 1000,
+    promise: (async () => {
+      const body = await requestJson(source, sourceUrl(source.config, rule.path));
+      const rows = atPath(body, rule.resultsPath);
+      if (!Array.isArray(rows) || rows.length > 20_000) throw new Error("Additional list results path must point to a bounded JSON array");
+      const index = new Map<string, unknown>();
+      for (const row of rows) {
+        const id = joinKey(atPath(row, rule.matchPath));
+        if (id == null) throw new Error("Additional list record is missing a valid match field");
+        if (index.has(id)) throw new Error("Additional list returned duplicate match values");
+        index.set(id, row);
+      }
+      return index;
+    })() };
+  enrichmentLists.set(key, entry);
+  try { const result = await entry.promise; return enrichmentLists.get(key) === entry ? result : enrichmentIndex(source, rule); }
+  catch (error) {
+    if (enrichmentLists.get(key) === entry) enrichmentLists.delete(key);
+    throw new Error(`Additional list "${rule.targetField}": ${error instanceof Error ? error.message : "request failed"}`);
+  }
+}
+export async function enrichRecords(source: LoadedSource, records: unknown[]): Promise<unknown[]> {
+  let result = records;
+  for (const rule of source.config.enrichments || []) {
+    if (!/^[A-Za-z_][A-Za-z0-9_-]*$/.test(rule.targetField) || ["__proto__", "prototype", "constructor"].includes(rule.targetField)) throw new Error("Invalid additional list target field");
+    const index = await enrichmentIndex(source, rule);
+    result = result.map(record => {
+      if (record == null || typeof record !== "object" || Array.isArray(record)) throw new Error("Source record must be an object for additional lists");
+      if (Object.prototype.hasOwnProperty.call(record, rule.targetField)) throw new Error("Additional list target field conflicts with an existing record field");
+      const key = joinKey(atPath(record, rule.recordMatchPath));
+      const extra = key == null ? undefined : index.get(key);
+      return extra === undefined ? record : { ...record, [rule.targetField]: extra };
+    });
+  }
+  return result;
+}
+export function invalidateSourceCache(source: LoadedSource) {
+  collections.delete(collectionKey(source));
+  for (const rule of source.config.enrichments || []) enrichmentLists.delete(enrichmentKey(source, rule));
+  source.requestCache?.clear();
+}
 export async function sourceCollection(source: LoadedSource): Promise<CollectionSnapshot> {
   const key = collectionKey(source);
   const cached = collections.get(key);
   if (cached && cached.expires > Date.now()) return cached.promise;
+  // Start both primary and additional lists together for each new snapshot.
+  for (const rule of source.config.enrichments || []) enrichmentLists.delete(enrichmentKey(source, rule));
   if (collections.size >= 32 && !collections.has(key)) collections.delete(collections.keys().next().value!);
   const entry: CollectionEntry = { expires: Date.now() + Math.max(60, refreshInterval(source.settings || source.config)) * 1000,
     promise: (async () => {
       const body = await requestJson(source, sourceUrl(source.config, source.config.searchPath));
-      const rows = atPath(body, source.config.resultsPath);
-      if (!Array.isArray(rows) || rows.length > 20_000) throw new Error("Collection results path must point to a bounded JSON array; check API access and visibility");
+      const baseRows = atPath(body, source.config.resultsPath);
+      if (!Array.isArray(baseRows) || baseRows.length > 20_000) throw new Error("Collection results path must point to a bounded JSON array; check API access and visibility");
+      const rows = await enrichRecords(source, baseRows);
       const records = rows.map(row => describeRecord(row, source.config));
       const raw = new Map<string, unknown>();
       records.forEach((record, i) => { if (raw.has(record.id)) throw new Error("Collection returned duplicate record IDs"); raw.set(record.id, rows[i]); });
@@ -159,7 +217,7 @@ export async function searchSource(source: LoadedSource, query: string) {
   const data = await requestJson(source, url);
   const records = atPath(data, source.config.resultsPath);
   if (!Array.isArray(records)) throw new Error("Search results path must point to a JSON array");
-  return records.slice(0, 50).map(raw => describeRecord(raw, source.config));
+  return (await enrichRecords(source, records.slice(0, 50))).map(raw => describeRecord(raw, source.config));
 }
 export async function fetchRecord(source: LoadedSource, id: string) {
   // Dot-only path segments are normalized even when percent-encoded by URL.
@@ -168,7 +226,7 @@ export async function fetchRecord(source: LoadedSource, id: string) {
   const path = source.config.detailPath.replaceAll("{id}", encoded);
   const result = source.config.recordMode === "collection"
     ? (await sourceCollection(source)).raw.get(id)
-    : atPath(await requestJson(source, sourceUrl(source.config, path)), source.config.detailResultPath);
+    : (await enrichRecords(source, [atPath(await requestJson(source, sourceUrl(source.config, path)), source.config.detailResultPath)]))[0];
   if (result == null) throw new Error("Record is not present in the current source collection; saved values were kept");
   const record = describeRecord(result, source.config);
   if (record.id !== id) throw new Error("External source returned a different record id");

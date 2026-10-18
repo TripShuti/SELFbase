@@ -79,7 +79,19 @@ struct Mapping {
 
 #[derive(Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct Enrichment {
+    path: String,
+    results_path: String,
+    record_match_path: String,
+    match_path: String,
+    target_field: String,
+}
+
+#[derive(Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SourceConfig {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    enrichments: Vec<Enrichment>,
     enabled: bool,
     name: String,
     base_url: String,
@@ -510,6 +522,45 @@ fn validate_source(source: &SourceConfig) -> Result<(), String> {
         return Err(
             "Specify id/label fields, search parameter, and a detail path with {id}".into(),
         );
+    }
+    if source.enrichments.len() > 4 {
+        return Err("At most four additional lists are supported".into());
+    }
+    let mut targets = std::collections::HashSet::new();
+    for rule in &source.enrichments {
+        let valid_path = |path: &str, allow_empty: bool| {
+            (allow_empty && path.is_empty())
+                || (!path.is_empty()
+                    && path.len() <= 512
+                    && path.split('.').all(|part| {
+                        !part.is_empty()
+                            && !["__proto__", "prototype", "constructor"].contains(&part)
+                            && part
+                                .bytes()
+                                .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+                    }))
+        };
+        let target = rule.target_field.as_str();
+        if !rule.path.starts_with('/')
+            || rule.path.starts_with("//")
+            || rule.path.len() > 4096
+            || rule.path.contains(['\\', '\r', '\n', '#'])
+            || !valid_path(&rule.record_match_path, false)
+            || !valid_path(&rule.match_path, false)
+            || !valid_path(&rule.results_path, true)
+            || !valid_path(target, false)
+            || target.contains('.')
+            || !target
+                .as_bytes()
+                .first()
+                .is_some_and(|b| b.is_ascii_alphabetic() || *b == b'_')
+            || !targets.insert(target)
+            || [&source.id_path, &source.label_path, &source.image_path]
+                .iter()
+                .any(|p| p.split('.').next() == Some(target))
+        {
+            return Err("Additional lists need a same-source path, valid match fields and a unique target field".into());
+        }
     }
     if let Some(template) = source
         .image_url_template

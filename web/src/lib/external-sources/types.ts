@@ -34,8 +34,16 @@ export interface SourceMapping {
   targetType: TargetType;
   transform: Transform;
 }
+export interface SourceEnrichment {
+  path: string;
+  resultsPath: string;
+  recordMatchPath: string;
+  matchPath: string;
+  targetField: string;
+}
 export const SOURCE_PREFIX = "external-source.";
 export interface SourceConfig {
+  enrichments?: SourceEnrichment[];
   imageUrlTemplate?: string;
   recordMode?: "detail" | "collection";
   syncMode?: "interval" | "manual" | "change";

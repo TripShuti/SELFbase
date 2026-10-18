@@ -1,6 +1,7 @@
 "use client";
 
 import type { Dispatch, SetStateAction } from "react";
+import { SourceEnrichmentFields } from "./SourceEnrichmentFields";
 import { SourceRefreshFields } from "./SourceRefreshFields";
 import type { SourceConfig } from "@/src/lib/external-sources/types";
 
@@ -42,6 +43,7 @@ export function SourceConnectionFields({ form, setForm, secret, setSecret }: {
           </div>
           <p className="mt-2 text-[11px] text-neutral-500">Field selectors use dot paths, e.g. stats.total or items.0.name. Search and detail records should expose the same ID and label paths.</p>
         </details>
+        <SourceEnrichmentFields form={form} setForm={setForm} />
         <details><summary className="cursor-pointer text-sm font-medium">Authentication</summary>
           <div className="mt-2 grid grid-cols-2 gap-3">
             {field("authHeader", "Header name", "Blank for a public API; e.g. Authorization or X-API-Key")}

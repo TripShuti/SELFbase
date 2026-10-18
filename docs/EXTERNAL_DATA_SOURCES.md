@@ -318,3 +318,58 @@ https://media.steampowered.com/steamcommunity/public/images/apps/{appid}/{img_ic
 This displays the game's icon returned by the library API, not a full-sized
 store cover. Steam icons without a hash remain empty. Leave **Image URL field**
 blank when using this template.
+
+## Additional API lists
+
+A source can attach up to four other complete API lists to its main records.
+In **Settings → Data sources**, edit the source, expand **Additional API lists**
+and choose **+ Add API list**. Set:
+
+- **Additional API path**: a path on the same source, such as `/activity`.
+- **Additional results array**: the dot path to the complete array; blank for a
+  root array. Pagination is not performed for these lists.
+- **Main record match field** and **Additional record match field**: ID paths in
+  the respective records. Numeric and string representations of the same ID match.
+- **Attach as field**: a unique top-level namespace, such as `activity`.
+
+The matched record becomes available at `activity.field_name` for mappings,
+status rules, image selectors and image templates. Existing main record fields
+are never overwritten. Missing matches leave extra fields absent, so missing/null
+values preserve saved destination cells. Duplicate additional IDs, invalid
+responses, HTTP failures or namespace collisions reject the snapshot; no partial
+row update is written. Empty complete arrays are valid. Relinking still clears
+old mapped values as before.
+
+Both collection and search/detail sources support additional lists. Lists share
+the source's origin, private authentication, schedule and bounded in-memory cache.
+A new primary collection snapshot fetches its additional lists together; requests
+are coalesced across connected databases. Manual refresh invalidates both caches.
+Each additional response is limited to 2 MB and 20,000 records. Indexed additional
+lists have a separate 128-entry memory bound. No API response cache is stored in
+SpacetimeDB. Settings are stored and exported alongside the source definition;
+no database table layout change or rebinding is required.
+
+### Steam first played date
+
+Keep the existing GetOwnedGames collection and add:
+
+| Setting | Value |
+| --- | --- |
+| Additional API path | `/IPlayerService/ClientGetLastPlayedTimes/v1/?input_json={"min_last_played":0}` |
+| Additional results array | `response.games` |
+| Main record match field | `appid` |
+| Additional record match field | `appid` |
+| Attach as field | `play_history` |
+
+Map `play_history.first_playtime` to a Date column with **Unix seconds → date**
+and **Treat a zero timestamp as missing**. This is the first played timestamp
+reported by Steam, not the acquisition date. The endpoint refers to the account
+owning the API key; configure the main library for that same account. Some games
+have no matching history. Existing names, icons and lifetime playtime continue
+using GetOwnedGames. This undocumented endpoint was verified with an ordinary
+Web API key; no separate Steam session token was needed.
+
+Live validation joined first played dates to a real Steam library without database
+writes. Local regression checks cover missing matches,
+zero dates, failed/ambiguous lists, concurrent fetches, shared database refresh,
+cache expiry/invalidation, native validation and browser configuration.
