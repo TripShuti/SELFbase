@@ -58,7 +58,7 @@ export async function loadSource(transport: StdbTransport, databaseId: string, s
     settings = shared;
     const keys = ["name", "baseUrl", "searchPath", "queryParam", "resultsPath", "detailPath", "detailResultPath",
       "idPath", "labelPath", "subtitlePath", "imagePath", "authHeader", "authPrefix"] as const;
-    if (!shared || keys.some(key => shared[key] !== config[key]) || (shared.recordMode || "detail") !== (config.recordMode || "detail")) throw new Error("Workspace source changed; save this database connection again");
+    if (!shared || keys.some(key => shared[key] !== config[key]) || (shared.recordMode || "detail") !== (config.recordMode || "detail") || (shared.imageUrlTemplate || "") !== (config.imageUrlTemplate || "")) throw new Error("Workspace source changed; save this database connection again");
     if (config.authHeader) {
       const [row] = await transport.sql<{ secret: string; scope: string }>("SELECT secret, scope FROM shared_external_source_secret WHERE source_id = ?", [config.sourceId]);
       if (!row?.secret || row.scope !== JSON.stringify([config.baseUrl, config.authHeader, config.authPrefix])) {
@@ -126,7 +126,7 @@ function collectionKey(source: LoadedSource): string {
   // Fingerprint credentials privately; cache keys and entries are never persisted.
   return createHash("sha256").update(JSON.stringify([sourceEnvironment().db, sourceEnvironment().stdb,
     source.config.sourceId, source.config.baseUrl, source.config.searchPath, source.config.resultsPath,
-    source.config.idPath, source.config.labelPath, source.config.subtitlePath, source.config.imagePath, source.config.authHeader, source.config.authPrefix, source.secret])).digest("hex");
+    source.config.idPath, source.config.labelPath, source.config.subtitlePath, source.config.imagePath, source.config.imageUrlTemplate, source.config.authHeader, source.config.authPrefix, source.secret])).digest("hex");
 }
 export function invalidateSourceCache(source: LoadedSource) { collections.delete(collectionKey(source)); source.requestCache?.clear(); }
 export async function sourceCollection(source: LoadedSource): Promise<CollectionSnapshot> {

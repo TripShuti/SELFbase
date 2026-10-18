@@ -36,6 +36,7 @@ export interface SourceMapping {
 }
 export const SOURCE_PREFIX = "external-source.";
 export interface SourceConfig {
+  imageUrlTemplate?: string;
   recordMode?: "detail" | "collection";
   syncMode?: "interval" | "manual" | "change";
   changePath?: string;

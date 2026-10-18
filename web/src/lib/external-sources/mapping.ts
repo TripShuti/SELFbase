@@ -15,14 +15,35 @@ export function atPath(record: unknown, path: string): unknown {
 function text(value: unknown): string | null {
   return typeof value === "string" ? value : typeof value === "number" && Number.isFinite(value) ? String(value) : null;
 }
+/** Templates interpolate encoded record fields, never executable expressions. */
+export function recordImage(raw: unknown, config: SourceConfig): string {
+  const direct = text(atPath(raw, config.imagePath)) || "";
+  let image = "";
+  const template = config.imageUrlTemplate?.trim();
+  if (template) {
+    let complete = true;
+    image = template.replace(/\{([^{}]+)\}/g, (_, path: string) => {
+      const value = text(atPath(raw, path));
+      if (!value?.trim() || !/^[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*$/.test(path)) { complete = false; return ""; }
+      return encodeURIComponent(value);
+    });
+    // A record can supply path/query values, but cannot choose the image host.
+    const authority = template.match(/^https?:\/\/([^/?#]+)/i)?.[1];
+    if (!complete || !authority || /[{}@\\]/.test(authority) || /[{}]/.test(image)) image = "";
+  }
+  image ||= direct;
+  try {
+    const url = new URL(image);
+    return ["http:", "https:"].includes(url.protocol) && !url.username && !url.password ? image : "";
+  } catch { return ""; }
+}
 export function describeRecord(raw: unknown, config: SourceConfig): ExternalRecord {
   const id = text(atPath(raw, config.idPath));
   const label = text(atPath(raw, config.labelPath));
   if (id == null || !id || id === "." || id === ".." || id.length > 512 || /[\x00-\x1f\x7f]/.test(id) || label == null || label.length > 1000) {
     throw new Error("Response record is missing a valid id or label; check the field paths");
   }
-  const image = text(atPath(raw, config.imagePath)) || "";
-  return { id, label, subtitle: text(atPath(raw, config.subtitlePath)) || "", image: /^https?:\/\//i.test(image) ? image : "" };
+  return { id, label, subtitle: text(atPath(raw, config.subtitlePath)) || "", image: recordImage(raw, config) };
 }
 function numeric(raw: unknown): number {
   if ((typeof raw !== "number" && typeof raw !== "string") || (typeof raw === "string" && !raw.trim())) throw new Error("Expected a number");

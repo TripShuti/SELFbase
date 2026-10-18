@@ -92,6 +92,8 @@ struct SourceConfig {
     label_path: String,
     subtitle_path: String,
     image_path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    image_url_template: Option<String>,
     auth_header: String,
     auth_prefix: String,
     link_property_id: String,
@@ -508,6 +510,52 @@ fn validate_source(source: &SourceConfig) -> Result<(), String> {
         return Err(
             "Specify id/label fields, search parameter, and a detail path with {id}".into(),
         );
+    }
+    if let Some(template) = source
+        .image_url_template
+        .as_deref()
+        .filter(|t| !t.is_empty())
+    {
+        let rest = template
+            .strip_prefix("https://")
+            .or_else(|| template.strip_prefix("http://"))
+            .ok_or("Image template must be an HTTP(S) URL")?;
+        let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
+        if template.len() > 2048
+            || template
+                .chars()
+                .any(|c| c.is_control() || c.is_whitespace())
+            || authority.is_empty()
+            || authority.contains(['{', '}', '@', '\\'])
+            || template.contains('\\')
+        {
+            return Err("Image template needs a fixed host without credentials".into());
+        }
+        let mut tail = template;
+        while let Some(start) = tail.find('{') {
+            if tail[..start].contains('}') {
+                return Err("Invalid image template placeholder".into());
+            }
+            let end = tail[start + 1..]
+                .find('}')
+                .ok_or("Unclosed image template placeholder")?
+                + start
+                + 1;
+            let path = &tail[start + 1..end];
+            if path.split('.').any(|part| {
+                part.is_empty()
+                    || ["__proto__", "prototype", "constructor"].contains(&part)
+                    || !part
+                        .bytes()
+                        .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+            }) {
+                return Err("Image template placeholders must be record field paths".into());
+            }
+            tail = &tail[end + 1..];
+        }
+        if tail.contains('}') {
+            return Err("Invalid image template placeholder".into());
+        }
     }
     if source.auth_header.len() > 100
         || !source

@@ -38,6 +38,7 @@ export function SourceConnectionFields({ form, setForm, secret, setSecret }: {
             {field("labelPath", "Display name field", "Example: name")}
             {field("subtitlePath", "Subtitle field (optional)")}
             {field("imagePath", "Image URL field (optional)")}
+            <div className="col-span-2">{field("imageUrlTemplate", "Image URL template (optional)", "Example: https://images.example.com/{item.id}/{image.hash}.jpg. Fields are URL-encoded; missing fields use the image URL field instead. Leave blank for direct URLs.")}</div>
           </div>
           <p className="mt-2 text-[11px] text-neutral-500">Field selectors use dot paths, e.g. stats.total or items.0.name. Search and detail records should expose the same ID and label paths.</p>
         </details>

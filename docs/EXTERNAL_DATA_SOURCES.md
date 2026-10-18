@@ -287,3 +287,34 @@ check **Hourly**, and set:
 All its databases share this check. Running/failed syncs and unchanged successful
 revisions do not trigger record requests. The first successful check after a web
 restart refreshes linked records. Manual refresh remains available.
+
+
+## Record image URLs
+
+Keep **Image URL field** for APIs returning a complete HTTP(S) URL, such as
+psnself's `cover_url`. No change to existing sources is needed.
+
+For APIs returning image identifiers or hashes, set the optional **Image URL
+template**. For example:
+
+```text
+https://images.example.com/{item.id}/{art.hash}.jpg
+```
+
+Placeholders are own-property dot paths from the record. Values are URL-encoded;
+they cannot change the fixed image host. If a required field is missing, null or
+empty, the direct image URL field is used as a fallback; otherwise no image is
+shown. Templates contain URLs and fields only, without executable expressions.
+Changing a shared template updates all its database connections and selects a
+new in-memory collection cache entry. Authentication credentials remain private
+and are never attached to image requests. Images are fetched by the browser.
+
+For Steam's `GetOwnedGames` response, use:
+
+```text
+https://media.steampowered.com/steamcommunity/public/images/apps/{appid}/{img_icon_url}.jpg
+```
+
+This displays the game's icon returned by the library API, not a full-sized
+store cover. Steam icons without a hash remain empty. Leave **Image URL field**
+blank when using this template.
