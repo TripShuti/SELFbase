@@ -1,13 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useReducer } from "spacetimedb/react";
-import { reducers } from "@/src/module_bindings";
+import { useReducer, useTable } from "spacetimedb/react";
+import { reducers, tables } from "@/src/module_bindings";
 import { useDatabaseSchema, usePropertyDefinitions } from "@/src/hooks/useDatabase";
 import { useCurrentUser } from "@/src/hooks/useUser";
 import { useWorkspace } from "@/src/providers/WorkspaceProvider";
 import { EMPTY_SOURCE, TARGET_TYPES, TRANSFORMS, parseSourceConfig, isExternalLinkColumn, type SourceConfig, type SourceStatus, type ExternalRecord } from "@/src/lib/external-sources/types";
 import { externalSourceFetch } from "@/src/lib/external-sources/client";
+import { SourceConnectionFields } from "./SourceConnectionFields";
+import { useWorkspaceSettings } from "@/src/hooks/useWorkspaceSettings";
+import { workspaceSources, copySourceMappings } from "@/src/lib/external-sources/types";
 import { FloatingPopup } from "./FloatingPopup";
 
 const inputClass = "mt-1 block w-full rounded border border-neutral-200 dark:border-neutral-700 bg-transparent px-2 py-1.5 text-sm";
@@ -18,6 +21,12 @@ export function ExternalSourceSettings({ databaseId }: { databaseId: bigint }) {
   const { user } = useCurrentUser();
   const { activeWorkspace } = useWorkspace();
   const configure = useReducer(reducers.configureExternalSource);
+  const saveShared = useReducer(reducers.saveSharedExternalSource);
+  const [settings] = useWorkspaceSettings();
+  const sources = workspaceSources(settings);
+  const [schemas] = useTable(tables.database_schema);
+  const [allProperties] = useTable(tables.property_definition);
+  const [copyFrom, setCopyFrom] = useState("");
   const anchor = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<SourceConfig>({ ...EMPTY_SOURCE });
@@ -43,12 +52,6 @@ export function ExternalSourceSettings({ databaseId }: { databaseId: bigint }) {
     return () => abort.abort();
   }, [open, activeWorkspace, databaseId]);
 
-  function field(key: keyof SourceConfig, label: string, hint?: string) {
-    return <label className="block text-xs" key={key}>{label}
-      <input value={String(form[key])} onChange={e => setForm(prev => ({ ...prev, [key]: e.target.value }))} className={inputClass} />
-      {hint && <span className="mt-1 block text-[11px] text-neutral-500">{hint}</span>}
-    </label>;
-  }
   async function save() {
     if (!schema) return;
     setBusy(true); setError(""); setMessage("");
@@ -56,10 +59,36 @@ export function ExternalSourceSettings({ databaseId }: { databaseId: bigint }) {
       const url = new URL(form.baseUrl);
       if (!["http:", "https:"].includes(url.protocol)) throw new Error("Use an HTTP or HTTPS URL");
       if (form.mappings.some(m => !m.sourcePath || !m.targetPropertyId)) throw new Error("Choose a source field and destination for each mapping");
-      await configure({ databaseId, configJson: JSON.stringify(form), secret: secret || undefined });
+      await configure({ databaseId, configJson: JSON.stringify(form), secret: form.sourceId ? undefined : secret || undefined });
       setSecret(""); setMessage("Connection saved. Use Add from source beside a row name to select a record.");
     } catch (e) { setError(e instanceof Error ? e.message : "Could not save connection"); }
     finally { setBusy(false); }
+  }
+  async function makeReusable() {
+    if (!config) return;
+    setBusy(true); setError(""); setMessage("");
+    try {
+      await saveShared({ sourceId: crypto.randomUUID(), configJson: JSON.stringify(config), secret: undefined, importDatabaseId: databaseId });
+      setMessage("Saved as a workspace source. Other databases can now select it without entering the credential.");
+    } catch (e) { setError(e instanceof Error ? e.message : "Could not save workspace source"); }
+    finally { setBusy(false); }
+  }
+  function selectSource(id: string) {
+    const selected = sources.find(source => source.sourceId === id);
+    if (!selected) return;
+    setSecret(""); setCopyFrom("");
+    setForm(previous => ({ ...selected, enabled: previous.enabled, linkPropertyId: previous.linkPropertyId,
+      mappings: previous.sourceId === id ? previous.mappings : [], syncIntervalSeconds: previous.syncIntervalSeconds,
+      fillEmptyTitle: previous.fillEmptyTitle }));
+  }
+  function copyMappings(pageId: string) {
+    setCopyFrom(pageId);
+    const other = schemas.find(s => String(s.pageId) === pageId);
+    const source = parseSourceConfig(other?.config);
+    if (!other || !source) return;
+    const mappings = copySourceMappings(source.mappings, allProperties.filter(p => p.schemaId === other.id), properties);
+    setForm(p => ({ ...p, mappings }));
+    setMessage(`Copied ${mappings.length} of ${source.mappings.length} mappings by matching column name and type. Review before saving.`);
   }
   async function testConnection() {
     if (!activeWorkspace) return;
@@ -79,7 +108,7 @@ export function ExternalSourceSettings({ databaseId }: { databaseId: bigint }) {
     {open && <FloatingPopup anchorRef={anchor} onClose={() => setOpen(false)}
       className="z-50 w-[min(520px,calc(100vw-16px))] max-h-[85vh] overflow-auto rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-4 shadow-xl text-neutral-900 dark:text-neutral-100">
       <h3 className="font-semibold">External data source</h3>
-      <p className="mt-1 mb-3 text-xs text-neutral-500">Search an HTTP API from the Name column and keep selected fields up to date. Each database can connect to one source. Other columns stay yours.</p>
+      <p className="mt-1 mb-3 text-xs text-neutral-500">Search an HTTP API from the Name column and keep selected fields up to date. Choose a saved workspace source, then map the fields for this database.</p>
       {status && <p className="mb-3 text-xs text-neutral-500">
         {!status.serviceConfigured ? "Set up the server service token to enable external connections."
           : status.automaticSync ? "Background updates are active, including when your browser is closed."
@@ -89,37 +118,27 @@ export function ExternalSourceSettings({ databaseId }: { databaseId: bigint }) {
       </p>}
       {!canConfigure && <p className="my-3 text-xs text-neutral-500">A workspace administrator can configure this connection.</p>}
       <fieldset disabled={!canConfigure || busy} className="space-y-3 disabled:opacity-60">
+        <label className="block text-xs">Workspace source
+          <select aria-label="Workspace source" className={inputClass} value={form.sourceId || ""} onChange={e => selectSource(e.target.value)}>
+            <option value="" disabled>{config && !config.sourceId ? "Existing database connection" : "Choose a saved source"}</option>
+            {sources.map(source => <option key={source.sourceId} value={source.sourceId}>{source.name}</option>)}
+          </select>
+        </label>
+        <p className="text-xs text-neutral-500"><a href="/workspace/settings#data-sources" className="text-blue-600 underline">Manage workspace sources</a></p>
+        {config && !config.sourceId && <button type="button" onClick={makeReusable} className="rounded border border-neutral-200 px-2 py-1 text-xs dark:border-neutral-700">Make saved connection reusable</button>}
         <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={form.enabled} onChange={e => setForm(p => ({ ...p, enabled: e.target.checked }))} />Enable connection and synchronization</label>
-        {field("name", "Connection name")}
-        {field("baseUrl", "Base URL", "An address reachable by the SELFbase server, e.g. http://service:8080")}
-        <details open><summary className="cursor-pointer text-sm font-medium">Search and records</summary>
-          <div className="mt-2 grid grid-cols-2 gap-3">
-            {field("searchPath", "Search path", "Example: /api/items?limit=20")}
-            {field("queryParam", "Search query parameter", "Example: q or search")}
-            {field("resultsPath", "Results array path", "Example: data.items; blank for a root array")}
-            {field("detailPath", "Single-record path", "Example: /api/items/{id}")}
-            {field("detailResultPath", "Single-record result path", "Blank for a root object")}
-            {field("idPath", "Stable ID field", "Example: id")}
-            {field("labelPath", "Display name field", "Example: name")}
-            {field("subtitlePath", "Subtitle field (optional)")}
-            {field("imagePath", "Image URL field (optional)")}
-          </div>
-          <p className="mt-2 text-[11px] text-neutral-500">Field selectors use dot paths, e.g. stats.total or items.0.name. Search and detail records should expose the same ID and label paths.</p>
-        </details>
-        <details><summary className="cursor-pointer text-sm font-medium">Authentication</summary>
-          <div className="mt-2 grid grid-cols-2 gap-3">
-            {field("authHeader", "Header name", "Blank for a public API; e.g. Authorization or X-API-Key")}
-            {field("authPrefix", "Value prefix", "For bearer auth include the trailing space: Bearer ")}
-            <label className="col-span-2 text-xs">Credential
-              <input type="password" autoComplete="new-password" value={secret} onChange={e => setSecret(e.target.value)} className={inputClass} placeholder={config ? "Leave blank to keep the saved credential" : "API token"} />
-              <span className="mt-1 block text-[11px] text-neutral-500">Stored privately on the server. Re-enter it if you change the source URL.</span>
-            </label>
-          </div>
-        </details>
+        {!form.sourceId && config && <SourceConnectionFields form={form} setForm={setForm} secret={secret} setSecret={setSecret} />}
+        {form.sourceId && <p className="text-xs text-neutral-500">Address and credentials are managed once in <a href="/workspace/settings#data-sources" className="text-blue-600 underline">Settings → Data sources</a>.</p>}
         <details open><summary className="cursor-pointer text-sm font-medium">Columns to update</summary>
           <p className="mt-2 text-xs text-neutral-500">Use Add from source or the link icon beside a row name. Existing record links are kept automatically.</p>
           {form.mappings.length === 0 && <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">No fields are mapped yet. Selecting a record can fill its name; map fields below to also fill other columns.</p>}
           <p className="mt-2 text-[11px] text-neutral-500">Create destination columns in your table first, then map the API fields below. Missing or null source values preserve existing data.</p>
+          {form.sourceId && <label className="mt-3 block text-xs">Copy mappings from another database
+            <select aria-label="Copy mappings from database" className={inputClass} value={copyFrom} onChange={e => copyMappings(e.target.value)}>
+              <option value="">Choose a database with matching columns</option>
+              {schemas.filter(s => s.pageId !== databaseId && parseSourceConfig(s.config)?.sourceId === form.sourceId).map(s => <option key={String(s.pageId)} value={String(s.pageId)}>{s.name}</option>)}
+            </select>
+          </label>}
           {form.mappings.map((mapping, index) => <div key={index} className="mt-3 rounded border border-neutral-200 dark:border-neutral-700 p-2">
             <input aria-label={`Source field ${index + 1}`} placeholder="Source field path" value={mapping.sourcePath} className={inputClass}
               onChange={e => setForm(p => ({ ...p, mappings: p.mappings.map((m, i) => i === index ? { ...m, sourcePath: e.target.value } : m) }))} />
@@ -151,7 +170,7 @@ export function ExternalSourceSettings({ databaseId }: { databaseId: bigint }) {
       {message && <p role="status" className="mt-3 text-xs text-green-600">{message}</p>}
       <div className="mt-4 flex justify-end gap-2">
         {config?.enabled && <button disabled={busy} onClick={testConnection} className="rounded px-3 py-1.5 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800">Test saved connection</button>}
-        <button disabled={busy || !schema || !canConfigure} onClick={save} className="rounded bg-blue-600 px-3 py-1.5 text-xs text-white disabled:opacity-50">{busy ? "Working…" : "Save connection"}</button>
+        <button disabled={busy || !schema || !canConfigure || (!form.sourceId && !config)} onClick={save} className="rounded bg-blue-600 px-3 py-1.5 text-xs text-white disabled:opacity-50">{busy ? "Working…" : "Save connection"}</button>
       </div>
     </FloatingPopup>}
   </>;

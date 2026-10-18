@@ -528,6 +528,13 @@ export const ReadableResource = __t.object("ReadableResource", {
 });
 export type ReadableResource = __Infer<typeof ReadableResource>;
 
+export const SharedExternalSourceSecret = __t.object("SharedExternalSourceSecret", {
+  sourceId: __t.string(),
+  secret: __t.string(),
+  scope: __t.string(),
+});
+export type SharedExternalSourceSecret = __Infer<typeof SharedExternalSourceSecret>;
+
 // The tagged union or sum type for the algebraic type `SnapshotType`.
 export const SnapshotType = __t.enum("SnapshotType", {
   Manual: __t.unit(),

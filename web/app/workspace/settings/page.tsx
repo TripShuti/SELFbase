@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
+import { WorkspaceSourcesSettings } from "@/src/components/WorkspaceSourcesSettings";
 import { ApiEndpointsSettings } from "@/src/components/ApiEndpointsSettings";
 import { MembersSettings } from "@/src/components/MembersSettings";
 import { WorkspaceConnectionsPanel } from "@/src/components/WorkspaceConnectionsPanel";
@@ -52,6 +53,8 @@ export default function SettingsPage() {
         <NotionImportSection />
 
         <MembersSettings />
+
+        <WorkspaceSourcesSettings />
 
         <ApiEndpointsSettings />
 

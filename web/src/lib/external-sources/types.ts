@@ -12,7 +12,9 @@ export interface SourceMapping {
   targetType: TargetType;
   transform: Transform;
 }
+export const SOURCE_PREFIX = "external-source.";
 export interface SourceConfig {
+  sourceId?: string;
   enabled: boolean;
   name: string;
   baseUrl: string;
@@ -79,4 +81,28 @@ export function externalLinkValue(
 }
 export function isEmptyRowTitle(title: string): boolean {
   return !title.trim() || title.trim() === "Untitled";
+}
+
+export function workspaceSources(settings: readonly { key: string; valueJson: string }[]): SourceConfig[] {
+  return settings.flatMap(setting => {
+    if (!setting.key.startsWith(SOURCE_PREFIX)) return [];
+    try {
+      const source = JSON.parse(setting.valueJson) as SourceConfig;
+      return source.sourceId && setting.key === SOURCE_PREFIX + source.sourceId && typeof source.name === "string" &&
+        typeof source.baseUrl === "string" ? [source] : [];
+    } catch { return []; }
+  }).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Copy only unambiguous column names/types; ids are local to each database. */
+export function copySourceMappings(mappings: readonly SourceMapping[],
+  from: readonly { id: bigint; name: string; propertyType: { tag: string } }[],
+  to: readonly { id: bigint; name: string; propertyType: { tag: string }; config: string }[],
+): SourceMapping[] {
+  return mappings.flatMap(mapping => {
+    const original = from.find(p => String(p.id) === mapping.targetPropertyId);
+    if (!original) return [];
+    const matches = to.filter(p => p.name === original.name && p.propertyType.tag === mapping.targetType && !isExternalLinkColumn(p.config));
+    return matches.length === 1 ? [{ ...mapping, targetPropertyId: String(matches[0].id) }] : [];
+  }).filter((mapping, index, all) => all.findIndex(m => m.targetPropertyId === mapping.targetPropertyId) === index);
 }

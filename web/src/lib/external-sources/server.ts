@@ -38,7 +38,20 @@ export async function loadSource(transport: StdbTransport, databaseId: string) {
   const config = schema && configFromSchema(schema);
   if (!config?.enabled) throw new Error("Enable an external data source in this database first");
   let secret = "";
-  if (config.authHeader) {
+  if (config.sourceId) {
+    const [setting] = await transport.sql<{ value_json: string }>("SELECT value_json FROM workspace_setting WHERE key = ?", ["external-source." + config.sourceId]);
+    const shared: SourceConfig | undefined = setting && JSON.parse(setting.value_json);
+    const keys = ["name", "baseUrl", "searchPath", "queryParam", "resultsPath", "detailPath", "detailResultPath",
+      "idPath", "labelPath", "subtitlePath", "imagePath", "authHeader", "authPrefix"] as const;
+    if (!shared || keys.some(key => shared[key] !== config[key])) throw new Error("Workspace source changed; save this database connection again");
+    if (config.authHeader) {
+      const [row] = await transport.sql<{ secret: string; scope: string }>("SELECT secret, scope FROM shared_external_source_secret WHERE source_id = ?", [config.sourceId]);
+      if (!row?.secret || row.scope !== JSON.stringify([config.baseUrl, config.authHeader, config.authPrefix])) {
+        throw new Error("Re-enter the credential in workspace Data sources");
+      }
+      secret = row.secret;
+    }
+  } else if (config.authHeader) {
     const [row] = await transport.sql<{ secret: string }>("SELECT secret FROM external_source_secret WHERE database_id = ?", [BigInt(databaseId)]);
     secret = row?.secret || "";
     if (!secret) throw new Error("This source needs a credential; re-enter it in connection settings");

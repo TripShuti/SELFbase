@@ -624,6 +624,10 @@ pub fn set_workspace_setting(
         return Err("Only a workspace admin can change workspace settings".to_string());
     }
 
+    if key.starts_with(crate::external_sources::SOURCE_PREFIX) {
+        return Err("Use the Data sources settings to manage shared sources".into());
+    }
+
     // Validate the knobs we know about, so a bad value is rejected at the
     // boundary rather than silently falling back to a default at read time —
     // an admin who sets a limit should be told it did not take.

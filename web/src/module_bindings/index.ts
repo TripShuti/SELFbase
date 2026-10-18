@@ -64,6 +64,7 @@ import DeleteDatabaseRowReducer from "./delete_database_row_reducer";
 import DeletePageReducer from "./delete_page_reducer";
 import DeletePageSubtreeReducer from "./delete_page_subtree_reducer";
 import DeletePropertyReducer from "./delete_property_reducer";
+import DeleteSharedExternalSourceReducer from "./delete_shared_external_source_reducer";
 import DeleteViewReducer from "./delete_view_reducer";
 import EmptyTrashReducer from "./empty_trash_reducer";
 import HardenLocalPasswordsReducer from "./harden_local_passwords_reducer";
@@ -97,6 +98,7 @@ import RestorePageToSnapshotReducer from "./restore_page_to_snapshot_reducer";
 import RevokeApiEndpointKeyReducer from "./revoke_api_endpoint_key_reducer";
 import RunPendingMigrationsReducer from "./run_pending_migrations_reducer";
 import SaveComponentYjsStateReducer from "./save_component_yjs_state_reducer";
+import SaveSharedExternalSourceReducer from "./save_shared_external_source_reducer";
 import SaveYjsStateReducer from "./save_yjs_state_reducer";
 import SeedAgentInstructionPropertyReducer from "./seed_agent_instruction_property_reducer";
 import SetBlockAccessRuleReducer from "./set_block_access_rule_reducer";
@@ -651,6 +653,7 @@ const reducersSchema = __reducers(
   __reducerSchema("delete_page", DeletePageReducer),
   __reducerSchema("delete_page_subtree", DeletePageSubtreeReducer),
   __reducerSchema("delete_property", DeletePropertyReducer),
+  __reducerSchema("delete_shared_external_source", DeleteSharedExternalSourceReducer),
   __reducerSchema("delete_view", DeleteViewReducer),
   __reducerSchema("empty_trash", EmptyTrashReducer),
   __reducerSchema("harden_local_passwords", HardenLocalPasswordsReducer),
@@ -684,6 +687,7 @@ const reducersSchema = __reducers(
   __reducerSchema("revoke_api_endpoint_key", RevokeApiEndpointKeyReducer),
   __reducerSchema("run_pending_migrations", RunPendingMigrationsReducer),
   __reducerSchema("save_component_yjs_state", SaveComponentYjsStateReducer),
+  __reducerSchema("save_shared_external_source", SaveSharedExternalSourceReducer),
   __reducerSchema("save_yjs_state", SaveYjsStateReducer),
   __reducerSchema("seed_agent_instruction_property", SeedAgentInstructionPropertyReducer),
   __reducerSchema("set_block_access_rule", SetBlockAccessRuleReducer),

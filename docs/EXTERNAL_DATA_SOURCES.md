@@ -29,30 +29,40 @@ The base URL must be reachable **from the web container**, not just the browser.
 Docker host; compose supplies the Linux host-gateway alias. A shared Docker
 network and its service DNS name work too.
 
-## Connect a database
+## Workspace sources and database connections
 
-1. Create destination columns with suitable types (Text, Number, Duration, Date,
-   Checkbox, URL, Select or MultiSelect).
-2. As a workspace admin, open **Data source** beside the database title.
-3. Enter the source name and base URL. Configure:
-   - Search path and search query parameter.
-   - Dot path to the search result array; leave blank for a root array.
-   - Single-record path containing `{id}` and optional result-object path.
-   - Stable ID and display-name paths shared by search/detail records.
-   - Optional subtitle and image URL paths.
-4. Set the authentication header, prefix and credential. For bearer auth use
+1. As a workspace admin, open **Settings → Data sources → + New Source**.
+2. Enter the source name, base URL, search/detail paths and JSON selectors.
+   Detail paths contain `{id}`; search/detail records share ID and label paths.
+   Search results may be a root array or an array at a configured dot path.
+3. Set the authentication header, prefix and credential. For bearer auth use
    `Authorization`, prefix `Bearer ` (including the space), and the raw API key.
-   For an API-key header use e.g. `X-API-Key` with an empty prefix. Leave the
-   header name blank for an unauthenticated API.
-5. Map source fields to destination columns and choose transforms where needed.
-   Each target can be mapped once. Record links are managed automatically.
-6. Save, then **Test saved connection**. In a new row, click **Untitled** or
-   **Add from source**, search and select a record. Its name replaces Untitled
-   (when filling empty titles is enabled), and mapped fields are filled immediately.
-   For an existing named row use the link icon beside its name; the custom title
-   stays unchanged. For a linked row the same icon opens **Refresh now**, record
-   selection, and **Unlink · keep values**. These actions are also available in
-   list/board views and the row's property panel.
+   For a public API leave the header name blank. Save the workspace source once.
+4. In a database, create destination columns, then open **Data source** beside
+   its title and choose the saved **Workspace source**. No credential is needed.
+5. Map source fields to destination columns and select value transforms.
+   **Copy mappings from another database** matches column names and types and
+   skips missing or ambiguous matches. Review the result before saving.
+6. Set this database's interval and title behavior, save and test the connection.
+7. In a new row, click **Untitled** or **Add from source**, search and select a
+   record. Its name replaces Untitled when enabled; mapped fields are filled.
+   For a named row, use the link icon; custom titles stay unchanged. The icon
+   also opens **Refresh now** and **Unlink · keep values**. These actions are
+   available in grid/list/board views and the row property panel.
+
+Address, authentication and API field selectors belong to the workspace source.
+Mappings, enabled state, title behavior, intervals and record links belong to
+each database. Editing a workspace source updates every connected database
+atomically and rejects in-flight snapshots using the old definition. A source
+cannot be removed while referenced by a database.
+
+Existing database-local connections continue to work. Open their **Data source**
+settings and choose **Make saved connection reusable**. This atomically moves
+the saved private credential into the shared store, attaches the same database
+and preserves all mappings, links and values. Other databases can then select
+that source. Promotion uses the saved endpoint definition, not unsaved edits.
+When switching an already-linked database to a different source, unlink its
+records first to avoid interpreting one provider's IDs as another provider's.
 
 Selectors support own-property dot paths and numeric array indexes, e.g.
 `data.items`, `stats.total` or `items.0.name`; JSONPath expressions are not used.
@@ -83,7 +93,7 @@ in the search path when the API supports one.
 - Background refresh runs in the persistent Next.js Node server. It checks due
   connections every minute; intervals are configurable from 60 to 86400 seconds.
   Upstream requests have a 15-second timeout, redirects are rejected, responses
-  are limited to 2 MB, and each distinct record is fetched once per source/cycle.
+  are limited to 2 MB, and each distinct record is fetched once per database/cycle.
   Errors retain existing data and retry at the next interval. Deleted/unlinked
   rows are skipped. Connection status reports the last background check/errors.
 - Source freshness depends on the upstream service. Frequent SELFbase checks
@@ -95,12 +105,17 @@ to the database. The Next.js route validates the caller's SpacetimeDB token and
 page ACLs before using the owner token to read credentials. Worker writes also
 validate the saved mapping, revision and current link inside the reducer.
 
-Credentials live in the private `external_source_secret` table. They are absent
-from client tables and JSON workspace exports. Configuration and links are
-included in existing schema/property exports; after restoring a JSON export,
-re-enter authenticated-source credentials. A database-volume backup preserves
-private credentials. Editing the base URL or auth header requires re-entering
-the credential, preventing accidental reuse with a new destination.
+Shared credentials live in the private `shared_external_source_secret` table;
+legacy connections retain `external_source_secret` until promoted. Workspace
+source definitions use reserved `external-source.*` entries in `workspace_setting`,
+already included in the portable snapshot format. They are absent
+from client tables and JSON workspace exports. Definitions, configuration and links are
+included in workspace settings and schema/property exports; after restoring a JSON export,
+re-enter each shared source credential once in Settings → Data sources. A database-volume backup preserves
+private credentials. Editing a shared source's base URL, auth header or prefix requires re-entering
+the credential. Credentials are bound to that endpoint/authentication scope,
+including after a snapshot restore, to prevent reuse with another destination.
+The only added table is private; existing public table layouts are unchanged.
 
 ## Example: connect psnself
 
@@ -139,5 +154,6 @@ statistics. SELFbase never needs the Sony NPSSO cookie.
 Local checks cover generic mapping/HTTP behavior, two unrelated response shapes,
 real SpacetimeDB 2.0.3 upgrade and synchronization, preservation of existing
 records and notes, unit conversion, null/zero handling, idempotent history,
-rejected stale writes, and private-credential/admin boundaries. Test scripts are
+rejected stale writes, private-credential/admin boundaries, shared-key reuse by two databases, promotion
+without data loss, propagated edits and browser-based source management. Test scripts are
 kept locally and excluded from deployment commits.
