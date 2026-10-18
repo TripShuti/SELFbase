@@ -17,6 +17,7 @@ mod import;
 mod migrations;
 mod module_install;
 mod pages;
+mod external_sources;
 mod stable_ids;
 mod types;
 

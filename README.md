@@ -4,7 +4,7 @@
 
 Fork of [Pear](https://codeberg.org/Eclosion-Tech/pear) (AGPL-3.0, fork point tagged `upstream-final`),
 stripped down to the workspace core: pages, databases, relations, files, and a
-versioned REST API. No AI users, no agents, no MCP, no automations, no worker.
+versioned REST API. No AI users, no agents, no MCP, no automations.
 Pages and database rows are the same entity — a page
 viewed in a grid is a row, a row opened fully is a page. Real-time sync over
 SpacetimeDB subscriptions; documents are typed component trees with Yjs-backed
@@ -34,6 +34,7 @@ rich text.
 - **Comments** — page-level and block-anchored threads with replies, resolve/reopen, author/admin moderation.
 - **Files** — presigned S3 upload/download, metadata in SpacetimeDB.
 - **REST API** — expose any database as a versioned REST API (`/api/e/{slug}`) with API-key auth and OpenAPI spec. See [`docs/API_ENDPOINTS.md`](./docs/API_ENDPOINTS.md).
+- **External data sources** — connect an HTTP JSON API, search records from table cells, map fields to columns, and refresh linked rows in the background. See [`docs/EXTERNAL_DATA_SOURCES.md`](./docs/EXTERNAL_DATA_SOURCES.md).
 - **Backup** — export/import the workspace as a `selfbase-snapshot-v2` JSON file from settings.
 
 What this fork deliberately does **not** have (see upstream Pear if you need

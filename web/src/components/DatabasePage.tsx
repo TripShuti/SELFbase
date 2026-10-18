@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useUpdatePageTitle, useUpdatePageIcon, useDeletePageSubtree } from "@/src/hooks/usePages";
 import type { PageRow } from "@/src/hooks/usePages";
 import { GridView } from "./GridView";
+import { ExternalSourceSettings } from "./ExternalSourceSettings";
 import { PageMoreMenu } from "./PageMoreMenu";
 import { PageAccessMenu } from "./PageAccessMenu";
 import { PageHistoryPanel } from "./PageHistoryPanel";
@@ -87,6 +88,7 @@ export function DatabasePage({ page }: DatabasePageProps) {
               <polyline points="12 6 12 12 16 14"/>
             </svg>
           </button>
+          <ExternalSourceSettings databaseId={page.id} />
           <PageAccessMenu key={String(page.id)} pageId={page.id} />
           <PageMoreMenu
             items={[

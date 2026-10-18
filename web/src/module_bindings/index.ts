@@ -36,12 +36,14 @@ import {
 // Import all reducer arg schemas
 import AddPropertyReducer from "./add_property_reducer";
 import AppendPageDocReducer from "./append_page_doc_reducer";
+import ApplyExternalRecordReducer from "./apply_external_record_reducer";
 import AuthorizeBlobAccessReducer from "./authorize_blob_access_reducer";
 import BackfillCommentAuthorsReducer from "./backfill_comment_authors_reducer";
 import BackfillCredentialAdminReducer from "./backfill_credential_admin_reducer";
 import ClearBlockAccessRuleReducer from "./clear_block_access_rule_reducer";
 import ClearPageAccessRuleReducer from "./clear_page_access_rule_reducer";
 import ClearPropertyValueReducer from "./clear_property_value_reducer";
+import ConfigureExternalSourceReducer from "./configure_external_source_reducer";
 import CreateApiEndpointReducer from "./create_api_endpoint_reducer";
 import CreateApiEndpointKeyReducer from "./create_api_endpoint_key_reducer";
 import CreateApiFieldMappingReducer from "./create_api_field_mapping_reducer";
@@ -70,6 +72,7 @@ import ImportV2BeginReducer from "./import_v_2_begin_reducer";
 import ImportV2ChunkReducer from "./import_v_2_chunk_reducer";
 import ImportV2CommitReducer from "./import_v_2_commit_reducer";
 import InsertComponentReducer from "./insert_component_reducer";
+import LinkExternalRecordReducer from "./link_external_record_reducer";
 import LogApiCallReducer from "./log_api_call_reducer";
 import LoginReducer from "./login_reducer";
 import LogoutReducer from "./logout_reducer";
@@ -620,12 +623,14 @@ const tablesSchema = __schema({
 const reducersSchema = __reducers(
   __reducerSchema("add_property", AddPropertyReducer),
   __reducerSchema("append_page_doc", AppendPageDocReducer),
+  __reducerSchema("apply_external_record", ApplyExternalRecordReducer),
   __reducerSchema("authorize_blob_access", AuthorizeBlobAccessReducer),
   __reducerSchema("backfill_comment_authors", BackfillCommentAuthorsReducer),
   __reducerSchema("backfill_credential_admin", BackfillCredentialAdminReducer),
   __reducerSchema("clear_block_access_rule", ClearBlockAccessRuleReducer),
   __reducerSchema("clear_page_access_rule", ClearPageAccessRuleReducer),
   __reducerSchema("clear_property_value", ClearPropertyValueReducer),
+  __reducerSchema("configure_external_source", ConfigureExternalSourceReducer),
   __reducerSchema("create_api_endpoint", CreateApiEndpointReducer),
   __reducerSchema("create_api_endpoint_key", CreateApiEndpointKeyReducer),
   __reducerSchema("create_api_field_mapping", CreateApiFieldMappingReducer),
@@ -654,6 +659,7 @@ const reducersSchema = __reducers(
   __reducerSchema("import_v_2_chunk", ImportV2ChunkReducer),
   __reducerSchema("import_v_2_commit", ImportV2CommitReducer),
   __reducerSchema("insert_component", InsertComponentReducer),
+  __reducerSchema("link_external_record", LinkExternalRecordReducer),
   __reducerSchema("log_api_call", LogApiCallReducer),
   __reducerSchema("login", LoginReducer),
   __reducerSchema("logout", LogoutReducer),

@@ -457,6 +457,15 @@ pub fn update_database_schema_config(
         .id()
         .find(schema_id)
         .ok_or("Schema not found")?;
+    // External-source settings control server-side networking and private
+    // credentials. They must go through the admin-only validated reducer.
+    let previous: serde_json::Value = serde_json::from_str(schema.config.as_deref().unwrap_or("{}"))
+        .unwrap_or(serde_json::Value::Null);
+    let next: serde_json::Value = serde_json::from_str(&config)
+        .unwrap_or(serde_json::Value::Null);
+    if previous.get("externalSource") != next.get("externalSource") {
+        return Err("Use configure_external_source to change external source settings".into());
+    }
     schema.config = Some(config);
     ctx.db.database_schema().id().update(schema);
     Ok(())

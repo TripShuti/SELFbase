@@ -246,6 +246,12 @@ export const DocBlockInput = __t.object("DocBlockInput", {
 });
 export type DocBlockInput = __Infer<typeof DocBlockInput>;
 
+export const ExternalSourceSecret = __t.object("ExternalSourceSecret", {
+  databaseId: __t.u64(),
+  secret: __t.string(),
+});
+export type ExternalSourceSecret = __Infer<typeof ExternalSourceSecret>;
+
 export const FileRef = __t.object("FileRef", {
   name: __t.string(),
   objectId: __t.string(),

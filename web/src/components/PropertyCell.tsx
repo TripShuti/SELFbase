@@ -6,6 +6,8 @@ import { useUpdatePropertyConfig } from "@/src/hooks/useDatabase";
 import type { PropertyDefinitionRow, PagePropertyValueRow } from "@/src/hooks/useDatabase";
 import { type UserRow } from "@/src/hooks/useUser";
 import { FloatingPopup } from "./FloatingPopup";
+import { ExternalRecordCell } from "./ExternalRecordCell";
+import { isExternalLinkColumn } from "@/src/lib/external-sources/types";
 import { PageIcon } from "./PageIcon";
 import { formatDateOnly } from "../lib/date-only";
 import { formatDuration, parseDurationText } from "../lib/duration";
@@ -82,6 +84,10 @@ export function PropertyCell({
 
   switch (definition.propertyType.tag) {
     case "Text":
+      if (isExternalLinkColumn(definition.config)) return <ExternalRecordCell
+        pageId={pageId} databaseId={allPages.find(p => p.id === pageId)?.parentId}
+        value={value?.tag === "Text" ? value.value : ""}
+        forceEdit={forceEdit} onClose={() => onRequestNavigate?.("escape")} />;
       return (
         <TextCell
           value={value?.tag === "Text" ? value.value : ""}
