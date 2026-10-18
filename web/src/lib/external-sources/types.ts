@@ -24,6 +24,7 @@ export interface RelatedDate {
   pageSize: number;
 }
 export interface SourceMapping {
+  zeroIsEmpty?: boolean;
   rules?: StatusRule[];
   defaultValue?: string;
   preserveValues?: string[];
@@ -35,6 +36,12 @@ export interface SourceMapping {
 }
 export const SOURCE_PREFIX = "external-source.";
 export interface SourceConfig {
+  recordMode?: "detail" | "collection";
+  syncMode?: "interval" | "manual" | "change";
+  changePath?: string;
+  changeValuePath?: string;
+  changeSuccessPath?: string;
+  changeSuccessValue?: string;
   sourceId?: string;
   enabled: boolean;
   name: string;
@@ -61,11 +68,11 @@ export const EMPTY_SOURCE: SourceConfig = {
   resultsPath: "items", detailPath: "/items/{id}", detailResultPath: "",
   idPath: "id", labelPath: "name", subtitlePath: "", imagePath: "",
   authHeader: "Authorization", authPrefix: "Bearer ", linkPropertyId: "", mappings: [],
-  syncIntervalSeconds: 300, fillEmptyTitle: true, revision: "",
+  syncIntervalSeconds: 21600, fillEmptyTitle: true, revision: "",
 };
 export interface ExternalRecord { id: string; label: string; subtitle: string; image: string }
 export interface ConvertedField { propertyId: string; kind: TargetType; value: string | number | boolean | string[] }
-export interface SourceStatus { serviceConfigured: boolean; automaticSync: boolean; lastRun: string | null; updated: number; error: string | null }
+export interface SourceStatus { syncMode?: string; waitingForChange?: boolean; serviceConfigured: boolean; automaticSync: boolean; lastRun: string | null; updated: number; error: string | null }
 
 export function parseSourceConfig(raw: string | null | undefined): SourceConfig | null {
   try {
@@ -79,11 +86,11 @@ export function parseSourceConfig(raw: string | null | undefined): SourceConfig 
 export function isExternalLinkColumn(config: string): boolean {
   try { return JSON.parse(config || "{}").externalSource === true; } catch { return false; }
 }
-export function parseRecordLink(raw: string): { id: string; label: string } | null {
+export function parseRecordLink(raw: string): { id: string; label: string; sourceId?: string } | null {
   if (!raw) return null;
   try {
     const value = JSON.parse(raw);
-    return typeof value.id === "string" && typeof value.label === "string" ? value : null;
+    return typeof value.id === "string" && typeof value.label === "string" && (value.sourceId == null || typeof value.sourceId === "string") ? value : null;
   } catch { return null; }
 }
 
@@ -126,4 +133,24 @@ export function copySourceMappings(mappings: readonly SourceMapping[],
     const matches = to.filter(p => p.name === original.name && p.propertyType.tag === mapping.targetType && !isExternalLinkColumn(p.config));
     return matches.length === 1 ? [{ ...mapping, targetPropertyId: String(matches[0].id) }] : [];
   }).filter((mapping, index, all) => all.findIndex(m => m.targetPropertyId === mapping.targetPropertyId) === index);
+}
+
+export function parseSourceConfigs(raw: string | null | undefined): SourceConfig[] {
+  const primary = parseSourceConfig(raw);
+  if (!primary) return [];
+  try {
+    const extras: unknown = JSON.parse(raw || "{}").externalSources;
+    if (!Array.isArray(extras)) return [primary];
+    return [primary, ...extras.flatMap(source => {
+      const parsed = parseSourceConfig(JSON.stringify({ externalSource: source }));
+      return parsed ? [parsed] : [];
+    })];
+  } catch { return [primary]; }
+}
+export function sourceForLink(sources: readonly SourceConfig[], raw: string): SourceConfig | undefined {
+  const link = parseRecordLink(raw);
+  return link?.sourceId ? sources.find(source => source.sourceId === link.sourceId) : sources[0];
+}
+export function refreshInterval(source: SourceConfig): number {
+  return source.sourceId && !source.syncMode ? 21600 : source.syncIntervalSeconds;
 }

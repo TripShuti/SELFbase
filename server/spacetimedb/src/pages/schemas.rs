@@ -463,7 +463,7 @@ pub fn update_database_schema_config(
         .unwrap_or(serde_json::Value::Null);
     let next: serde_json::Value = serde_json::from_str(&config)
         .unwrap_or(serde_json::Value::Null);
-    if previous.get("externalSource") != next.get("externalSource") {
+    if previous.get("externalSource") != next.get("externalSource") || previous.get("externalSources") != next.get("externalSources") {
         return Err("Use configure_external_source to change external source settings".into());
     }
     schema.config = Some(config);

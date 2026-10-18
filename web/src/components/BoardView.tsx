@@ -8,7 +8,7 @@ import { useSetPropertyValue, useCreatePage } from "@/src/hooks/usePages";
 import { useOpenCommentCounts } from "@/src/hooks/useBlockComments";
 import { CommentIcon } from "./CommentIcon";
 import { ExternalRecordCell } from "./ExternalRecordCell";
-import { parseSourceConfig, externalLinkValue, type SourceConfig } from "@/src/lib/external-sources/types";
+import { parseSourceConfig, parseSourceConfigs, externalLinkValue, type SourceConfig } from "@/src/lib/external-sources/types";
 import type { PageRow } from "@/src/hooks/usePages";
 import type { DatabaseSchemaRow, PropertyDefinitionRow } from "@/src/hooks/useDatabase";
 import { parseSelectConfig, getOptionColorClass } from "@/src/lib/formulaEval";
@@ -102,6 +102,7 @@ function BoardCard({
   groupByPropId,
   allValues,
   externalSource,
+  externalSources,
   commentCount,
   onOpenComments,
   onOpenRow,
@@ -112,6 +113,7 @@ function BoardCard({
   groupByPropId: bigint;
   allValues: PropValRow[];
   externalSource: SourceConfig | null;
+  externalSources: readonly SourceConfig[];
   commentCount: number;
   onOpenComments: () => void;
   onOpenRow: (row: PageRow) => void;
@@ -138,7 +140,7 @@ function BoardCard({
         {externalSource && <span className="ml-1 inline-flex align-middle">
           <ExternalRecordCell variant="title" pageId={row.id} databaseId={row.parentId}
             value={externalLinkValue(allValues.filter(v => v.pageId === row.id), externalSource)} rowTitle={row.title}
-            sourceEnabled={externalSource.enabled} sourceName={externalSource.name} />
+            sourceEnabled={externalSource.enabled} sourceName={externalSource.name} sources={externalSources} />
         </span>}
         {commentCount > 0 && (
           <button
@@ -430,7 +432,7 @@ export function BoardView({
                     properties={properties}
                     groupByPropId={groupByProperty.id}
                     allValues={typedValues}
-                    externalSource={parseSourceConfig(schema?.config)}
+                    externalSource={parseSourceConfig(schema?.config)} externalSources={parseSourceConfigs(schema?.config)}
                     commentCount={commentCounts.get(String(row.id)) ?? 0}
                     onOpenComments={() => router.push(`/workspace/${String(row.id)}?comments=1`)}
                     onOpenRow={onOpenRow}

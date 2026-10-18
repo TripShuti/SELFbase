@@ -45,6 +45,10 @@ export function ExternalMappingOptions({ mapping, onChange }: {
         onBlur={e => onChange({ ...mapping, preserveValues: e.target.value.split(",").map(value => value.trim()).filter(Boolean) })} />
       <span className="mt-1 block text-[11px] text-neutral-500">Exact label match. To resume synchronization, select a different label in the row.</span>
     </label>}
+    {mapping.targetType === "Date" && <label className="flex items-center gap-2 text-xs">
+      <input type="checkbox" checked={!!mapping.zeroIsEmpty} onChange={e => onChange({ ...mapping, zeroIsEmpty: e.target.checked })} />
+      Treat a zero timestamp as missing
+    </label>}
     {mapping.targetType === "Date" && <details className="text-xs">
       <summary className="cursor-pointer">Latest date from related records</summary>
       <label className="mt-2 flex items-center gap-2">

@@ -32,7 +32,7 @@ function numeric(raw: unknown): number {
 }
 export function convertField(raw: unknown, mapping: SourceMapping): ConvertedField | null {
   // Missing/null upstream data never erases a previously known value.
-  if (raw == null) return null;
+  if (raw == null || (mapping.zeroIsEmpty && (raw === 0 || raw === "0"))) return null;
   let value: unknown = raw;
   switch (mapping.transform) {
     case "secondsToMinutes": value = numeric(raw) / 60; break;

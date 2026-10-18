@@ -4,8 +4,8 @@ A database can connect to an HTTP JSON API without provider-specific SELFbase
 code. The connection defines search/detail paths, JSON field selectors, a stable
 record ID, authentication and column mappings. Selecting a result beside a row name
 imports its mapped fields; a server worker refreshes links while browsers are
-closed. This first version supports one source per database and GET-based search
-and detail APIs.
+closed. A database can connect several reusable sources; each row links to exactly
+one source. APIs may provide search/detail endpoints or a complete record collection.
 
 ## Server setup (Docker / Dockhand)
 
@@ -43,7 +43,8 @@ network and its service DNS name work too.
 5. Map source fields to destination columns and select value transforms.
    **Copy mappings from another database** matches column names and types and
    skips missing or ambiguous matches. Review the result before saving.
-6. Set this database's interval and title behavior, save and test the connection.
+6. Set title behavior, save and test the connection. Refresh schedules belong to
+   the workspace source and are shared across its database connections.
 7. In a new row, click **Untitled** or **Add from source**, search and select a
    record. Its name replaces Untitled when enabled; mapped fields are filled.
    For a named row, use the link icon; custom titles stay unchanged. The icon
@@ -51,8 +52,8 @@ network and its service DNS name work too.
    available in grid/list/board views and the row property panel.
 
 Address, authentication and API field selectors belong to the workspace source.
-Mappings, enabled state, title behavior, intervals and record links belong to
-each database. Editing a workspace source updates every connected database
+Mappings, enabled state, title behavior and record links belong to each database.
+The refresh schedule belongs to the workspace source. Editing a workspace source updates every connected database
 atomically and rejects in-flight snapshots using the old definition. A source
 cannot be removed while referenced by a database.
 
@@ -61,17 +62,22 @@ settings and choose **Make saved connection reusable**. This atomically moves
 the saved private credential into the shared store, attaches the same database
 and preserves all mappings, links and values. Other databases can then select
 that source. Promotion uses the saved endpoint definition, not unsaved edits.
-When switching an already-linked database to a different source, unlink its
-records first to avoid interpreting one provider's IDs as another provider's.
+Select another workspace source and save to add a connection alongside existing
+ones. In a row's link picker choose **Source**, then search. Changing a row's source
+replaces its one link; sources never merge statistics for a row. Disconnecting a
+source requires unlinking its rows first; saved values remain.
 
 Selectors support own-property dot paths and numeric array indexes, e.g.
 `data.items`, `stats.total` or `items.0.name`; JSONPath expressions are not used.
-Only the first 50 search results are displayed, so configure an upstream limit
-in the search path when the API supports one.
+Only the first 50 matches are displayed. In search/detail mode configure an upstream
+limit when supported. In **Collection** mode SELFbase fetches the whole configured
+array and searches it locally before applying that display limit. Detail paths and
+search query parameters are unnecessary for a collection.
 
 ## Values, ownership and refresh
 
-- A link stores `{ "id": "stable-id", "label": "Display name" }` internally.
+- A link stores `{ "id": "stable-id", "label": "Display name", "sourceId": "source-id" }` internally.
+  Old links without sourceId continue to use the original connection.
   The ID controls synchronization; renaming a row does not break it. Existing
   link-property data remains intact for backward compatibility, but the property
   is hidden from grids, lists, boards and row property panels. No schema migration
@@ -83,7 +89,9 @@ in the search path when the API supports one.
   ISO date to epoch milliseconds, and Unix seconds to epoch milliseconds.
   Duration cells store whole minutes; Date cells store epoch milliseconds.
 - Missing/null source fields preserve existing values. Zero, false and empty
-  strings are valid values. Invalid conversions reject the whole row refresh.
+  strings are valid values. Date mappings optionally treat zero as an absent
+  timestamp, avoiding January 1970 for APIs that use zero for never played.
+  Invalid conversions reject the whole row refresh.
 - Selecting a different ID clears the previous record's mapped values so that
   unavailable new fields cannot display statistics from the previous record.
   Unlinking retains values as an ordinary snapshot.
@@ -91,10 +99,17 @@ in the search path when the API supports one.
   or changing the connection while a request is in flight rejects the stale
   response. Unchanged values do not append duplicate history.
 - Background refresh runs in the persistent Next.js Node server. It checks due
-  connections every minute; intervals are configurable from 60 to 86400 seconds.
+  sources every minute. Choose Manual only, Hourly, Every 6 hours (default), Daily
+  or a custom interval from 60 to 604800 seconds. A source is scheduled once across
+  its connected databases. In change mode a lightweight status request checks a
+  successful revision; records refresh only for a new revision or changed mappings.
   Upstream requests have a 15-second timeout, redirects are rejected, responses
-  are limited to 2 MB, and each distinct record is fetched once per database/cycle.
-  Errors retain existing data and retry at the next interval. Deleted/unlinked
+  are limited to 2 MB. Identical requests are shared across databases in a cycle.
+  Collection snapshots are bounded (32 sources, 20,000 records per array) and kept
+  only in web-server memory with interval-based expiry and concurrent-request
+  deduplication. Restarting web drops this cache; no raw API cache is written to
+  SpacetimeDB or snapshots. Manual refresh invalidates the source cache.
+  Errors retain existing data and retry with backoff. Deleted/unlinked
   rows are skipped. Connection status reports the last background check/errors.
 - Source freshness depends on the upstream service. Frequent SELFbase checks
   cannot make a source's own collection of data more frequent.
@@ -225,3 +240,50 @@ records and notes, unit conversion, null/zero handling, idempotent history,
 rejected stale writes, private-credential/admin boundaries, shared-key reuse by two databases, promotion
 without data loss, propagated edits and browser-based source management. Test scripts are
 kept locally and excluded from deployment commits.
+
+
+## Steam library using the generic collection mode
+
+Create a workspace source with these settings; no Steam-specific SELFbase code
+or additional service is required:
+
+| Setting | Value |
+| --- | --- |
+| Base URL | `https://api.steampowered.com` |
+| Record lookup | Collection |
+| Collection/search path | `/IPlayerService/GetOwnedGames/v1/?input_json={"steamid":"STEAMID64","include_appinfo":true,"include_played_free_games":true}` |
+| Results array | `response.games` |
+| Record ID | `appid` |
+| Record label | `name` |
+| Authentication header | `x-webapi-key` |
+| Authentication prefix | Empty |
+| Credential | Your private Steam Web API key |
+| Refresh schedule | Every 6 hours |
+
+Replace STEAMID64 with your account's numeric ID. The server URL encoder handles
+the JSON query value. Map `playtime_forever` to a Duration column using **As
+provided** (Steam already returns minutes). Map `rtime_last_played` to Date using
+**Unix seconds → date**, with **Treat a zero timestamp as missing** enabled. First
+played dates and achievement progress are not promised by this library endpoint.
+Steam privacy settings must permit access to the game library. A missing result
+array is an error and preserves saved values.
+
+Official references: [GetOwnedGames](https://partner.steamgames.com/doc/webapi/IPlayerService#GetOwnedGames),
+[Web API authentication](https://partner.steamgames.com/doc/webapi_overview/auth).
+The API key is entered once in the private credential field, never in a URL.
+
+## psnself refresh after completed sync
+
+For an existing psnself workspace source, choose **When source status changes**,
+check **Hourly**, and set:
+
+| Setting | Value |
+| --- | --- |
+| Status API path | `/api/v1/status` |
+| Completed revision field | `last_sync.finished_at` |
+| Success field | `last_sync.status` |
+| Success value | `success` |
+
+All its databases share this check. Running/failed syncs and unchanged successful
+revisions do not trigger record requests. The first successful check after a web
+restart refreshes linked records. Manual refresh remains available.

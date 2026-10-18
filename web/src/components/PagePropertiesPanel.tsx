@@ -15,10 +15,12 @@ export function PagePropertiesPanel({
   pageId,
   properties,
   externalSource = null,
+  externalSources = [],
 }: {
   pageId: bigint;
   properties: ReturnType<typeof usePropertyDefinitions>;
   externalSource?: SourceConfig | null;
+  externalSources?: readonly SourceConfig[];
 }) {
   const values = usePagePropertyValues(pageId);
   // Subscribed once for the whole panel — Relation/Person cells resolve
@@ -34,12 +36,12 @@ export function PagePropertiesPanel({
   return (
     <div className="space-y-1">
       {externalSource && <div className="mb-2 flex items-center gap-2 text-xs text-neutral-500">
-        <span>{externalSource.name}</span>
+        <span>{externalSources.length > 1 ? "External source" : externalSource.name}</span>
         <ExternalRecordCell variant="title" pageId={pageId}
           databaseId={allPages.find(p => p.id === pageId)?.parentId}
           value={externalLinkValue(values, externalSource)}
           rowTitle={allPages.find(p => p.id === pageId)?.title ?? ""}
-          sourceEnabled={externalSource.enabled} sourceName={externalSource.name} />
+          sourceEnabled={externalSource.enabled} sourceName={externalSource.name} sources={externalSources} />
       </div>}
       {visibleSourceProperties(properties, externalSource).map((prop) => {
         const val = values.find((v) => v.propertyDefinitionId === prop.id);

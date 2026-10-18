@@ -1,6 +1,7 @@
 "use client";
 
 import type { Dispatch, SetStateAction } from "react";
+import { SourceRefreshFields } from "./SourceRefreshFields";
 import type { SourceConfig } from "@/src/lib/external-sources/types";
 
 export const sourceInputClass = "mt-1 block w-full rounded border border-neutral-200 dark:border-neutral-700 bg-transparent px-2 py-1.5 text-sm";
@@ -19,13 +20,20 @@ export function SourceConnectionFields({ form, setForm, secret, setSecret }: {
   return <div className="space-y-3">
         {field("name", "Connection name")}
         {field("baseUrl", "Base URL", "An address reachable by the SELFbase server, e.g. http://service:8080")}
+        <label className="block text-xs">Record lookup
+          <select className={inputClass} value={form.recordMode || "detail"} onChange={e => setForm(p => ({ ...p, recordMode: e.target.value as SourceConfig["recordMode"] }))}>
+            <option value="detail">Search API and single-record API</option>
+            <option value="collection">Full collection with local search</option>
+          </select>
+        </label>
+        {form.recordMode === "collection" && <p className="text-xs text-neutral-500">Fetch the complete list once. The server searches it and finds records by ID, using an in-memory cache shared by your databases.</p>}
         <details open><summary className="cursor-pointer text-sm font-medium">Search and records</summary>
           <div className="mt-2 grid grid-cols-2 gap-3">
             {field("searchPath", "Search path", "Example: /api/items?limit=20")}
-            {field("queryParam", "Search query parameter", "Example: q or search")}
+            {form.recordMode !== "collection" && field("queryParam", "Search query parameter", "Example: q or search")}
             {field("resultsPath", "Results array path", "Example: data.items; blank for a root array")}
-            {field("detailPath", "Single-record path", "Example: /api/items/{id}")}
-            {field("detailResultPath", "Single-record result path", "Blank for a root object")}
+            {form.recordMode !== "collection" && field("detailPath", "Single-record path", "Example: /api/items/{id}")}
+            {form.recordMode !== "collection" && field("detailResultPath", "Single-record result path", "Blank for a root object")}
             {field("idPath", "Stable ID field", "Example: id")}
             {field("labelPath", "Display name field", "Example: name")}
             {field("subtitlePath", "Subtitle field (optional)")}
@@ -43,5 +51,6 @@ export function SourceConnectionFields({ form, setForm, secret, setSecret }: {
             </label>
           </div>
         </details>
+    <SourceRefreshFields form={form} setForm={setForm} />
   </div>;
 }

@@ -5,7 +5,7 @@ import { useReducer, useTable } from "spacetimedb/react";
 import { reducers, tables } from "@/src/module_bindings";
 import { useCurrentUser } from "@/src/hooks/useUser";
 import { useWorkspaceSettings } from "@/src/hooks/useWorkspaceSettings";
-import { EMPTY_SOURCE, workspaceSources, parseSourceConfig, type SourceConfig } from "@/src/lib/external-sources/types";
+import { EMPTY_SOURCE, workspaceSources, parseSourceConfigs, type SourceConfig } from "@/src/lib/external-sources/types";
 import { SourceConnectionFields } from "./SourceConnectionFields";
 
 export function WorkspaceSourcesSettings() {
@@ -24,7 +24,7 @@ export function WorkspaceSourcesSettings() {
   const canEdit = !!(user?.isAuthenticated && user.isAdmin);
   function edit(source?: SourceConfig) {
     setEditingId(source?.sourceId || crypto.randomUUID());
-    setForm(source ? { ...source } : { ...EMPTY_SOURCE, mappings: [] });
+    setForm(source ? { ...source, syncMode: source.syncMode || "interval", syncIntervalSeconds: source.syncMode ? source.syncIntervalSeconds : 21600 } : { ...EMPTY_SOURCE, syncMode: "interval", mappings: [] });
     setSecret(""); setError(""); setMessage("");
   }
   async function save() {
@@ -54,7 +54,7 @@ export function WorkspaceSourcesSettings() {
     <p className="mb-4 text-xs text-neutral-500">Connect to an external HTTP API once and reuse it across your databases. Each database chooses its own columns to update.</p>
     {!ready ? <p className="text-xs text-neutral-500">Loading sources…</p> : !sources.length && <p className="text-sm text-neutral-500">No workspace sources yet. Create one here, or make an existing database connection reusable from its Data source settings.</p>}
     {sources.map(source => {
-      const count = schemas.filter(s => parseSourceConfig(s.config)?.sourceId === source.sourceId).length;
+      const count = schemas.filter(s => parseSourceConfigs(s.config).some(c => c.sourceId === source.sourceId)).length;
       return <div key={source.sourceId} className="flex items-center gap-2 border-b border-neutral-200 py-3 dark:border-neutral-800">
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-medium">{source.name}</div>

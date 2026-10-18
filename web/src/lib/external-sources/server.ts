@@ -1,8 +1,9 @@
+import { createHash } from "node:crypto";
 import { HttpStdbTransport } from "../api-endpoint/http-transport";
 import { decodePropertyValue, unwrapScalar } from "../api-endpoint/codec";
 import type { StdbTransport } from "../api-endpoint/types";
 import { atPath, describeRecord, mappedValues, latestDate } from "./mapping";
-import { parseSourceConfig, parseRecordLink, type SourceConfig, type SourceStatus } from "./types";
+import { parseSourceConfig, parseSourceConfigs, parseRecordLink, refreshInterval, type SourceConfig, type SourceStatus, type ExternalRecord } from "./types";
 
 export function sourceEnvironment() {
   return {
@@ -33,17 +34,31 @@ export function configFromSchema(schema: Schema) {
   const raw = unwrapScalar(schema.config);
   return parseSourceConfig(typeof raw === "string" ? raw : null);
 }
-export async function loadSource(transport: StdbTransport, databaseId: string) {
+export interface LoadedSource {
+  config: SourceConfig;
+  secret: string;
+  settings?: SourceConfig;
+  primarySourceKey?: string;
+  requestCache?: Map<string, Promise<unknown>>;
+}
+export function configsFromSchema(schema: Schema): SourceConfig[] {
+  const raw = unwrapScalar(schema.config);
+  return parseSourceConfigs(typeof raw === "string" ? raw : null);
+}
+export async function loadSource(transport: StdbTransport, databaseId: string, sourceId?: string): Promise<LoadedSource> {
   const [schema] = await transport.sql<Schema>("SELECT page_id, config FROM database_schema WHERE page_id = ?", [BigInt(databaseId)]);
-  const config = schema && configFromSchema(schema);
+  const configs = schema ? configsFromSchema(schema) : [];
+  const config = sourceId == null || sourceId === "" ? configs[0] : configs.find(c => c.sourceId === sourceId);
   if (!config?.enabled) throw new Error("Enable an external data source in this database first");
   let secret = "";
+  let settings: SourceConfig | undefined;
   if (config.sourceId) {
     const [setting] = await transport.sql<{ value_json: string }>("SELECT value_json FROM workspace_setting WHERE key = ?", ["external-source." + config.sourceId]);
     const shared: SourceConfig | undefined = setting && JSON.parse(setting.value_json);
+    settings = shared;
     const keys = ["name", "baseUrl", "searchPath", "queryParam", "resultsPath", "detailPath", "detailResultPath",
       "idPath", "labelPath", "subtitlePath", "imagePath", "authHeader", "authPrefix"] as const;
-    if (!shared || keys.some(key => shared[key] !== config[key])) throw new Error("Workspace source changed; save this database connection again");
+    if (!shared || keys.some(key => shared[key] !== config[key]) || (shared.recordMode || "detail") !== (config.recordMode || "detail")) throw new Error("Workspace source changed; save this database connection again");
     if (config.authHeader) {
       const [row] = await transport.sql<{ secret: string; scope: string }>("SELECT secret, scope FROM shared_external_source_secret WHERE source_id = ?", [config.sourceId]);
       if (!row?.secret || row.scope !== JSON.stringify([config.baseUrl, config.authHeader, config.authPrefix])) {
@@ -56,9 +71,8 @@ export async function loadSource(transport: StdbTransport, databaseId: string) {
     secret = row?.secret || "";
     if (!secret) throw new Error("This source needs a credential; re-enter it in connection settings");
   }
-  return { config, secret };
+  return { config, secret, settings, primarySourceKey: configs[0]?.sourceId || "" };
 }
-export type LoadedSource = Awaited<ReturnType<typeof loadSource>>;
 
 export function sourceUrl(config: SourceConfig, path: string): URL {
   const base = new URL(config.baseUrl);
@@ -69,6 +83,17 @@ export function sourceUrl(config: SourceConfig, path: string): URL {
   return url;
 }
 async function requestJson(source: LoadedSource, url: URL): Promise<unknown> {
+  if (!source.requestCache) return requestJsonUncached(source, url);
+  const key = url.toString();
+  let request = source.requestCache.get(key);
+  if (!request) {
+    if (source.requestCache.size >= 500) source.requestCache.delete(source.requestCache.keys().next().value!);
+    request = requestJsonUncached(source, url);
+    source.requestCache.set(key, request);
+  }
+  return request;
+}
+async function requestJsonUncached(source: LoadedSource, url: URL): Promise<unknown> {
   const headers = new Headers({ Accept: "application/json" });
   try {
     if (source.config.authHeader) headers.set(source.config.authHeader, source.config.authPrefix + source.secret);
@@ -93,7 +118,42 @@ async function requestJson(source: LoadedSource, url: URL): Promise<unknown> {
   body += decoder.decode();
   try { return JSON.parse(body); } catch { throw new Error("External source did not return JSON"); }
 }
+interface CollectionSnapshot { records: ExternalRecord[]; raw: Map<string, unknown> }
+interface CollectionEntry { expires: number; promise: Promise<CollectionSnapshot> }
+const memory = globalThis as typeof globalThis & { __externalCollections?: Map<string, CollectionEntry> };
+const collections = memory.__externalCollections ??= new Map();
+function collectionKey(source: LoadedSource): string {
+  // Fingerprint credentials privately; cache keys and entries are never persisted.
+  return createHash("sha256").update(JSON.stringify([sourceEnvironment().db, sourceEnvironment().stdb,
+    source.config.sourceId, source.config.baseUrl, source.config.searchPath, source.config.resultsPath,
+    source.config.idPath, source.config.labelPath, source.config.subtitlePath, source.config.imagePath, source.config.authHeader, source.config.authPrefix, source.secret])).digest("hex");
+}
+export function invalidateSourceCache(source: LoadedSource) { collections.delete(collectionKey(source)); source.requestCache?.clear(); }
+export async function sourceCollection(source: LoadedSource): Promise<CollectionSnapshot> {
+  const key = collectionKey(source);
+  const cached = collections.get(key);
+  if (cached && cached.expires > Date.now()) return cached.promise;
+  if (collections.size >= 32 && !collections.has(key)) collections.delete(collections.keys().next().value!);
+  const entry: CollectionEntry = { expires: Date.now() + Math.max(60, refreshInterval(source.settings || source.config)) * 1000,
+    promise: (async () => {
+      const body = await requestJson(source, sourceUrl(source.config, source.config.searchPath));
+      const rows = atPath(body, source.config.resultsPath);
+      if (!Array.isArray(rows) || rows.length > 20_000) throw new Error("Collection results path must point to a bounded JSON array; check API access and visibility");
+      const records = rows.map(row => describeRecord(row, source.config));
+      const raw = new Map<string, unknown>();
+      records.forEach((record, i) => { if (raw.has(record.id)) throw new Error("Collection returned duplicate record IDs"); raw.set(record.id, rows[i]); });
+      return { records, raw };
+    })() };
+  collections.set(key, entry);
+  try { const result = await entry.promise; return collections.get(key) === entry ? result : sourceCollection(source); }
+  catch (error) { if (collections.get(key) === entry) collections.delete(key); throw error; }
+}
 export async function searchSource(source: LoadedSource, query: string) {
+  if (source.config.recordMode === "collection") {
+    const snapshot = await sourceCollection(source);
+    const term = query.slice(0, 200).normalize("NFKC").toLowerCase().trim();
+    return snapshot.records.filter(record => record.label.normalize("NFKC").toLowerCase().includes(term)).slice(0, 50);
+  }
   const url = sourceUrl(source.config, source.config.searchPath);
   url.searchParams.set(source.config.queryParam, query.slice(0, 200));
   const data = await requestJson(source, url);
@@ -106,7 +166,10 @@ export async function fetchRecord(source: LoadedSource, id: string) {
   if (id === "." || id === "..") throw new Error("Invalid external record id");
   const encoded = encodeURIComponent(id);
   const path = source.config.detailPath.replaceAll("{id}", encoded);
-  const result = atPath(await requestJson(source, sourceUrl(source.config, path)), source.config.detailResultPath);
+  const result = source.config.recordMode === "collection"
+    ? (await sourceCollection(source)).raw.get(id)
+    : atPath(await requestJson(source, sourceUrl(source.config, path)), source.config.detailResultPath);
+  if (result == null) throw new Error("Record is not present in the current source collection; saved values were kept");
   const record = describeRecord(result, source.config);
   if (record.id !== id) throw new Error("External source returned a different record id");
   const overrides = new Map<string, unknown>();
@@ -159,19 +222,35 @@ export async function syncExternalRow(transport: StdbTransport, source: LoadedSo
   const raw = cells[0] && decodePropertyValue(cells[0].value);
   const link = typeof raw === "string" ? parseRecordLink(raw) : null;
   if (!link) throw new Error("Select an external record first");
+  if ((link.sourceId ?? source.primarySourceKey ?? source.config.sourceId ?? "") !== (source.config.sourceId || "")) {
+    throw new Error("This row is linked to a different source");
+  }
   return applyRecord(transport, source, rowId, link.id);
 }
 
+export async function loadRowSource(transport: StdbTransport, databaseId: string, rowId: string): Promise<LoadedSource> {
+  const [schema] = await transport.sql<Schema>("SELECT page_id, config FROM database_schema WHERE page_id = ?", [BigInt(databaseId)]);
+  const primary = schema && configFromSchema(schema);
+  if (!primary) throw new Error("No source connected");
+  const [cell] = await transport.sql<Cell>("SELECT page_id, value FROM page_property_value WHERE page_id = ? AND property_definition_id = ?", [BigInt(rowId), BigInt(primary.linkPropertyId)]);
+  const value = cell && decodePropertyValue(cell.value);
+  const link = typeof value === "string" && parseRecordLink(value);
+  if (!link) throw new Error("Select an external record first");
+  return loadSource(transport, databaseId, link.sourceId);
+}
+
+interface PollState { revision: string; nextRun: number; lastRun: string | null; change?: string; applied: Map<string, string>; error: boolean; failures: number; waiting?: boolean }
 const globals = globalThis as typeof globalThis & {
-  __externalSourceWorker?: { started: boolean; running: boolean; states: Map<string, SourceStatus & { revision: string; nextRun: number }> };
+  __externalSourceWorker?: { started: boolean; running: boolean; states: Map<string, SourceStatus>; polls: Map<string, PollState> };
 };
-const worker = globals.__externalSourceWorker ??= { started: false, running: false, states: new Map() };
-export function workerStatus(databaseId: string): SourceStatus {
-  const state = worker.states.get(databaseId);
-  return {
+const worker = globals.__externalSourceWorker ??= { started: false, running: false, states: new Map(), polls: new Map() };
+function bindingKey(databaseId: string, sourceId?: string) { return databaseId + ":" + (sourceId || ""); }
+export function workerStatus(databaseId: string, sourceId?: string): SourceStatus {
+  const state = worker.states.get(bindingKey(databaseId, sourceId)) || (!sourceId ? [...worker.states].find(([key]) => key.startsWith(databaseId + ":"))?.[1] : undefined);
+  return state || {
     serviceConfigured: !!sourceEnvironment().token,
     automaticSync: !!sourceEnvironment().token && process.env.EXTERNAL_SOURCE_SYNC_ENABLED !== "false",
-    lastRun: state?.lastRun ?? null, updated: state?.updated ?? 0, error: state?.error ?? null,
+    lastRun: null, updated: 0, error: null,
   };
 }
 export async function syncSourceDatabase(transport: StdbTransport, databaseId: string, source: LoadedSource) {
@@ -184,7 +263,7 @@ export async function syncSourceDatabase(transport: StdbTransport, databaseId: s
     if (unwrapScalar(row.deleted_at) != null) continue;
     const raw = links.get(String(row.id));
     const link = typeof raw === "string" ? parseRecordLink(raw) : null;
-    if (!link) continue;
+    if (!link || (link.sourceId ?? source.primarySourceKey ?? source.config.sourceId ?? "") !== (source.config.sourceId || "")) continue;
     try {
       let result = cache.get(link.id);
       if (!result) { result = fetchRecord(source, link.id); cache.set(link.id, result); }
@@ -195,6 +274,85 @@ export async function syncSourceDatabase(transport: StdbTransport, databaseId: s
   }
   return { updated, failed };
 }
+export async function runSourceWorkerCycle(transport: StdbTransport, now = Date.now()) {
+  const schemas = await transport.sql<Schema>("SELECT page_id, config FROM database_schema");
+  const groups = new Map<string, { databaseId: string; config: SourceConfig }[]>();
+  const activeBindings = new Set<string>();
+  for (const schema of schemas) for (const config of configsFromSchema(schema)) {
+    const databaseId = String(schema.page_id), key = config.sourceId || "legacy:" + databaseId;
+    activeBindings.add(bindingKey(databaseId, config.sourceId));
+    if (!config.enabled) continue;
+    const list = groups.get(key) || []; list.push({ databaseId, config }); groups.set(key, list);
+  }
+  for (const key of worker.states.keys()) if (!activeBindings.has(key)) worker.states.delete(key);
+  for (const key of worker.polls.keys()) if (!groups.has(key)) worker.polls.delete(key);
+  for (const [key, bindings] of groups) {
+    const previous = worker.polls.get(key);
+    const state: PollState = previous || { revision: "", nextRun: 0, lastRun: null, applied: new Map(), error: false, failures: 0 };
+    let interval = 21600, mode: string = "interval", shouldSync = true, changed: string | undefined;
+    const requestCache = new Map<string, Promise<unknown>>();
+    let checkedRevision = state.revision;
+    try {
+      const first = await loadSource(transport, bindings[0].databaseId, bindings[0].config.sourceId);
+      const settings = first.settings || first.config;
+      interval = Math.max(60, refreshInterval(settings));
+      mode = settings.syncMode || "interval";
+      const revision = settings.revision;
+      checkedRevision = revision;
+      const pending = bindings.some(binding => state.applied.get(bindingKey(binding.databaseId, binding.config.sourceId)) !== binding.config.revision);
+      const due = state.nextRun <= now || state.revision !== revision;
+      if (mode === "manual") {
+        for (const binding of bindings) worker.states.set(bindingKey(binding.databaseId, binding.config.sourceId), { serviceConfigured: true, automaticSync: false, lastRun: state.lastRun, updated: 0, error: null, syncMode: mode });
+        continue;
+      }
+      if (!due && (!pending || state.waiting)) continue;
+      first.requestCache = requestCache;
+      if (mode === "change") {
+        const body = await requestJson(first, sourceUrl(first.config, settings.changePath || ""));
+        const success = atPath(body, settings.changeSuccessPath || "");
+        const version = atPath(body, settings.changeValuePath || "");
+        state.waiting = String(success) !== settings.changeSuccessValue;
+        if (state.waiting) shouldSync = false;
+        else {
+          if (version == null || !["number", "string"].includes(typeof version) || version === "") throw new Error("Source status has no completed revision");
+          changed = JSON.stringify(version);
+          shouldSync = pending || state.error || changed !== state.change;
+        }
+      }
+      // A scheduled refresh replaces the collection once, shared by every table.
+      if (shouldSync && due && (state.lastRun || mode === "change")) invalidateSourceCache(first);
+      let failed = 0;
+      for (const binding of bindings) {
+        let updated = 0, error: string | null = null;
+        if (shouldSync) {
+          try {
+            const source = await loadSource(transport, binding.databaseId, binding.config.sourceId);
+            source.requestCache = requestCache;
+            const result = await syncSourceDatabase(transport, binding.databaseId, source);
+            updated = result.updated;
+            if (result.failed) error = result.failed + " record(s) could not be refreshed; saved values were kept";
+          } catch { error = "Cannot refresh this source; check credentials, API paths and connectivity"; }
+          state.applied.set(bindingKey(binding.databaseId, binding.config.sourceId), binding.config.revision);
+        }
+        if (error) failed++;
+        worker.states.set(bindingKey(binding.databaseId, binding.config.sourceId), { serviceConfigured: true, automaticSync: true, lastRun: new Date(now).toISOString(), updated, error, syncMode: mode, waitingForChange: !shouldSync });
+      }
+      state.error = failed > 0;
+      state.failures = failed ? state.failures + 1 : 0;
+      if (!failed && changed != null && shouldSync) state.change = changed;
+      state.revision = revision;
+    } catch {
+      state.error = true; state.failures++; state.revision = checkedRevision;
+      for (const binding of bindings) {
+        state.applied.set(bindingKey(binding.databaseId, binding.config.sourceId), binding.config.revision);
+        worker.states.set(bindingKey(binding.databaseId, binding.config.sourceId), { serviceConfigured: true, automaticSync: mode !== "manual", lastRun: new Date(now).toISOString(), updated: 0, error: "Cannot check source; verify configuration, credentials and connectivity", syncMode: mode });
+      }
+    }
+    state.lastRun = new Date(now).toISOString();
+    state.nextRun = now + (state.error ? Math.min(interval, 300 * 2 ** Math.min(6, state.failures - 1)) : interval) * 1000;
+    worker.polls.set(key, state);
+  }
+}
 export function startExternalSourceWorker() {
   if (worker.started || !sourceEnvironment().token || process.env.EXTERNAL_SOURCE_SYNC_ENABLED === "false") return;
   worker.started = true;
@@ -202,26 +360,8 @@ export function startExternalSourceWorker() {
   async function tick() {
     if (worker.running) return;
     worker.running = true;
-    try {
-      const schemas = await transport.sql<Schema>("SELECT page_id, config FROM database_schema");
-      for (const schema of schemas) {
-        const config = configFromSchema(schema);
-        if (!config?.enabled) continue;
-        const id = String(schema.page_id);
-        const state = worker.states.get(id);
-        if (state?.revision === config.revision && state.nextRun > Date.now()) continue;
-        let updated = 0, error: string | null = null;
-        try {
-          const source = await loadSource(transport, id);
-          const result = await syncSourceDatabase(transport, id, source);
-          updated = result.updated;
-          if (result.failed) error = `${result.failed} record(s) could not be refreshed; check the source and field mappings`;
-        } catch { error = "Cannot refresh this source; check credentials, API paths and connectivity"; }
-        worker.states.set(id, { ...workerStatus(id), updated, error, revision: config.revision,
-          lastRun: new Date().toISOString(), nextRun: Date.now() + Math.max(60, config.syncIntervalSeconds) * 1000 });
-        if (error) console.error(`[external-source] Database ${id}: ${error}`);
-      }
-    } catch { console.error("[external-source] Cannot read database configuration; will retry"); }
+    try { await runSourceWorkerCycle(transport); }
+    catch { console.error("[external-source] Cannot read database configuration; will retry"); }
     finally { worker.running = false; setTimeout(tick, 60_000).unref(); }
   }
   setTimeout(tick, 5_000).unref();

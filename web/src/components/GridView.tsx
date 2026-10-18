@@ -35,7 +35,7 @@ import {
 import type { PropertyDefinitionRow } from "@/src/hooks/useDatabase";
 import { PropertyCell } from "./PropertyCell";
 import { ExternalRecordCell } from "./ExternalRecordCell";
-import { parseSourceConfig, visibleSourceProperties, externalLinkValue, isEmptyRowTitle, type SourceConfig } from "@/src/lib/external-sources/types";
+import { parseSourceConfig, parseSourceConfigs, visibleSourceProperties, externalLinkValue, isEmptyRowTitle, type SourceConfig } from "@/src/lib/external-sources/types";
 import { dateOnlyKey } from "../lib/date-only";
 import { formatDuration, parseDurationText } from "../lib/duration";
 import { evaluateRollup } from "../lib/formulaEvaluator";
@@ -505,6 +505,7 @@ interface GridViewProps {
 export function GridView({ page }: GridViewProps) {
   const { schema, isReady: schemaReady } = useDatabaseSchema(page.id);
   const allProperties = usePropertyDefinitions(schema?.id ?? BigInt(0));
+  const externalSources = useMemo(() => parseSourceConfigs(schema?.config), [schema?.config]);
   const externalSource = useMemo(() => parseSourceConfig(schema?.config), [schema?.config]);
   const properties = useMemo(() => visibleSourceProperties(allProperties, externalSource), [allProperties, externalSource]);
   const { children: rows } = useChildPages(page.id);
@@ -1663,7 +1664,7 @@ export function GridView({ page }: GridViewProps) {
           rows={sortedRows}
           properties={displayProperties}
           valuesByPage={valuesByPage}
-          externalSource={externalSource}
+          externalSource={externalSource} externalSources={externalSources}
           databaseId={page.id}
           selectedRowIds={selectedRowIds}
           anyRowsSelected={selectedRowIds.size > 0}
@@ -1880,7 +1881,7 @@ export function GridView({ page }: GridViewProps) {
                 rowIdx={rowIdx}
                 properties={displayProperties}
                 values={valuesByPage.get(row.id) ?? NO_ROW_VALUES}
-                externalSource={externalSource}
+                externalSource={externalSource} externalSources={externalSources}
                 allPages={allPages}
                 users={users}
                 selectedCells={selectedCells}
@@ -3051,6 +3052,7 @@ function ListView({
   properties,
   valuesByPage,
   externalSource,
+  externalSources,
   databaseId,
   selectedRowIds,
   anyRowsSelected,
@@ -3063,6 +3065,7 @@ function ListView({
   properties: ReturnType<typeof usePropertyDefinitions>;
   valuesByPage: ReadonlyMap<bigint, RowPropertyValues>;
   externalSource: SourceConfig | null;
+  externalSources: readonly SourceConfig[];
   databaseId: bigint;
   selectedRowIds: Set<bigint>;
   anyRowsSelected: boolean;
@@ -3100,7 +3103,7 @@ function ListView({
             </span>
             {externalSource && <ExternalRecordCell variant="title" pageId={row.id} databaseId={databaseId}
               value={externalLinkValue(valuesByPage.get(row.id) ?? NO_ROW_VALUES, externalSource)}
-              rowTitle={row.title} sourceEnabled={externalSource.enabled} sourceName={externalSource.name} />}
+              rowTitle={row.title} sourceEnabled={externalSource.enabled} sourceName={externalSource.name} sources={externalSources} />}
             {(commentCounts.get(String(row.id)) ?? 0) > 0 && (
               <button
                 onClick={(e) => {
@@ -3189,6 +3192,7 @@ function GridRow({
   properties,
   values,
   externalSource,
+  externalSources,
   allPages,
   users,
   virtualIndex,
@@ -3217,6 +3221,7 @@ function GridRow({
   /** This row's slice of page_property_value, from GridView's valuesByPage index. */
   values: RowPropertyValues;
   externalSource: SourceConfig | null;
+  externalSources: readonly SourceConfig[];
   /** Raw page rows + workspace users, subscribed once in GridView (for Relation/Person cells). */
   allPages: readonly PageRow[];
   users: UserRow[];
@@ -3310,7 +3315,7 @@ function GridRow({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                if (externalSource?.enabled && isEmptyRowTitle(row.title)) {
+                if (externalSources.some(source => source.enabled) && isEmptyRowTitle(row.title)) {
                   setSourcePickerOpen(true);
                 } else {
                   setTitleDraft(row.title);
@@ -3318,16 +3323,16 @@ function GridRow({
                 }
               }}
               className="min-w-0 flex-1 truncate text-left text-sm text-neutral-800 hover:text-neutral-900 dark:text-neutral-200 dark:hover:text-white"
-              title={externalSource?.enabled && isEmptyRowTitle(row.title) ? "Add from source" : "Edit row name"}
+              title={externalSources.some(source => source.enabled) && isEmptyRowTitle(row.title) ? "Add from source" : "Edit row name"}
             >
               {row.title || "Untitled"}
             </button>
           )}
           {externalSource && <ExternalRecordCell variant="title" pageId={row.id} databaseId={row.parentId}
             value={externalLinkValue(values, externalSource)} rowTitle={row.title}
-            sourceEnabled={externalSource.enabled} sourceName={externalSource.name}
+            sourceEnabled={externalSource.enabled} sourceName={externalSource.name} sources={externalSources}
             forceEdit={sourcePickerOpen} onClose={() => setSourcePickerOpen(false)} />}
-          {externalSource?.enabled && isEmptyRowTitle(row.title) && !editingTitle && <button type="button"
+          {externalSources.some(source => source.enabled) && isEmptyRowTitle(row.title) && !editingTitle && <button type="button"
             title="Rename row" aria-label="Rename row"
             onClick={e => { e.stopPropagation(); setTitleDraft(row.title); setEditingTitle(true); }}
             className="shrink-0 text-xs text-neutral-400 opacity-0 group-hover:opacity-100 focus:opacity-100">✎</button>}

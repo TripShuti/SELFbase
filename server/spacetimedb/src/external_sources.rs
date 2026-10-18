@@ -73,6 +73,8 @@ struct Mapping {
     preserve_values: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     related: Option<RelatedDate>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    zero_is_empty: Option<bool>,
 }
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -100,6 +102,18 @@ struct SourceConfig {
     revision: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     source_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    record_mode: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    sync_mode: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    change_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    change_value_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    change_success_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    change_success_value: Option<String>,
 }
 
 fn schema_for(ctx: &ReducerContext, database_id: u64) -> Result<DatabaseSchema, String> {
@@ -116,6 +130,42 @@ fn config_for(schema: &DatabaseSchema, allow_disabled: bool) -> Result<SourceCon
         .map_err(|_| "Invalid database configuration")?;
     let source: SourceConfig = serde_json::from_value(config["externalSource"].clone())
         .map_err(|_| "External source is not configured")?;
+    if !source.enabled && !allow_disabled {
+        return Err("External source is disabled".into());
+    }
+    Ok(source)
+}
+
+fn configs_for(schema: &DatabaseSchema) -> Result<Vec<SourceConfig>, String> {
+    let raw: Value = serde_json::from_str(schema.config.as_deref().unwrap_or("{}"))
+        .map_err(|_| "Invalid database configuration")?;
+    let mut configs = Vec::new();
+    if let Some(primary) = raw.get("externalSource") {
+        configs
+            .push(serde_json::from_value(primary.clone()).map_err(|_| "Invalid primary source")?);
+    }
+    if let Some(additional) = raw.get("externalSources") {
+        let mut extra: Vec<SourceConfig> =
+            serde_json::from_value(additional.clone()).map_err(|_| "Invalid additional sources")?;
+        configs.append(&mut extra);
+    }
+    Ok(configs)
+}
+
+fn selected_config(
+    schema: &DatabaseSchema,
+    id: Option<&str>,
+    allow_disabled: bool,
+) -> Result<SourceConfig, String> {
+    let configs = configs_for(schema)?;
+    let source = if let Some(id) = id {
+        configs
+            .into_iter()
+            .find(|c| c.source_id.as_deref() == Some(id))
+    } else {
+        configs.into_iter().next()
+    }
+    .ok_or("Source is not connected to this database")?;
     if !source.enabled && !allow_disabled {
         return Err("External source is disabled".into());
     }
@@ -171,6 +221,21 @@ pub fn configure_external_source(
         }
     }
     validate_source(&source)?;
+    let primary = config_for(&schema, true).ok();
+    let is_primary = primary
+        .as_ref()
+        .is_none_or(|p| p.source_id == source.source_id);
+    if let Some(primary) = &primary {
+        if !source.link_property_id.is_empty()
+            && source.link_property_id != primary.link_property_id
+        {
+            return Err("All source connections use this database's existing link column".into());
+        }
+        source.link_property_id = primary.link_property_id.clone();
+    }
+    if !is_primary && source.source_id.is_none() {
+        return Err("Additional sources must be workspace sources".into());
+    }
     if source.link_property_id.is_empty() {
         let defs: Vec<_> = ctx
             .db
@@ -326,23 +391,12 @@ pub fn configure_external_source(
         {
             return Err("Enter a credential in workspace Data sources".into());
         }
-        let previous = config
-            .get("externalSource")
-            .and_then(|v| v.get("sourceId"))
-            .and_then(Value::as_str);
-        if previous != Some(id.as_str())
-            && config.get("externalSource").is_some()
-            && ctx.db.page_property_value().iter().any(|v| {
-                v.property_definition_id == link_id
-                    && matches!(v.value, PropertyValue::Text(ref raw) if !raw.is_empty())
-            })
-        {
-            return Err("Make this connection reusable first, or unlink existing records before switching sources".into());
+        if is_primary {
+            ctx.db
+                .external_source_secret()
+                .database_id()
+                .delete(database_id);
         }
-        ctx.db
-            .external_source_secret()
-            .database_id()
-            .delete(database_id);
     } else {
         let old_source = config.get("externalSource");
         if !source.auth_header.is_empty()
@@ -397,7 +451,29 @@ pub fn configure_external_source(
         .unwrap_or_default()
         .as_micros()
         .to_string();
-    config["externalSource"] = serde_json::to_value(source).map_err(|_| "Invalid source")?;
+    if is_primary {
+        config["externalSource"] = serde_json::to_value(source).map_err(|_| "Invalid source")?;
+    } else {
+        let mut additional: Vec<SourceConfig> = config
+            .get("externalSources")
+            .map(|v| serde_json::from_value(v.clone()))
+            .transpose()
+            .map_err(|_| "Invalid additional sources")?
+            .unwrap_or_default();
+        if let Some(existing) = additional
+            .iter_mut()
+            .find(|c| c.source_id == source.source_id)
+        {
+            *existing = source;
+        } else {
+            if additional.len() >= 15 {
+                return Err("A database supports at most 16 sources".into());
+            }
+            additional.push(source);
+        }
+        config["externalSources"] =
+            serde_json::to_value(additional).map_err(|_| "Invalid sources")?;
+    }
     schema.config = Some(config.to_string());
     ctx.db.database_schema().id().update(schema);
     Ok(())
@@ -412,15 +488,21 @@ fn validate_source(source: &SourceConfig) -> Result<(), String> {
     {
         return Err("Source URL must be HTTP(S), without credentials, query or fragment".into());
     }
-    for path in [&source.search_path, &source.detail_path] {
+    for (index, path) in [&source.search_path, &source.detail_path]
+        .into_iter()
+        .enumerate()
+    {
+        if index == 1 && path.is_empty() && source.record_mode.as_deref() == Some("collection") {
+            continue;
+        }
         if !path.starts_with('/') || path.starts_with("//") || path.contains(['\r', '\n', '#']) {
             return Err("API paths must start with a single slash".into());
         }
     }
-    if !source.detail_path.contains("{id}")
+    if source.record_mode.as_deref() != Some("collection") && !source.detail_path.contains("{id}")
         || source.id_path.is_empty()
         || source.label_path.is_empty()
-        || source.query_param.is_empty()
+        || (source.query_param.is_empty() && source.record_mode.as_deref() != Some("collection"))
         || source.mappings.len() > 32
     {
         return Err(
@@ -436,10 +518,45 @@ fn validate_source(source: &SourceConfig) -> Result<(), String> {
     {
         return Err("Invalid authorization header".into());
     }
-    if !(60..=86400).contains(&source.sync_interval_seconds) {
-        return Err("Sync interval must be 60–86400 seconds".into());
+    if source
+        .record_mode
+        .as_deref()
+        .is_some_and(|m| !["detail", "collection"].contains(&m))
+        || source
+            .sync_mode
+            .as_deref()
+            .is_some_and(|m| !["interval", "manual", "change"].contains(&m))
+    {
+        return Err("Unknown source fetch or refresh mode".into());
+    }
+    if source.sync_mode.as_deref() == Some("change") {
+        let path = source.change_path.as_deref().unwrap_or("");
+        if !path.starts_with('/')
+            || path.starts_with("//")
+            || path.contains(['\r', '\n', '#', '\\'])
+            || source
+                .change_value_path
+                .as_deref()
+                .is_none_or(str::is_empty)
+            || source
+                .change_success_path
+                .as_deref()
+                .is_none_or(str::is_empty)
+            || source
+                .change_success_value
+                .as_deref()
+                .is_none_or(str::is_empty)
+        {
+            return Err("Change polling needs a same-source status path, revision field and success condition".into());
+        }
+    }
+    if !(60..=604800).contains(&source.sync_interval_seconds) {
+        return Err("Sync interval must be 60–604800 seconds".into());
     }
     for mapping in &source.mappings {
+        if mapping.zero_is_empty == Some(true) && mapping.target_type != "Date" {
+            return Err("Zero-as-missing applies only to Date fields".into());
+        }
         if mapping.rules.len() > 16
             || mapping.preserve_values.len() > 32
             || mapping
@@ -532,7 +649,10 @@ fn bind_shared(mut shared: SourceConfig, binding: &SourceConfig) -> SourceConfig
     shared.enabled = binding.enabled;
     shared.link_property_id = binding.link_property_id.clone();
     shared.mappings = binding.mappings.clone();
-    shared.sync_interval_seconds = binding.sync_interval_seconds;
+    if shared.sync_mode.is_none() {
+        shared.sync_mode = Some("interval".into());
+        shared.sync_interval_seconds = 21600;
+    }
     shared.fill_empty_title = binding.fill_empty_title;
     shared
 }
@@ -586,6 +706,8 @@ pub fn save_shared_external_source(
         let mut expected = bind_shared(source.clone(), &binding);
         expected.revision = binding.revision.clone();
         expected.source_id = None;
+        expected.sync_mode = binding.sync_mode.clone();
+        expected.sync_interval_seconds = binding.sync_interval_seconds;
         if serde_json::to_string(&expected).unwrap() != serde_json::to_string(&binding).unwrap() {
             return Err("Save the existing connection before making it reusable".into());
         }
@@ -647,6 +769,10 @@ pub fn save_shared_external_source(
     {
         return Err("Enter a credential for this workspace source".into());
     }
+    if source.sync_mode.is_none() {
+        source.sync_mode = Some("interval".into());
+        source.sync_interval_seconds = 21600;
+    }
     source.revision = ctx
         .timestamp
         .to_duration_since_unix_epoch()
@@ -674,16 +800,32 @@ pub fn save_shared_external_source(
     // remain per database; in-flight snapshots fail the existing revision guard.
     let schemas: Vec<_> = ctx.db.database_schema().iter().collect();
     for mut schema in schemas {
+        let mut config: Value = serde_json::from_str(schema.config.as_deref().unwrap_or("{}"))
+            .map_err(|_| "Invalid database configuration")?;
+        let mut changed = false;
         if let Ok(binding) = config_for(&schema, true) {
             if binding.source_id.as_deref() == Some(source_id.as_str()) {
-                let mut config: Value =
-                    serde_json::from_str(schema.config.as_deref().unwrap_or("{}"))
-                        .map_err(|_| "Invalid database configuration")?;
                 config["externalSource"] =
                     serde_json::to_value(bind_shared(source.clone(), &binding)).unwrap();
-                schema.config = Some(config.to_string());
-                ctx.db.database_schema().id().update(schema);
+                changed = true;
             }
+        }
+        if let Some(additional) = config
+            .get_mut("externalSources")
+            .and_then(Value::as_array_mut)
+        {
+            for value in additional {
+                let binding: SourceConfig = serde_json::from_value(value.clone())
+                    .map_err(|_| "Invalid additional source")?;
+                if binding.source_id.as_deref() == Some(source_id.as_str()) {
+                    *value = serde_json::to_value(bind_shared(source.clone(), &binding)).unwrap();
+                    changed = true;
+                }
+            }
+        }
+        if changed {
+            schema.config = Some(config.to_string());
+            ctx.db.database_schema().id().update(schema);
         }
     }
     if let Some((mut schema, binding)) = imported {
@@ -707,7 +849,11 @@ pub fn delete_shared_external_source(
 ) -> Result<(), String> {
     require_source_admin(ctx)?;
     if ctx.db.database_schema().iter().any(|s| {
-        config_for(&s, true).is_ok_and(|c| c.source_id.as_deref() == Some(source_id.as_str()))
+        configs_for(&s).is_ok_and(|configs| {
+            configs
+                .iter()
+                .any(|c| c.source_id.as_deref() == Some(source_id.as_str()))
+        })
     }) {
         return Err("This source is still connected to a database".into());
     }
@@ -722,6 +868,69 @@ pub fn delete_shared_external_source(
     Ok(())
 }
 
+#[reducer]
+pub fn disconnect_external_source(
+    ctx: &ReducerContext,
+    database_id: u64,
+    source_id: String,
+) -> Result<(), String> {
+    require_source_admin(ctx)?;
+    require_page_write(ctx, database_id)?;
+    let mut schema = schema_for(ctx, database_id)?;
+    let primary = config_for(&schema, true)?;
+    let mut configs = configs_for(&schema)?;
+    let selected = selected_config(
+        &schema,
+        if source_id.is_empty() {
+            None
+        } else {
+            Some(source_id.as_str())
+        },
+        true,
+    )?;
+    let link_id = primary
+        .link_property_id
+        .parse::<u64>()
+        .map_err(|_| "Invalid link column")?;
+    if ctx
+        .db
+        .page_property_value()
+        .property_definition_id()
+        .filter(link_id)
+        .any(|v| match v.value {
+            PropertyValue::Text(raw) => {
+                serde_json::from_str::<RecordLink>(&raw).is_ok_and(|link| {
+                    link.source_id.as_deref().or(primary.source_id.as_deref())
+                        == selected.source_id.as_deref()
+                })
+            }
+            _ => false,
+        })
+    {
+        return Err(
+            "Unlink this source's records before disconnecting; saved values will remain".into(),
+        );
+    }
+    configs.retain(|c| c.source_id != selected.source_id);
+    let mut raw: Value = serde_json::from_str(schema.config.as_deref().unwrap_or("{}"))
+        .map_err(|_| "Invalid database configuration")?;
+    raw.as_object_mut().unwrap().remove("externalSource");
+    raw.as_object_mut().unwrap().remove("externalSources");
+    if !configs.is_empty() {
+        raw["externalSource"] = serde_json::to_value(&configs[0]).unwrap();
+        raw["externalSources"] = serde_json::to_value(&configs[1..]).unwrap();
+    }
+    if selected.source_id.is_none() {
+        ctx.db
+            .external_source_secret()
+            .database_id()
+            .delete(database_id);
+    }
+    schema.config = Some(raw.to_string());
+    ctx.db.database_schema().id().update(schema);
+    Ok(())
+}
+
 fn row_config(
     ctx: &ReducerContext,
     row_id: u64,
@@ -732,16 +941,39 @@ fn row_config(
         return Err("Row is deleted".into());
     }
     let parent = row.parent_id.ok_or("Row is not in a database")?;
+    let schema = schema_for(ctx, parent)?;
+    let primary = config_for(&schema, true)?;
+    let link_id = primary
+        .link_property_id
+        .parse::<u64>()
+        .map_err(|_| "Invalid link column")?;
+    let link = ctx
+        .db
+        .page_property_value()
+        .page_id()
+        .filter(row_id)
+        .find(|v| v.property_definition_id == link_id)
+        .and_then(|v| match v.value {
+            PropertyValue::Text(raw) => serde_json::from_str::<RecordLink>(&raw).ok(),
+            _ => None,
+        });
     Ok((
         parent,
-        config_for(&schema_for(ctx, parent)?, allow_disabled)?,
+        selected_config(
+            &schema,
+            link.as_ref().and_then(|l| l.source_id.as_deref()),
+            allow_disabled,
+        )?,
     ))
 }
 
 #[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct RecordLink {
     id: String,
     label: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    source_id: Option<String>,
 }
 
 fn set_if_changed(
@@ -775,8 +1007,45 @@ pub fn link_external_record(
     record_id: String,
     label: String,
 ) -> Result<(), String> {
+    link_record_inner(ctx, row_id, record_id, label, None)
+}
+
+#[reducer]
+pub fn link_external_record_from_source(
+    ctx: &ReducerContext,
+    row_id: u64,
+    source_id: String,
+    record_id: String,
+    label: String,
+) -> Result<(), String> {
+    link_record_inner(ctx, row_id, record_id, label, Some(source_id))
+}
+
+fn link_record_inner(
+    ctx: &ReducerContext,
+    row_id: u64,
+    record_id: String,
+    label: String,
+    requested: Option<String>,
+) -> Result<(), String> {
     require_page_write(ctx, row_id)?;
-    let (database_id, config) = row_config(ctx, row_id, record_id.is_empty())?;
+    let (database_id, previous_config) = row_config(ctx, row_id, true)?;
+    let config = if !record_id.is_empty() {
+        if let Some(id) = requested.as_deref() {
+            selected_config(
+                &schema_for(ctx, database_id)?,
+                if id.is_empty() { None } else { Some(id) },
+                false,
+            )?
+        } else {
+            if !previous_config.enabled {
+                return Err("External source is disabled".into());
+            }
+            previous_config.clone()
+        }
+    } else {
+        previous_config.clone()
+    };
     if record_id.len() > 512 || label.len() > 1000 || record_id.chars().any(char::is_control) {
         return Err("Invalid external record".into());
     }
@@ -807,8 +1076,15 @@ pub fn link_external_record(
         });
     // Rebinding must not show another record's statistics when the new source
     // has missing data. Unlinking deliberately retains the last known snapshot.
-    if !record_id.is_empty() && previous.is_some_and(|old| old.id != record_id) {
-        for mapping in &config.mappings {
+    if !record_id.is_empty()
+        && previous
+            .is_some_and(|old| old.id != record_id || previous_config.source_id != config.source_id)
+    {
+        for mapping in previous_config
+            .mappings
+            .iter()
+            .chain(config.mappings.iter())
+        {
             let target = mapping
                 .target_property_id
                 .parse()
@@ -822,6 +1098,7 @@ pub fn link_external_record(
         serde_json::to_string(&RecordLink {
             id: record_id,
             label,
+            source_id: config.source_id.clone(),
         })
         .map_err(|_| "Invalid link")?
     };
@@ -976,6 +1253,7 @@ pub fn apply_external_record(
             serde_json::to_string(&RecordLink {
                 id: record_id,
                 label: label.clone(),
+                source_id: config.source_id.clone(),
             })
             .map_err(|_| "Invalid label")?,
         ),

@@ -66,6 +66,7 @@ import DeletePageSubtreeReducer from "./delete_page_subtree_reducer";
 import DeletePropertyReducer from "./delete_property_reducer";
 import DeleteSharedExternalSourceReducer from "./delete_shared_external_source_reducer";
 import DeleteViewReducer from "./delete_view_reducer";
+import DisconnectExternalSourceReducer from "./disconnect_external_source_reducer";
 import EmptyTrashReducer from "./empty_trash_reducer";
 import HardenLocalPasswordsReducer from "./harden_local_passwords_reducer";
 import ImportV2AbortReducer from "./import_v_2_abort_reducer";
@@ -74,6 +75,7 @@ import ImportV2ChunkReducer from "./import_v_2_chunk_reducer";
 import ImportV2CommitReducer from "./import_v_2_commit_reducer";
 import InsertComponentReducer from "./insert_component_reducer";
 import LinkExternalRecordReducer from "./link_external_record_reducer";
+import LinkExternalRecordFromSourceReducer from "./link_external_record_from_source_reducer";
 import LogApiCallReducer from "./log_api_call_reducer";
 import LoginReducer from "./login_reducer";
 import LogoutReducer from "./logout_reducer";
@@ -655,6 +657,7 @@ const reducersSchema = __reducers(
   __reducerSchema("delete_property", DeletePropertyReducer),
   __reducerSchema("delete_shared_external_source", DeleteSharedExternalSourceReducer),
   __reducerSchema("delete_view", DeleteViewReducer),
+  __reducerSchema("disconnect_external_source", DisconnectExternalSourceReducer),
   __reducerSchema("empty_trash", EmptyTrashReducer),
   __reducerSchema("harden_local_passwords", HardenLocalPasswordsReducer),
   __reducerSchema("import_v_2_abort", ImportV2AbortReducer),
@@ -663,6 +666,7 @@ const reducersSchema = __reducers(
   __reducerSchema("import_v_2_commit", ImportV2CommitReducer),
   __reducerSchema("insert_component", InsertComponentReducer),
   __reducerSchema("link_external_record", LinkExternalRecordReducer),
+  __reducerSchema("link_external_record_from_source", LinkExternalRecordFromSourceReducer),
   __reducerSchema("log_api_call", LogApiCallReducer),
   __reducerSchema("login", LoginReducer),
   __reducerSchema("logout", LogoutReducer),
