@@ -1,7 +1,7 @@
 import { HttpStdbTransport } from "../api-endpoint/http-transport";
 import { decodePropertyValue, unwrapScalar } from "../api-endpoint/codec";
 import type { StdbTransport } from "../api-endpoint/types";
-import { atPath, describeRecord, mappedValues } from "./mapping";
+import { atPath, describeRecord, mappedValues, latestDate } from "./mapping";
 import { parseSourceConfig, parseRecordLink, type SourceConfig, type SourceStatus } from "./types";
 
 export function sourceEnvironment() {
@@ -109,7 +109,43 @@ export async function fetchRecord(source: LoadedSource, id: string) {
   const result = atPath(await requestJson(source, sourceUrl(source.config, path)), source.config.detailResultPath);
   const record = describeRecord(result, source.config);
   if (record.id !== id) throw new Error("External source returned a different record id");
-  return { record, values: mappedValues(result, source.config) };
+  const overrides = new Map<string, unknown>();
+  const relatedCache = new Map<string, Promise<string | null>>();
+  for (const mapping of source.config.mappings) {
+    const related = mapping.related;
+    if (!related || (related.whenPath && String(atPath(result, related.whenPath)) !== related.whenEquals)) continue;
+    const key = JSON.stringify(related);
+    let request = relatedCache.get(key);
+    if (!request) { request = fetchRelatedDate(source, id, related); relatedCache.set(key, request); }
+    overrides.set(mapping.targetPropertyId, latestDate([atPath(result, mapping.sourcePath), await request]));
+  }
+  return { record, values: mappedValues(result, source.config, overrides) };
+}
+/** Fully read a bounded paginated collection; never publish a partial maximum. */
+export async function fetchRelatedDate(source: LoadedSource, id: string, related: import("./types").RelatedDate): Promise<string | null> {
+  if (id === "." || id === "..") throw new Error("Invalid external record id");
+  const size = related.pageSize;
+  if (!Number.isInteger(size) || size < 1 || size > 500) throw new Error("Invalid related page size");
+  const dates: unknown[] = [];
+  let offset = 0;
+  for (let page = 0; page < 20; page++) {
+    const url = sourceUrl(source.config, related.path.replaceAll("{id}", encodeURIComponent(id)));
+    if (related.offsetParam) url.searchParams.set(related.offsetParam, String(offset));
+    if (related.limitParam) url.searchParams.set(related.limitParam, String(size));
+    const body = await requestJson(source, url);
+    const items = atPath(body, related.resultsPath);
+    if (!Array.isArray(items) || items.length > 10_000 || dates.length + items.length > 10_000) {
+      throw new Error("Invalid or oversized related record collection");
+    }
+    dates.push(...items.map(item => atPath(item, related.valuePath)));
+    offset += items.length;
+    const total = related.totalPath ? atPath(body, related.totalPath) : null;
+    if (total != null && (typeof total !== "number" || !Number.isSafeInteger(total) || total < 0)) throw new Error("Invalid related collection total");
+    if (total != null && offset >= total) return latestDate(dates);
+    if (total == null && (!related.limitParam || items.length < size)) return latestDate(dates);
+    if (!items.length || !related.offsetParam || !related.limitParam) throw new Error("Related collection is incomplete");
+  }
+  throw new Error("Related collection exceeds pagination limit; existing values were kept");
 }
 export async function applyRecord(transport: StdbTransport, source: LoadedSource, rowId: string, id: string) {
   const result = await fetchRecord(source, id);

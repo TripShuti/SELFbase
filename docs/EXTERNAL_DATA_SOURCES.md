@@ -117,6 +117,74 @@ the credential. Credentials are bound to that endpoint/authentication scope,
 including after a snapshot restore, to prevent reuse with another destination.
 The only added table is private; existing public table layouts are unchanged.
 
+## Conditional Select statuses and manual labels
+
+For a Select destination, choose **Status from rules**. The source field points
+to the object whose absence should preserve existing data (for example
+`state`). Conditions use paths from the detail record root, not relative to
+that object. Related-date lookups enrich their configured source field before
+rules run, so activity in a child record can set the parent to In progress. Rules run in order and the first match supplies the label:
+
+| Condition field | Operator | Value | Result |
+| --- | --- | --- | --- |
+| `state.complete` | Equals | `true` | Completed |
+| `state.progress` | Greater than | `0` | In progress |
+
+Set **When no rule matches** to a fallback such as Not started, or leave it
+blank to keep the current value. An absent source object never manufactures a
+fallback state. Equality compares scalar text representations (`true`, `false`,
+numbers or strings); Has a value ignores null, missing and empty strings.
+
+**Manual labels to keep** protects exact Select values, for example Dropped or
+Paused. The reducer checks the current saved cell transactionally before any
+worker/manual refresh write, so a manual edit made while HTTP is in flight is
+protected too. Choose a different label to resume synchronization. Relinking
+to a different external record still clears the old record's mapped statistics.
+
+To convert an existing Checkbox, change its column type to Select, then open
+Data source and configure status rules for that destination. Saving adds rule,
+fallback and protected labels to its Select choices. Existing column values
+use the standard type-conversion history until the next successful refresh.
+
+## Latest date from related records
+
+For a Date mapping, expand **Latest date from related records** and enable it.
+Configure a same-source path containing `{id}`, the result array path, and the
+date field in each related record. Optional **Only when field/value** conditions
+apply the lookup to selected types; other types keep using the primary field.
+The transform is **ISO date → date**.
+
+For paginated APIs configure offset/limit query parameter names, page size and
+optionally the total-count field. With a total count all records must be read;
+without one a short page ends the list. Leave both parameter names blank only
+for APIs that return an entire collection in one response. Requests retain the
+source's origin/authentication, timeout, redirect and response-size protections.
+Up to 20 pages of at most 500 records are requested. Errors, invalid dates,
+incomplete collections and limit overflows reject the row snapshot; no partial
+status/date is committed. Empty/null dates preserve existing values.
+
+The saved date is the maximum of the primary date and all related dates. This
+is a latest recorded timestamp, not necessarily a completion timestamp.
+
+Example Jellyfin configuration (no provider-specific SELFbase code):
+
+- Status source field: `UserData`; rules: `UserData.Played = true` →
+  Переглянуто, then `UserData.PlayedPercentage > 0`,
+  `UserData.PlaybackPositionTicks > 0` or an existing
+  `UserData.LastPlayedDate` → В процесі; fallback Не розпочато.
+- Protected manual label: Дроп.
+- Date source field: `UserData.LastPlayedDate`.
+- Related path:
+  `/Items?parentId={id}&recursive=true&includeItemTypes=Episode&userId=USER_ID&enableUserData=true`.
+- Array: `Items`; date field: `UserData.LastPlayedDate`.
+- Condition: `Type` equals `Series`. Films use the primary date.
+- Offset/limit parameters: `startIndex` / `limit`; total field:
+  `TotalRecordCount`; page size: 200.
+
+These are per-database mapping settings and are included in workspace snapshots
+and copied mappings. Existing HTTP sources continue to work unchanged. No table
+layout changes or data deletion are required by this feature.
+
 ## Example: connect psnself
 
 This is configuration only; SELFbase has no PSN-specific code. Deploy the psnself

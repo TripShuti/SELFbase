@@ -37,11 +37,42 @@ pub struct SharedExternalSourceSecret {
 
 #[derive(Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct StatusRule {
+    path: String,
+    operator: String,
+    value: String,
+    result: String,
+}
+
+#[derive(Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct RelatedDate {
+    path: String,
+    results_path: String,
+    value_path: String,
+    when_path: String,
+    when_equals: String,
+    offset_param: String,
+    limit_param: String,
+    total_path: String,
+    page_size: u32,
+}
+
+#[derive(Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Mapping {
     source_path: String,
     target_property_id: String,
     target_type: String,
     transform: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    rules: Vec<StatusRule>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    default_value: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    preserve_values: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    related: Option<RelatedDate>,
 }
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -203,6 +234,7 @@ pub fn configure_external_source(
         }
         if ![
             "identity",
+            "statusRules",
             "secondsToMinutes",
             "millisecondsToMinutes",
             "hoursToMinutes",
@@ -212,6 +244,48 @@ pub fn configure_external_source(
         .contains(&mapping.transform.as_str())
         {
             return Err("Unknown field transform".into());
+        }
+    }
+    for mapping in &source.mappings {
+        if mapping.transform == "statusRules" && mapping.target_type == "Select" {
+            let id = mapping
+                .target_property_id
+                .parse::<u64>()
+                .map_err(|_| "Invalid mapping")?;
+            let mut prop = ctx
+                .db
+                .property_definition()
+                .id()
+                .find(id)
+                .ok_or("Target column not found")?;
+            let mut config: Value = serde_json::from_str(&prop.config).unwrap_or(json!({}));
+            if !config.is_object() {
+                return Err("Invalid Select configuration".into());
+            }
+            let mut options: Vec<String> = config
+                .get("options")
+                .and_then(Value::as_array)
+                .map(|v| {
+                    v.iter()
+                        .filter_map(Value::as_str)
+                        .map(str::to_string)
+                        .collect()
+                })
+                .unwrap_or_default();
+            for label in mapping
+                .rules
+                .iter()
+                .map(|r| &r.result)
+                .chain(mapping.default_value.iter())
+                .chain(mapping.preserve_values.iter())
+            {
+                if !label.is_empty() && !options.contains(label) {
+                    options.push(label.clone());
+                }
+            }
+            config["options"] = json!(options);
+            prop.config = config.to_string();
+            ctx.db.property_definition().id().update(prop);
         }
     }
     // Remove the picker marker from the previous column when remapped.
@@ -364,6 +438,66 @@ fn validate_source(source: &SourceConfig) -> Result<(), String> {
     }
     if !(60..=86400).contains(&source.sync_interval_seconds) {
         return Err("Sync interval must be 60–86400 seconds".into());
+    }
+    for mapping in &source.mappings {
+        if mapping.rules.len() > 16
+            || mapping.preserve_values.len() > 32
+            || mapping
+                .preserve_values
+                .iter()
+                .any(|s| s.is_empty() || s.len() > 200)
+            || mapping
+                .default_value
+                .as_ref()
+                .is_some_and(|s| s.len() > 200)
+        {
+            return Err("Status rules are too large".into());
+        }
+        if !mapping.preserve_values.is_empty() && mapping.target_type != "Select" {
+            return Err("Protected manual values require a Select column".into());
+        }
+        if mapping.transform == "statusRules" {
+            if mapping.target_type != "Select" && mapping.target_type != "Text" {
+                return Err("Status rules require Select or Text".into());
+            }
+            if mapping.rules.is_empty() {
+                return Err("Add at least one status rule".into());
+            }
+        } else if !mapping.rules.is_empty() || mapping.default_value.is_some() {
+            return Err("Choose Status from rules to configure status labels".into());
+        }
+        for rule in &mapping.rules {
+            if rule.path.is_empty()
+                || rule.path.len() > 300
+                || rule.result.is_empty()
+                || rule.result.len() > 200
+                || rule.value.len() > 300
+                || !["equals", "greaterThan", "exists"].contains(&rule.operator.as_str())
+                || (rule.operator == "greaterThan"
+                    && rule
+                        .value
+                        .parse::<f64>()
+                        .ok()
+                        .is_none_or(|n| !n.is_finite()))
+            {
+                return Err("Invalid status rule".into());
+            }
+        }
+        if let Some(related) = &mapping.related {
+            if mapping.target_type != "Date"
+                || mapping.transform != "isoDateToMillis"
+                || !related.path.starts_with('/')
+                || related.path.starts_with("//")
+                || related.path.contains(['\r', '\n', '#', '\\'])
+                || !related.path.contains("{id}")
+                || related.path.len() > 2000
+                || related.value_path.is_empty()
+                || !(1..=500).contains(&related.page_size)
+                || related.offset_param.is_empty() != related.limit_param.is_empty()
+            {
+                return Err("Latest related date requires a Date column, ISO date transform and a valid same-source path with {id}".into());
+            }
+        }
     }
     Ok(())
 }
@@ -825,7 +959,14 @@ pub fn apply_external_record(
         {
             return Err("Mapped column changed type or duplicate value".into());
         }
-        set_if_changed(ctx, row_id, id, property_value(&field)?)?;
+        let new_value = property_value(&field)?;
+        // Protect manual statuses inside the transaction, including worker writes.
+        let protected = !mapping.preserve_values.is_empty() && ctx.db.page_property_value().page_id().filter(row_id).any(|v| {
+            v.property_definition_id == id && matches!(v.value, PropertyValue::Select(ref value) if mapping.preserve_values.contains(value))
+        });
+        if !protected {
+            set_if_changed(ctx, row_id, id, new_value)?;
+        }
     }
     set_if_changed(
         ctx,

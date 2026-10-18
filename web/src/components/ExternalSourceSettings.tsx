@@ -8,6 +8,7 @@ import { useCurrentUser } from "@/src/hooks/useUser";
 import { useWorkspace } from "@/src/providers/WorkspaceProvider";
 import { EMPTY_SOURCE, TARGET_TYPES, TRANSFORMS, parseSourceConfig, isExternalLinkColumn, type SourceConfig, type SourceStatus, type ExternalRecord } from "@/src/lib/external-sources/types";
 import { externalSourceFetch } from "@/src/lib/external-sources/client";
+import { ExternalMappingOptions } from "./ExternalMappingOptions";
 import { SourceConnectionFields } from "./SourceConnectionFields";
 import { useWorkspaceSettings } from "@/src/hooks/useWorkspaceSettings";
 import { workspaceSources, copySourceMappings } from "@/src/lib/external-sources/types";
@@ -45,6 +46,22 @@ export function ExternalSourceSettings({ databaseId }: { databaseId: bigint }) {
     setSecret(""); setError(""); setMessage("");
   }, [open, schema?.config]);
   useEffect(() => {
+    if (!open) return;
+    setForm(previous => {
+      let changed = false;
+      const mappings = previous.mappings.map(mapping => {
+        const property = properties.find(p => String(p.id) === mapping.targetPropertyId);
+        if (!property || property.propertyType.tag === mapping.targetType || !(TARGET_TYPES as readonly string[]).includes(property.propertyType.tag)) return mapping;
+        changed = true;
+        return { ...mapping, targetType: property.propertyType.tag as typeof mapping.targetType,
+          ...(!["Select", "Text"].includes(property.propertyType.tag) && mapping.transform === "statusRules" ? { transform: "identity" as const, rules: undefined, defaultValue: undefined } : {}),
+          ...(property.propertyType.tag !== "Select" ? { preserveValues: undefined } : {}),
+          ...(property.propertyType.tag !== "Date" ? { related: undefined } : {}) };
+      });
+      return changed ? { ...previous, mappings } : previous;
+    });
+  }, [open, properties, schema?.config]);
+  useEffect(() => {
     if (!open || !activeWorkspace) return;
     const abort = new AbortController();
     externalSourceFetch<SourceStatus>(activeWorkspace.dbName, databaseId, { status: "1" }, "GET", abort.signal)
@@ -59,7 +76,7 @@ export function ExternalSourceSettings({ databaseId }: { databaseId: bigint }) {
       const url = new URL(form.baseUrl);
       if (!["http:", "https:"].includes(url.protocol)) throw new Error("Use an HTTP or HTTPS URL");
       if (form.mappings.some(m => !m.sourcePath || !m.targetPropertyId)) throw new Error("Choose a source field and destination for each mapping");
-      await configure({ databaseId, configJson: JSON.stringify(form), secret: form.sourceId ? undefined : secret || undefined });
+      await configure({ databaseId, configJson: JSON.stringify({ ...form, mappings: form.mappings.map(m => ({ ...m, ...(m.preserveValues ? { preserveValues: m.preserveValues.map(s => s.trim()).filter(Boolean) } : {}) })) }), secret: form.sourceId ? undefined : secret || undefined });
       setSecret(""); setMessage("Connection saved. Use Add from source beside a row name to select a record.");
     } catch (e) { setError(e instanceof Error ? e.message : "Could not save connection"); }
     finally { setBusy(false); }
@@ -145,18 +162,24 @@ export function ExternalSourceSettings({ databaseId }: { databaseId: bigint }) {
             <select aria-label={`Destination column ${index + 1}`} value={mapping.targetPropertyId} className={inputClass} onChange={e => {
               const property = properties.find(p => String(p.id) === e.target.value);
               if (!property) return;
-              setForm(p => ({ ...p, mappings: p.mappings.map((m, i) => i === index ? { ...m, targetPropertyId: String(property.id), targetType: property.propertyType.tag as typeof m.targetType } : m) }));
+              setForm(p => ({ ...p, mappings: p.mappings.map((m, i) => i === index ? { ...m, targetPropertyId: String(property.id), targetType: property.propertyType.tag as typeof m.targetType,
+                ...(!["Select", "Text"].includes(property.propertyType.tag) && m.transform === "statusRules" ? { transform: "identity" as const, rules: undefined, defaultValue: undefined } : {}),
+                ...(property.propertyType.tag !== "Select" ? { preserveValues: undefined } : {}),
+                ...(property.propertyType.tag !== "Date" ? { related: undefined } : {}) } : m) }));
             }}>
               <option value="">Choose destination column</option>
               {properties.filter(p => (TARGET_TYPES as readonly string[]).includes(p.propertyType.tag) && String(p.id) !== form.linkPropertyId && !isExternalLinkColumn(p.config)).map(p => <option key={String(p.id)} value={String(p.id)}>{p.name} · {p.propertyType.tag}</option>)}
             </select>
             <div className="flex gap-2">
               <select aria-label={`Value transform ${index + 1}`} className={inputClass} value={mapping.transform}
-                onChange={e => setForm(p => ({ ...p, mappings: p.mappings.map((m, i) => i === index ? { ...m, transform: e.target.value as typeof m.transform } : m) }))}>
-                {TRANSFORMS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                onChange={e => setForm(p => ({ ...p, mappings: p.mappings.map((m, i) => i === index ? { ...m, transform: e.target.value as typeof m.transform,
+                  ...(e.target.value === "statusRules" ? { rules: m.rules?.length ? m.rules : [{ path: m.sourcePath, operator: "equals" as const, value: "true", result: "Completed" }] } : { rules: undefined, defaultValue: undefined }),
+                  ...(e.target.value !== "isoDateToMillis" ? { related: undefined } : {}) } : m) }))}>
+                {TRANSFORMS.map(([value, label]) => <option key={value} value={value} disabled={value === "statusRules" && !["Select", "Text"].includes(mapping.targetType)}>{label}</option>)}
               </select>
               <button type="button" onClick={() => setForm(p => ({ ...p, mappings: p.mappings.filter((_, i) => i !== index) }))} className="px-2 text-xs text-red-500">Remove</button>
             </div>
+            <ExternalMappingOptions mapping={mapping} onChange={updated => setForm(p => ({ ...p, mappings: p.mappings.map((m, i) => i === index ? updated : m) }))} />
           </div>)}
           <button type="button" disabled={form.mappings.length >= 32} onClick={() => setForm(p => ({ ...p, mappings: [...p.mappings, { sourcePath: "", targetPropertyId: "", targetType: "Text", transform: "identity" }] }))}
             className="mt-2 rounded px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 dark:hover:bg-neutral-800">+ Map another field</button>

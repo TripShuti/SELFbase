@@ -1,12 +1,33 @@
 export const TARGET_TYPES = ["Text", "Number", "Duration", "Date", "Checkbox", "Url", "Select", "MultiSelect"] as const;
 export type TargetType = typeof TARGET_TYPES[number];
 export const TRANSFORMS = [
-  ["identity", "As provided"], ["secondsToMinutes", "Seconds → minutes"],
+  ["identity", "As provided"], ["statusRules", "Status from rules"], ["secondsToMinutes", "Seconds → minutes"],
   ["millisecondsToMinutes", "Milliseconds → minutes"], ["hoursToMinutes", "Hours → minutes"],
   ["isoDateToMillis", "ISO date → date"], ["unixSecondsToMillis", "Unix seconds → date"],
 ] as const;
 export type Transform = typeof TRANSFORMS[number][0];
+export interface StatusRule {
+  path: string;
+  operator: "equals" | "greaterThan" | "exists";
+  value: string;
+  result: string;
+}
+export interface RelatedDate {
+  path: string;
+  resultsPath: string;
+  valuePath: string;
+  whenPath: string;
+  whenEquals: string;
+  offsetParam: string;
+  limitParam: string;
+  totalPath: string;
+  pageSize: number;
+}
 export interface SourceMapping {
+  rules?: StatusRule[];
+  defaultValue?: string;
+  preserveValues?: string[];
+  related?: RelatedDate;
   sourcePath: string;
   targetPropertyId: string;
   targetType: TargetType;

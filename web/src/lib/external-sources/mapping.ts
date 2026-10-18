@@ -66,10 +66,42 @@ export function convertField(raw: unknown, mapping: SourceMapping): ConvertedFie
   }
   return { propertyId: mapping.targetPropertyId, kind: mapping.targetType, value: converted };
 }
-export function mappedValues(record: unknown, config: SourceConfig): ConvertedField[] {
+export function statusValue(record: unknown, mapping: SourceMapping, resolve: (path: string) => unknown = path => atPath(record, path)): string | null {
+  // A missing source object is not evidence that an item is unstarted.
+  if (resolve(mapping.sourcePath) == null) return null;
+  for (const rule of mapping.rules || []) {
+    const value = resolve(rule.path);
+    const matches = rule.operator === "exists" ? value != null && value !== ""
+      : rule.operator === "equals" ? value != null && String(value) === rule.value
+      : value != null && value !== "" && Number.isFinite(Number(value)) && Number(value) > Number(rule.value);
+    if (matches) return rule.result;
+  }
+  return mapping.defaultValue || null;
+}
+
+export function latestDate(values: unknown[]): string | null {
+  let latest: number | null = null;
+  for (const value of values) {
+    if (value == null || value === "") continue;
+    const date = typeof value === "string" ? Date.parse(value) : NaN;
+    if (!Number.isFinite(date)) throw new Error("Related record contains an invalid date");
+    if (latest == null || date > latest) latest = date;
+  }
+  return latest == null ? null : new Date(latest).toISOString();
+}
+
+export function mappedValues(record: unknown, config: SourceConfig, overrides: ReadonlyMap<string, unknown> = new Map()): ConvertedField[] {
+  // Related lookups enrich their exact source field paths before any rule is
+  // evaluated, so e.g. activity in a child can drive its parent's status.
+  const resolved = new Map(config.mappings.filter(m => overrides.has(m.targetPropertyId))
+    .map(m => [m.sourcePath, overrides.get(m.targetPropertyId)]));
+  const resolve = (path: string) => resolved.has(path) ? resolved.get(path) : atPath(record, path);
   return config.mappings.flatMap(mapping => {
     try {
-      const field = convertField(atPath(record, mapping.sourcePath), mapping);
+      const raw = overrides.has(mapping.targetPropertyId) ? overrides.get(mapping.targetPropertyId) : atPath(record, mapping.sourcePath);
+      const field = mapping.transform === "statusRules"
+        ? convertField(statusValue(record, mapping, resolve), { ...mapping, transform: "identity" })
+        : convertField(raw, mapping);
       return field ? [field] : [];
     } catch {
       throw new Error(`Cannot convert field ${mapping.sourcePath} to ${mapping.targetType}`);
