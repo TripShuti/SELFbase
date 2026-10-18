@@ -134,11 +134,11 @@ export const BlockComment = __t.object("BlockComment", {
   blockId: __t.option(__t.string()),
   parentId: __t.option(__t.u64()),
   author: __t.identity(),
-  authorEmail: __t.option(__t.string()),
   content: __t.string(),
   resolved: __t.bool(),
   createdAt: __t.timestamp(),
   updatedAt: __t.timestamp(),
+  authorEmail: __t.option(__t.string()),
 });
 export type BlockComment = __Infer<typeof BlockComment>;
 

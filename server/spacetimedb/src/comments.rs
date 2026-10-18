@@ -50,14 +50,14 @@ pub struct BlockComment {
     pub block_id: Option<String>,
     pub parent_id: Option<u64>,
     pub author: Identity,
-    // String cannot be a `#[default]` const (String has a destructor); the
-    // None default is the established pattern for the same purpose on Page.
-    #[default(Option::<String>::None)]
-    pub author_email: Option<String>,
     pub content: String,
     pub resolved: bool,
     pub created_at: Timestamp,
     pub updated_at: Timestamp,
+    // Schema order is persistent: 2.0.3 can only append columns with defaults.
+    // Keep all legacy columns above in their original order.
+    #[default(Option::<String>::None)]
+    pub author_email: Option<String>,
 }
 
 pub(crate) fn validate_comment_content(content: &str) -> Result<String, String> {

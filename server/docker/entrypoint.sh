@@ -9,12 +9,18 @@ mkdir -p "$DATA_DIR"
 echo "[selfbase] Starting SpacetimeDB..."
 spacetime start --data-dir="$DATA_DIR" --listen-addr=0.0.0.0:3000 --non-interactive &
 STDB_PID=$!
+trap 'kill -TERM "$STDB_PID" 2>/dev/null || true' TERM INT
 
 # Wait for SpacetimeDB HTTP API to be ready.
 # Use /v1/ping which returns HTTP 200 — the root path returns 404 and wget
 # treats any 4xx/5xx as failure (exit code 8), causing the loop to never exit.
 echo "[selfbase] Waiting for SpacetimeDB to accept connections..."
 until wget -qO- http://localhost:3000/v1/ping > /dev/null 2>&1; do
+  if ! kill -0 "$STDB_PID" 2>/dev/null; then
+    echo "[selfbase] ERROR: SpacetimeDB exited before becoming ready." >&2
+    wait "$STDB_PID"
+    exit 1
+  fi
   sleep 1
 done
 echo "[selfbase] SpacetimeDB ready."
@@ -49,22 +55,9 @@ if [ -f "$MODULE_WASM" ]; then
     echo "[selfbase] Module published."
     PUBLISH_OK=1
   else
-    echo "[selfbase] WARNING: Initial publish failed. Clearing stale spacetime CLI state and retrying..."
-    rm -rf /root/.config/spacetime
-    mkdir -p /root/.config/spacetime
-
-    if spacetime publish \
-      --bin-path "$MODULE_WASM" \
-      "$DB_NAME" \
-      --server http://localhost:3000 \
-      --break-clients \
-      --yes; then
-      echo "[selfbase] Module published on retry."
-      PUBLISH_OK=1
-    else
-      echo "[selfbase] ERROR: Module publish failed after retry."
-      echo "[selfbase] SpacetimeDB will keep running, but clients may fail until publish succeeds."
-    fi
+    echo "[selfbase] ERROR: Module publish failed; no automatic retry." >&2
+    echo "[selfbase] CLI credentials are preserved. Check the publish error and retry manually with the database owner's identity." >&2
+    echo "[selfbase] SpacetimeDB will keep serving the existing database; post-publish migrations are skipped." >&2
   fi
 else
   echo "[selfbase] WARNING: $MODULE_WASM not found."
@@ -81,9 +74,9 @@ if [ "$PUBLISH_OK" -eq 1 ]; then
     echo "[selfbase] Pending migrations complete."
   else
     echo "[selfbase] WARNING: run_pending_migrations failed."
-    echo "[selfbase] Built-in registry rows may be stale until migrations are run manually."
+    echo "[selfbase] Data migrations may remain pending; fix the error and call run_pending_migrations manually."
   fi
 fi
 
 # Hand off to the SpacetimeDB server process
-wait $STDB_PID
+wait "$STDB_PID"
