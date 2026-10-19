@@ -1,5 +1,7 @@
 "use client";
 
+import { useDocumentAutosave } from "../rich-text/useDocumentAutosave";
+
 import {
   useCallback,
   useEffect,
@@ -175,15 +177,17 @@ function EditableHeading({ node, tree, children }: BlockRendererProps) {
     [level],
   );
 
-  const [{ doc }] = useState(() => {
+  const [{ doc, wasPrepopulated }] = useState(() => {
     const initial = focus.consumeInitialDoc(node.id);
-    return { doc: initial ?? new Y.Doc() };
+    return { doc: initial ?? new Y.Doc(), wasPrepopulated: initial != null };
   });
+
+  useDocumentAutosave(doc, node.id, suppressSaveRef, wasPrepopulated, state?.data);
 
   useLayoutEffect(() => {
     const initial = focus.consumeInitialDoc(node.id);
     if (initial) {
-      Y.applyUpdate(doc, Y.encodeStateAsUpdate(initial), "remote");
+      Y.applyUpdate(doc, Y.encodeStateAsUpdate(initial), "initial-handoff");
     }
   }, [doc, focus, node.id]);
 
@@ -207,10 +211,7 @@ function EditableHeading({ node, tree, children }: BlockRendererProps) {
     bootstrappedLegacyRef.current = true;
     const initial = plainTextToYDoc(legacyText);
     Y.applyUpdate(doc, Y.encodeStateAsUpdate(initial), "local");
-    saveYjsState({
-      componentId: node.id,
-      data: Y.encodeStateAsUpdate(doc),
-    });
+    initial.destroy();
   }, [doc, legacyText, node.id, saveYjsState, state?.data]);
 
   useEffect(() => () => doc.destroy(), [doc]);
@@ -362,8 +363,7 @@ function EditableHeading({ node, tree, children }: BlockRendererProps) {
   );
 
   const onDeleteSelf = useCallback(() => {
-    suppressSaveRef.current = true;
-    deleteEmptyBlockAndFocusDocumentPrev(node, tree, focus, {
+    suppressSaveRef.current = deleteEmptyBlockAndFocusDocumentPrev(node, tree, focus, {
       deleteBlock,
       moveBlock,
     });
@@ -374,7 +374,6 @@ function EditableHeading({ node, tree, children }: BlockRendererProps) {
 
   const onMergeWithPrev = useCallback(
     (view: EditorView): boolean => {
-      suppressSaveRef.current = true;
       return mergeBlockIntoDocumentPrev(
         node,
         view,
@@ -508,7 +507,6 @@ function EditableHeading({ node, tree, children }: BlockRendererProps) {
               onSplit={onSplit}
               onDeleteSelf={canBackspaceDeleteEmpty ? onDeleteSelf : undefined}
               onMergeWithPrev={onMergeWithPrev}
-              suppressSaveRef={suppressSaveRef}
               onNavigatePrev={onNavigatePrev}
               onNavigateNext={onNavigateNext}
               onIndent={onIndent}

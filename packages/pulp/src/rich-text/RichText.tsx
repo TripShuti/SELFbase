@@ -18,6 +18,7 @@ import { useSurfaceSelectionOptional } from "../selection/SurfaceSelectionProvid
 import { splitEditorAtCaret } from "./splitEditorAtCaret";
 import type { BlockRendererProps } from "../registry";
 import type { BlockId } from "../types";
+import { useDocumentAutosave } from "./useDocumentAutosave";
 import { RichTextEditor } from "./RichTextEditor";
 import {
   SPRINT_3B_SLASH_ITEMS,
@@ -234,13 +235,14 @@ function EditableRichText({
         nodeId: idStr(node.id),
         componentType: node.componentType,
       });
-      suppressSaveRef.current = true;
-      return exitEmptyListItemToRichText(
+      const removed = exitEmptyListItemToRichText(
         node,
         tree,
         { insertBlock, deleteBlock, moveBlock },
         focus,
       );
+      suppressSaveRef.current = removed;
+      return removed;
     }
 
     // Split the doc at the caret — prefix stays here, suffix seeds the new
@@ -401,14 +403,13 @@ function EditableRichText({
   // Backspace-on-empty: delete this row and focus the document-order
   // previous block (parent list item when nested — not unnest-to-root).
   const onDeleteSelf = useCallback(() => {
-    suppressSaveRef.current = true;
     // List item → un-list to a paragraph first (Notion/BlockNote); a second
     // Backspace on the resulting empty RichText then deletes/merges.
     if (isDocumentListItemType(node.componentType)) {
-      unlistToRichText(node, tree, { insertBlock, deleteBlock, moveBlock }, focus);
+      suppressSaveRef.current = unlistToRichText(node, tree, { insertBlock, deleteBlock, moveBlock }, focus);
       return;
     }
-    deleteEmptyBlockAndFocusDocumentPrev(node, tree, focus, {
+    suppressSaveRef.current = deleteEmptyBlockAndFocusDocumentPrev(node, tree, focus, {
       deleteBlock,
       moveBlock,
     });
@@ -420,11 +421,12 @@ function EditableRichText({
     isDocumentListItemType(node.componentType);
 
   const onMergeWithPrev = (view: EditorView): boolean => {
-    suppressSaveRef.current = true;
     // List item → un-list before merging (Notion/BlockNote): the first
     // Backspace at the start of a list row converts it to a paragraph.
     if (isDocumentListItemType(node.componentType)) {
-      return unlistToRichText(node, tree, { insertBlock, deleteBlock, moveBlock }, focus);
+      const removed = unlistToRichText(node, tree, { insertBlock, deleteBlock, moveBlock }, focus);
+      suppressSaveRef.current = removed;
+      return removed;
     }
     return mergeBlockIntoDocumentPrev(
       node,
@@ -547,6 +549,7 @@ function EditableRichText({
     const initial = focus.consumeInitialDoc(node.id);
     return { doc: initial ?? new Y.Doc(), wasPrepopulated: initial != null };
   });
+  useDocumentAutosave(doc, node.id, suppressSaveRef, wasPrepopulated, state?.data);
   const appliedInitialDocRef = useRef(wasPrepopulated);
 
   // Belt-and-suspenders: if the insert callback landed after first paint,
@@ -556,7 +559,7 @@ function EditableRichText({
     const initial = focus.consumeInitialDoc(node.id);
     if (!initial) return;
     appliedInitialDocRef.current = true;
-    Y.applyUpdate(doc, Y.encodeStateAsUpdate(initial), "remote");
+    Y.applyUpdate(doc, Y.encodeStateAsUpdate(initial), "initial-handoff");
   }, [doc, focus, node.id]);
   const lastAppliedAtRef = useRef<bigint | null>(null);
 
@@ -585,37 +588,6 @@ function EditableRichText({
       doc.destroy();
     };
   }, [doc]);
-
-  // Belt-and-suspenders save for the prepopulated-doc case. The focus
-  // coordinator's `onInsert` already dispatches `save_component_yjs_
-  // state` for split-site content (so other clients see it from their
-  // first delta), but that save can fail (network blip, server back-
-  // pressure). If it does, the local IndexedDB still has the content
-  // — but the `RichTextEditor`'s save loop only flushes on the
-  // `dirty` flag, which only flips on local Y.Doc updates, and we
-  // injected the content *before* the editor mounted. No update event
-  // fires → no flush → server stays empty until the user types. This
-  // effect fires once on mount of a prepopulated block to guarantee
-  // the server has the content. Idempotent: duplicate writes are
-  // harmless (state-replaces-state at the substrate level).
-  useEffect(() => {
-    if (!wasPrepopulated) return;
-    try {
-      saveYjsState({
-        componentId: node.id,
-        data: Y.encodeStateAsUpdate(doc),
-      });
-    } catch (err) {
-      if (typeof console !== "undefined") {
-        console.warn(
-          `[RichTextRenderer] failed to save prepopulated doc for ${node.id}:`,
-          err,
-        );
-      }
-    }
-    // Run exactly once at mount; the flag is true at most once.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Viewport-aware mode switch.
   //
@@ -748,7 +720,6 @@ function EditableRichText({
           onSlashNavigate={navigateSlash}
           onSlashCommit={commitSlash}
           onSlashDismiss={dismissSlash}
-          suppressSaveRef={suppressSaveRef}
           onNavigatePrev={onNavigatePrev}
           onNavigateNext={onNavigateNext}
           onIndent={onIndent}

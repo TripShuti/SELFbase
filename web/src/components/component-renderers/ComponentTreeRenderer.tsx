@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useSpacetimeDB } from "spacetimedb/react";
 import { useSearchParams } from "next/navigation";
 import {
   BlockEditor,
@@ -99,6 +100,7 @@ export function ComponentTreeRenderer({
   onCommentBlock?: (blockId: string) => void;
 }) {
   const { idbNamespace } = useWorkspace();
+  const { isActive } = useSpacetimeDB();
   useHighlightNodeFromUrl(surfaceId);
   const insertComponent = useInsertComponent();
   const deleteComponent = useDeleteComponent();
@@ -136,7 +138,7 @@ export function ComponentTreeRenderer({
         deletedAt: row.deletedAt,
       };
       focusCoordinator.handleNodeInsert(event, surfaceIdRef.current, (id, data) => {
-        saveYjsRef.current({ componentId: id, data });
+        return saveYjsRef.current({ componentId: id, data });
       });
       undoCoordinator.handleNodeInsert(row.id);
     },
@@ -145,7 +147,7 @@ export function ComponentTreeRenderer({
 
   // Purge a node's per-component IndexedDB doc so removed content can't linger
   // locally or resurface via a stale local↔server Yjs merge. Keyed exactly as
-  // pulp's RichTextEditor persistence: `selfbase:{idbNamespace}:component:{id}`.
+  // pulp's document persistence: `selfbase:{idbNamespace}:component:{id}`.
   // Best-effort and idempotent. Restore is unaffected: the server keeps the
   // node's authoritative `component_yjs_state`, so a re-shown block rehydrates
   // from the server blob (RichText.tsx applies it with origin="remote").
@@ -192,7 +194,7 @@ export function ComponentTreeRenderer({
 
   useLayoutEffect(() => {
     focusCoordinator.syncTree(tree, (id, data) => {
-      saveYjsRef.current({ componentId: id, data });
+      return saveYjsRef.current({ componentId: id, data });
     });
   }, [tree, focusCoordinator]);
 
@@ -331,6 +333,7 @@ export function ComponentTreeRenderer({
   const config = useMemo(
     () => ({
       idbPrefix: `selfbase:${idbNamespace}`,
+      isConnected: isActive,
       validateProps: validateComponentProps,
       slashItems: slashItemsForDefs(SLASH_ITEMS, tree.defs),
       linkTargets,
@@ -339,7 +342,7 @@ export function ComponentTreeRenderer({
         ? (nodeId: bigint) => onCommentBlock(String(nodeId))
         : undefined,
     }),
-    [idbNamespace, linkTargets, tree.defs, queryResolver, onCommentBlock],
+    [idbNamespace, isActive, linkTargets, tree.defs, queryResolver, onCommentBlock],
   );
 
   const attachmentCtx = useMemo(
