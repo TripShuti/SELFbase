@@ -1,69 +1,74 @@
-# SELFbase
+<h1 align="center">
+  <img src="web/app/apple-icon.png" width="48" height="48" alt="" />
+  SELFbase
+</h1>
 
-**A self-hosted, relational-first workspace: Database → Row → Page — built on SpacetimeDB.**
+<p align="center"><strong>Your notes, collections, and connected data. On your own server.</strong></p>
 
-Fork of [Pear](https://codeberg.org/Eclosion-Tech/pear) (AGPL-3.0, fork point tagged `upstream-final`),
-stripped down to the workspace core: pages, databases, relations, files, and a
-versioned REST API. No AI users, no agents, no MCP, no automations.
-Pages and database rows are the same entity — a page
-viewed in a grid is a row, a row opened fully is a page. Real-time sync over
-SpacetimeDB subscriptions; documents are typed component trees with Yjs-backed
-rich text.
+<p align="center">
+  <a href="#getting-started">Get started</a> ·
+  <a href="docs/EXTERNAL_DATA_SOURCES.md">Connect a source</a> ·
+  <a href="docs/API_ENDPOINTS.md">REST API</a> ·
+  <a href="docs/UPGRADES.md">Upgrade guide</a>
+</p>
 
-## Stack
+SELFbase is a self-hosted workspace for notes and structured collections. Build
+personal databases with your own fields, connect records to external services,
+and keep everything together in one place.
 
-| Layer | Technology |
-|---|---|
-| Backend / sync | [SpacetimeDB](https://spacetimedb.com) (Rust module) |
-| Frontend | Next.js · React 19 · Tailwind CSS 3 |
-| Editor | Component-tree editor (`packages/pulp`) — typed `ComponentNode` rows in SpacetimeDB, per-block Yjs rich text |
-| Auth | Native SpacetimeDB email/password (default) · Any OIDC provider (optional) |
-| Attachments | S3-compatible storage (Garage in Docker Compose by default) |
-| Containerisation | Docker Compose (3 services: SpacetimeDB, web, Garage) |
+Every database row is also a page: open a record to write notes, attach files,
+and add context. View the same collection as a grid, list, or board, with
+real-time sync across clients.
 
-## Features
+![SELFbase in dark mode, showing a database with an open sidebar](docs/assets/branding-dark.png)
 
-- **Pages & documents** — nesting, icons, breadcrumbs, trash with restore ([deletion lifecycle](./docs/DATA_LIFECYCLE.md)), snapshot history with one-click restore, audio/image/code blocks.
-- **Databases** — grid, list & board views; Text, Number, Date, Duration, Select, Multi-select, Checkbox, URL, Relation, Person, File, Formula, Rollup columns; inline editing, filters, sorts; any row opens as a full page with its own URL.
-- **Column calculations** — per-column footer aggregations (Sum, Average, Min, Max, Range, Count…), stored per view; `Duration` columns sum as `Xh Ym`.
-- **Cell history** — every value change is kept append-only; right-click a cell → History → one-click restore.
-- **Type changes with migration** — changing a column type converts values where possible (with a Convert/Cancel confirm showing what will be cleared) instead of orphaning them.
-- **Notion import** — brings a Notion *export* (Markdown + CSV) in from Settings → Import from Notion, or from the CLI (`pnpm --filter web import:notion`). Pick one CSV and a folder of `.md` files, choose the title column, confirm per-column types (`Text` / `Number` / `Select`, inferred from the values and overridable), preview the plan, then import: CSV rows become rows, a `.md` file whose title matches a row becomes that row's body, and leftover `.md` files become plain Doc pages. One database per run; it refuses to import into an existing database of the same name. It runs client-side through the ordinary page/schema reducers, so there is no background job and no single-transaction apply — a failed run leaves partial rows behind. This is *not* upstream Pear's importer: that one fetched the Notion **API** server-side in a worker, with block-level and relation fidelity.
-- **Relations** — first-class links between databases.
-- **Access control** — per-page/per-block rules (open by default), access requests with human approval.
-- **Comments** — page-level and block-anchored threads with replies, resolve/reopen, author/admin moderation.
-- **Files** — presigned S3 upload/download, metadata in SpacetimeDB.
-- **REST API** — expose any database as a versioned REST API (`/api/e/{slug}`) with API-key auth and OpenAPI spec. See [`docs/API_ENDPOINTS.md`](./docs/API_ENDPOINTS.md).
-- **External data sources** — connect an HTTP JSON API, search records from table cells, map fields to columns, and refresh linked rows in the background. See [`docs/EXTERNAL_DATA_SOURCES.md`](./docs/EXTERNAL_DATA_SOURCES.md).
-- **Backup** — export/import the workspace as a `selfbase-snapshot-v2` JSON file from settings. See [restore integrity and recovery](packages/snapshot-core/README.md).
+## Make it your workspace
 
-What this fork deliberately does **not** have (see upstream Pear if you need
-them): AI users, agent chats, Orcha orchestration, MCP server/client,
-extensions, automations, semantic search, AI columns,
-device bridge, desktop app.
+- **Write and organize** — nested pages, rich text, image/audio/code blocks,
+  icons, breadcrumbs, and comments on pages or individual blocks.
+- **Build your own collections** — custom columns, filters, sorting, and grid,
+  list, or board views. Link databases with relations; use formulas, rollups,
+  and column totals to work with your data.
+- **Connect external services** — configure an HTTP JSON API, search for records
+  from table cells, map source fields to your columns, and refresh linked rows
+  in the background. [External data sources](docs/EXTERNAL_DATA_SOURCES.md).
+- **Use your data elsewhere** — expose a database through a versioned REST API
+  with API keys and an OpenAPI specification. [API guide](docs/API_ENDPOINTS.md).
+- **Keep a history** — restore previous cell values and page snapshots, or
+  recover deleted pages from the trash. Column type changes preview conversions
+  before applying them. [Deletion and recovery](docs/DATA_LIFECYCLE.md).
+- **Control access** — native email/password sign-in, optional OIDC, and
+  per-page/per-block access rules with access requests and approval.
+  [Access control](docs/ACCESS_CONTROL.md).
+- **Bring your content along** — import a Notion Markdown + CSV export, upload
+  files to S3-compatible storage, and export or restore a workspace snapshot.
+  [Snapshot format and recovery](packages/snapshot-core/README.md).
 
-## Project structure
+<details>
+<summary>Database fields and Notion import details</summary>
 
-```
-./
-├── server/
-│   ├── spacetimedb/src/   # Tables, reducers (lib.rs + modules)
-│   ├── docker/            # entrypoint.sh, garage.toml, garage-init.sh
-│   └── spacetime.json     # TS bindings output dir (web/src/module_bindings)
-├── web/                   # Next.js app
-├── packages/
-│   ├── pulp/              # Component-tree editor library
-│   └── snapshot-core/     # Snapshot v2 format (export/import)
-├── extensions/            # (legacy, unused)
-├── docs/                  # API_ENDPOINTS.md, ACCESS_CONTROL.md, security reviews
-├── docker-compose.yml
-└── pnpm-workspace.yaml
-```
+Supported fields: Text, Number, Date, Duration, Select, Multi-select, Checkbox,
+URL, Relation, Person, File, Formula, and Rollup. Column footer calculations
+include Sum, Average, Min, Max, Range, and Count, with settings stored per view.
+Duration totals display as `Xh Ym`.
+
+Import a Notion **export** from Settings → Import from Notion, or use the CLI
+(`pnpm --filter web import:notion`). Choose one CSV and a folder of Markdown
+files, select the title column, review inferred field types (`Text`, `Number`,
+or `Select`), and preview the plan before importing. CSV rows become database
+rows; a Markdown file whose title matches a row becomes its page body. Remaining
+Markdown files become standalone pages.
+
+The importer handles one database per run and refuses an existing database of
+the same name. It runs client-side through the ordinary page/schema reducers;
+a failed import can leave partial rows behind.
+
+</details>
 
 ## Getting started
 
-Prerequisites: Docker + Docker Compose, plus Rust (`wasm32-unknown-unknown`
-target) and the SpacetimeDB CLI for the one-time module build.
+Prerequisites: Docker and Docker Compose. The prebuilt database module is
+included in the repository; deploying does not require a Rust toolchain.
 
 ```bash
 # 1. Configure
@@ -87,6 +92,35 @@ the web image after changing them.
 For an existing installation, follow [the upgrade and recovery procedure](./docs/UPGRADES.md).
 The database is ready for the new web build only after publish and migrations
 succeed. Existing running web containers must be stopped explicitly for upgrades.
+
+## Stack
+
+| Layer | Technology |
+|---|---|
+| Backend / sync | [SpacetimeDB](https://spacetimedb.com) (Rust module) |
+| Frontend | Next.js · React 19 · Tailwind CSS 3 |
+| Editor | Component-tree editor (`packages/pulp`) — typed `ComponentNode` rows in SpacetimeDB, per-block Yjs rich text |
+| Auth | Native SpacetimeDB email/password (default) · Any OIDC provider (optional) |
+| Attachments | S3-compatible storage (Garage in Docker Compose by default) |
+| Containerisation | Docker Compose (3 services: SpacetimeDB, web, Garage) |
+
+## Project structure
+
+```
+./
+├── server/
+│   ├── spacetimedb/src/   # Tables, reducers (lib.rs + modules)
+│   ├── docker/            # entrypoint.sh, garage.toml, garage-init.sh
+│   └── spacetime.json     # TS bindings output dir (web/src/module_bindings)
+├── web/                   # Next.js app
+├── packages/
+│   ├── pulp/              # Component-tree editor library
+│   └── snapshot-core/     # Snapshot v2 format (export/import)
+├── extensions/            # (legacy, unused)
+├── docs/                  # API_ENDPOINTS.md, ACCESS_CONTROL.md, security reviews
+├── docker-compose.yml
+└── pnpm-workspace.yaml
+```
 
 ## Development (without Docker)
 
@@ -171,7 +205,16 @@ attachments, database schema/values/views, access control, custom API
 endpoints, snapshot import. Client call sites use generated bindings under
 `web/src/module_bindings/`.
 
-## License
+## Origins and license
 
-[AGPL-3.0](LICENSE) — same as upstream. Network use of a modified version
-requires offering the corresponding source to users (§13).
+SELFbase is a fork of [Pear](https://codeberg.org/Eclosion-Tech/pear), with the
+fork point tagged `upstream-final`. It focuses on the workspace core: pages,
+databases, relations, files, and APIs.
+
+Upstream features outside this scope are not included: AI users and agent chats,
+Orcha orchestration, MCP server/client, extensions, automations, semantic search,
+AI columns, the device bridge, and the desktop app. SELFbase imports Notion
+exports; it does not include Pear's server-side Notion API importer.
+
+Licensed under [AGPL-3.0](LICENSE), the same license as Pear. Network use of a
+modified version requires offering the corresponding source to users (§13).
