@@ -89,7 +89,8 @@ def main():
                         "page": [page(100, deleted=True), page(101, 100), page(102, 100, True), page(110),
                                  page(200, database=True), page(201, 200), page(210, database=True), page(211, 210),
                                  page(300, deleted=True, database=True), page(301, database=True), page(302, 300),
-                                 page(400), page(401, 400, True), page(402, 401)],
+                                 page(400), page(401, 400, True), page(402, 401),
+                                 page(500), page(501, 500, True), page(502, 501)],
                         "database_schema": [{"id": 200, "pageId": 200, "name": "Parent"},
                             {"id": 210, "pageId": 210, "name": "Child", "parentSchemaId": 200},
                             {"id": 300, "pageId": 300, "name": "Deleted base"},
@@ -133,6 +134,19 @@ def main():
                 call(db, "create_local_user", ["member@example.test", "Member", "regression-only-password"])
                 member = json.load(urllib.request.urlopen(urllib.request.Request(base + "/v1/identity", data=b"")))["token"]
                 request(db, "call/login", ["member@example.test", "regression-only-password"], credential=member)
+                # A surviving ancestor's grant must remain inherited, not
+                # materialized on the child: later revocation must take effect.
+                identity = sql(db, "SELECT identity FROM user WHERE email = 'member@example.test'")[0]["identity"]
+                call(db, "set_page_access_rule", [500, identity, {"read": []}])
+                call(db, "set_page_access_rule", [500, ["0x" + "1" * 64], {"read": []}])
+                request(db, "call/authorize_blob_access", [502, False], credential=member)
+                call(db, "purge_page", [501])
+                assert sql(db, "SELECT * FROM page WHERE id = 502")[0]["parent_pk"] == 500
+                assert sql(db, "SELECT * FROM page_access_rule WHERE page_id = 502") == []
+                request(db, "call/authorize_blob_access", [502, False], credential=member)
+                call(db, "clear_page_access_rule", [500, identity])
+                assert "read access" in request(db, "call/authorize_blob_access", [502, False], fail=True, credential=member)
+                print("PASS: surviving ancestor grants remain inherited and revocation still removes access", flush=True)
                 assert "read access" in request(db, "call/authorize_blob_access", [101, False], fail=True, credential=member)
                 call(db, "purge_page", [100])
                 assert "read access" in request(db, "call/authorize_blob_access", [101, False], fail=True, credential=member)

@@ -690,7 +690,7 @@ fn purge_trashed_page(
     for child in survivors {
         // Preserve the effective inherited grants before removing ancestors;
         // otherwise a restricted surviving page can become open to everyone.
-        preserve_inherited_access(ctx, child.id);
+        preserve_inherited_access(ctx, child.id, &to_purge);
         ctx.db.page().id().update(Page {
             parent_id: root.parent_id,
             parent_pk: root.parent_id.unwrap_or(0),
@@ -725,12 +725,18 @@ mod deletion_tests {
 }
 
 /// Materialize inherited grants before a page is detached from deleted parents.
-fn preserve_inherited_access(ctx: &ReducerContext, page_id: u64) {
+fn preserve_inherited_access(
+    ctx: &ReducerContext,
+    page_id: u64,
+    removed: &std::collections::BTreeSet<u64>,
+) {
     use crate::access_control::{next_page_access_rule_id, page_access_rule, PageAccessRule};
     let mut seen = std::collections::HashSet::new();
     let mut parent = ctx.db.page().id().find(page_id).and_then(|p| p.parent_id);
     while let Some(id) = parent {
-        if !seen.insert(id) {
+        // Surviving ancestors remain inherited after reparenting. Copying
+        // their grants would turn later revocations into ineffective edits.
+        if !removed.contains(&id) || !seen.insert(id) {
             break;
         }
         let rules: Vec<_> = ctx.db.page_access_rule().page_id().filter(id).collect();
