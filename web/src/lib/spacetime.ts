@@ -20,6 +20,7 @@ import {
   resolveWorkspaceDbName,
   resolveWorkspaceWsUri,
   tokenStorageKey,
+  setWorkspaceSessionToken,
   validateResolvedSpacetimeUri,
   type WorkspaceConnection,
 } from "@/src/lib/workspaceConnections";
@@ -147,6 +148,7 @@ export function buildConnectionBuilder(
   }
   const databaseName = resolveWorkspaceDbName(workspace.dbName);
   const tokenKey = tokenStorageKey(workspace.id);
+  setWorkspaceSessionToken(workspace.id, onOidcExpired || oidcToken ? oidcToken ?? null : undefined);
   const savedToken =
     typeof window !== "undefined" ? (localStorage.getItem(tokenKey) ?? undefined) : undefined;
 

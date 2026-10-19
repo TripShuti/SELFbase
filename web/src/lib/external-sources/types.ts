@@ -95,7 +95,7 @@ export function parseSourceConfig(raw: string | null | undefined): SourceConfig 
 export function isExternalLinkColumn(config: string): boolean {
   try { return JSON.parse(config || "{}").externalSource === true; } catch { return false; }
 }
-export function parseRecordLink(raw: string): { id: string; label: string; sourceId?: string } | null {
+export function parseRecordLink(raw: string): { id: string; label: string; sourceId?: string; syncedRevision?: string } | null {
   if (!raw) return null;
   try {
     const value = JSON.parse(raw);

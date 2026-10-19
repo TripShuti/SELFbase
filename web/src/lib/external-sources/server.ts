@@ -70,9 +70,9 @@ export async function loadSource(transport: StdbTransport, databaseId: string, s
       secret = row.secret;
     }
   } else if (config.authHeader) {
-    const [row] = await transport.sql<{ secret: string }>("SELECT secret FROM external_source_secret WHERE database_id = ?", [BigInt(databaseId)]);
+    const [row] = await transport.sql<{ secret: string; scope: string }>("SELECT secret, scope FROM external_source_secret WHERE database_id = ?", [BigInt(databaseId)]);
     secret = row?.secret || "";
-    if (!secret) throw new Error("This source needs a credential; re-enter it in connection settings");
+    if (!secret || unwrapScalar(row.scope) !== JSON.stringify([config.baseUrl, config.authHeader, config.authPrefix])) throw new Error("This source needs a scoped credential; run pending migrations or re-enter it in connection settings");
   }
   return { config, secret, settings, primarySourceKey: configs[0]?.sourceId || "" };
 }
@@ -297,7 +297,7 @@ export async function loadRowSource(transport: StdbTransport, databaseId: string
   return loadSource(transport, databaseId, link.sourceId);
 }
 
-interface PollState { revision: string; nextRun: number; lastRun: string | null; change?: string; applied: Map<string, string>; error: boolean; failures: number; waiting?: boolean }
+interface PollState { revision: string; nextRun: number; lastRun: string | null; change?: string; applied: Map<string, string>; error: boolean; failures: number; waiting?: boolean; pendingLinks?: string }
 const globals = globalThis as typeof globalThis & {
   __externalSourceWorker?: { started: boolean; running: boolean; states: Map<string, SourceStatus>; polls: Map<string, PollState> };
 };
@@ -334,13 +334,17 @@ export async function syncSourceDatabase(transport: StdbTransport, databaseId: s
 }
 export async function runSourceWorkerCycle(transport: StdbTransport, now = Date.now()) {
   const schemas = await transport.sql<Schema>("SELECT page_id, config FROM database_schema");
-  const groups = new Map<string, { databaseId: string; config: SourceConfig }[]>();
+  const groups = new Map<string, { databaseId: string; config: SourceConfig; primarySourceKey: string }[]>();
   const activeBindings = new Set<string>();
   for (const schema of schemas) for (const config of configsFromSchema(schema)) {
     const databaseId = String(schema.page_id), key = config.sourceId || "legacy:" + databaseId;
     activeBindings.add(bindingKey(databaseId, config.sourceId));
-    if (!config.enabled) continue;
-    const list = groups.get(key) || []; list.push({ databaseId, config }); groups.set(key, list);
+    if (!config.enabled) {
+      worker.states.set(bindingKey(databaseId, config.sourceId), { serviceConfigured: !!sourceEnvironment().token, automaticSync: false, lastRun: null, updated: 0, error: null, syncMode: config.syncMode });
+      continue;
+    }
+    const primarySourceKey = configsFromSchema(schema)[0]?.sourceId || "";
+    const list = groups.get(key) || []; list.push({ databaseId, config, primarySourceKey }); groups.set(key, list);
   }
   for (const key of worker.states.keys()) if (!activeBindings.has(key)) worker.states.delete(key);
   for (const key of worker.polls.keys()) if (!groups.has(key)) worker.polls.delete(key);
@@ -357,13 +361,34 @@ export async function runSourceWorkerCycle(transport: StdbTransport, now = Date.
       mode = settings.syncMode || "interval";
       const revision = settings.revision;
       checkedRevision = revision;
-      const pending = bindings.some(binding => state.applied.get(bindingKey(binding.databaseId, binding.config.sourceId)) !== binding.config.revision);
+      const pendingConfig = bindings.some(binding => state.applied.get(bindingKey(binding.databaseId, binding.config.sourceId)) !== binding.config.revision);
       const due = state.nextRun <= now || state.revision !== revision;
       if (mode === "manual") {
         for (const binding of bindings) worker.states.set(bindingKey(binding.databaseId, binding.config.sourceId), { serviceConfigured: true, automaticSync: false, lastRun: state.lastRun, updated: 0, error: null, syncMode: mode });
         continue;
       }
-      if (!due && (!pending || state.waiting)) continue;
+      // Links carry their last successfully applied mapping revision. Unlike
+      // an in-memory poll flag, this survives failed HTTP requests and restarts.
+      const dirty: string[] = [];
+      for (const binding of bindings) {
+        const rows = await transport.sql<Row>("SELECT id, parent_id, deleted_at FROM page WHERE parent_pk = ?", [BigInt(binding.databaseId)]);
+        const active = new Set(rows.filter(row => unwrapScalar(row.deleted_at) == null).map(row => String(row.id)));
+        const cells = await transport.sql<Cell>("SELECT page_id, value FROM page_property_value WHERE property_definition_id = ?", [BigInt(binding.config.linkPropertyId)]);
+        for (const cell of cells) {
+          if (!active.has(String(cell.page_id))) continue;
+          const value = decodePropertyValue(cell.value);
+          const link = typeof value === "string" ? parseRecordLink(value) : null;
+          if (link && (link.sourceId ?? binding.primarySourceKey) === (binding.config.sourceId || "") && link.syncedRevision !== binding.config.revision) {
+            dirty.push(JSON.stringify([binding.databaseId, cell.page_id, value, binding.config.revision]));
+          }
+        }
+      }
+      const pendingLinks = JSON.stringify(dirty.sort());
+      const pending = pendingConfig || dirty.length > 0;
+      const previouslyPending = new Set<string>(JSON.parse(state.pendingLinks || "[]"));
+      const newLinks = dirty.some(link => !previouslyPending.has(link));
+      state.pendingLinks = pendingLinks;
+      if (!due && ((!pendingConfig && !newLinks) || state.waiting)) continue;
       first.requestCache = requestCache;
       if (mode === "change") {
         const body = await requestJson(first, sourceUrl(first.config, settings.changePath || ""));
@@ -378,7 +403,7 @@ export async function runSourceWorkerCycle(transport: StdbTransport, now = Date.
         }
       }
       // A scheduled refresh replaces the collection once, shared by every table.
-      if (shouldSync && due && (state.lastRun || mode === "change")) invalidateSourceCache(first);
+      if (shouldSync && ((changed != null && changed !== state.change) || (due && state.lastRun))) invalidateSourceCache(first);
       let failed = 0;
       for (const binding of bindings) {
         let updated = 0, error: string | null = null;

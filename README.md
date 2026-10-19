@@ -140,9 +140,13 @@ cp target/wasm32-unknown-unknown/release/server.wasm ../docker/server.wasm
 ## Authentication
 
 Default — native SpacetimeDB email/password, zero config. Optional — any OIDC
-provider via `NEXT_PUBLIC_AUTH_MODE=oidc`, `NEXT_PUBLIC_OIDC_AUTHORITY`,
-`NEXT_PUBLIC_OIDC_CLIENT_ID`; the ID token must carry `email`, `name`, or
-`preferred_username`.
+provider via `NEXT_PUBLIC_SPACETIMEAUTH_AUTHORITY` and
+`NEXT_PUBLIC_SPACETIMEAUTH_CLIENT_ID` (Compose exposes these as
+`SPACETIMEAUTH_AUTHORITY` and `SPACETIMEAUTH_CLIENT_ID`). Rebuild web after
+changing them. As the module publisher, configure trust with
+`set_oidc_trust_policy(issuer, audience)` using the provider's HTTPS issuer and
+the expected client ID. The ID token must carry `email`, `name`, or
+`preferred_username`. Configure this trust policy again after a snapshot restore.
 
 ## Backend API surface
 

@@ -43,6 +43,8 @@ server/web/
 Thumbs.db
 *.swp
 *.swo
+__pycache__/
+*.py[cod]
 .idea/
 .vscode/
 

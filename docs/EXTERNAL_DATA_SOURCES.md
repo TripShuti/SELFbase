@@ -65,7 +65,11 @@ that source. Promotion uses the saved endpoint definition, not unsaved edits.
 Select another workspace source and save to add a connection alongside existing
 ones. In a row's link picker choose **Source**, then search. Changing a row's source
 replaces its one link; sources never merge statistics for a row. Disconnecting a
-source requires unlinking its rows first; saved values remain.
+source requires unlinking its active rows first; links on rows in Trash are
+removed automatically and their mapped values remain. Disconnecting the last
+source removes the empty internal link column. Connected link columns cannot
+be deleted or changed to another type through ordinary schema reducers; saving
+the connection repairs a definition missing from an older deployment.
 
 Selectors support own-property dot paths and numeric array indexes, e.g.
 `data.items`, `stats.total` or `items.0.name`; JSONPath expressions are not used.
@@ -77,6 +81,10 @@ search query parameters are unnecessary for a collection.
 ## Values, ownership and refresh
 
 - A link stores `{ "id": "stable-id", "label": "Display name", "sourceId": "source-id" }` internally.
+  Successful refreshes also store an internal `syncedRevision`. A new or
+  reselected link has no successful revision until its snapshot commits, so
+  background sync can retry a failed initial refresh even when upstream has
+  not published another revision. Failed attempts retain the retry backoff.
   Old links without sourceId continue to use the original connection.
   The ID controls synchronization; renaming a row does not break it. Existing
   link-property data remains intact for backward compatibility, but the property
@@ -92,7 +100,8 @@ search query parameters are unnecessary for a collection.
   strings are valid values. Date mappings optionally treat zero as an absent
   timestamp, avoiding January 1970 for APIs that use zero for never played.
   Invalid conversions reject the whole row refresh.
-- Selecting a different ID clears the previous record's mapped values so that
+- Selecting a different ID, or linking an unlinked row, clears the selected
+  source's destination values (and the previous linked source's destinations) so that
   unavailable new fields cannot display statistics from the previous record.
   Unlinking retains values as an ordinary snapshot.
 - All mapped values are applied in one reducer transaction. Rebinding, disabling
@@ -105,6 +114,8 @@ search query parameters are unnecessary for a collection.
   successful revision; records refresh only for a new revision or changed mappings.
   Upstream requests have a 15-second timeout, redirects are rejected, responses
   are limited to 2 MB. Identical requests are shared across databases in a cycle.
+  A newly observed upstream revision invalidates the old snapshot even when a
+  mapping edit triggers the check before the scheduled interval.
   Collection snapshots are bounded (32 sources, 20,000 records per array) and kept
   only in web-server memory with interval-based expiry and concurrent-request
   deduplication. Restarting web drops this cache; no raw API cache is written to
@@ -130,7 +141,18 @@ re-enter each shared source credential once in Settings → Data sources. A data
 private credentials. Editing a shared source's base URL, auth header or prefix requires re-entering
 the credential. Credentials are bound to that endpoint/authentication scope,
 including after a snapshot restore, to prevent reuse with another destination.
-The only added table is private; existing public table layouts are unchanged.
+Credential tables are private; existing public table layouts are unchanged.
+
+After upgrading, run `run_pending_migrations` as an admin or the publisher (the
+Docker entrypoint already does this). The credential-scope migration preserves
+valid database-local keys and removes orphan keys. Without this migration an
+older unscoped key is refused until re-entered. Database-local keys are now
+bound to the base URL, authentication header and prefix, just like shared keys.
+Permanent database deletion removes its local key. Snapshot import is
+admin-only and clears existing private source credentials before accepting
+restored definitions; re-enter credentials after restoring. OIDC HTTP requests
+use the current in-memory session token, including after renewal, without
+falling back to an old native identity.
 
 ## Conditional Select statuses and manual labels
 
@@ -238,8 +260,20 @@ Local checks cover generic mapping/HTTP behavior, two unrelated response shapes,
 real SpacetimeDB 2.0.3 upgrade and synchronization, preservation of existing
 records and notes, unit conversion, null/zero handling, idempotent history,
 rejected stale writes, private-credential/admin boundaries, shared-key reuse by two databases, promotion
-without data loss, propagated edits and browser-based source management. Test scripts are
-kept locally and excluded from deployment commits.
+without data loss, propagated edits and browser-based source management.
+Regression tests live in `web/src/lib/external-sources/` and
+`server/tests/external_source_regressions.py`. Run them with:
+
+```sh
+pnpm --filter @selfbase/web test
+python3 server/tests/external_source_regressions.py
+```
+
+The Python suite uses the pinned SpacetimeDB 2.0.3 binaries, disposable data and
+fake API credentials. Set `TEST_SPACETIME_BIN_DIR` if those binaries are installed
+outside `~/.local/share/spacetime/bin/2.0.3`. It tests the committed WASM, so rebuild
+and copy `server/docker/server.wasm` before checking backend changes. It never
+connects to the running workspace.
 
 
 ## Steam library using the generic collection mode

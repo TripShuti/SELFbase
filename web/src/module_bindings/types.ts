@@ -249,6 +249,7 @@ export type DocBlockInput = __Infer<typeof DocBlockInput>;
 export const ExternalSourceSecret = __t.object("ExternalSourceSecret", {
   databaseId: __t.u64(),
   secret: __t.string(),
+  scope: __t.option(__t.string()),
 });
 export type ExternalSourceSecret = __Infer<typeof ExternalSourceSecret>;
 

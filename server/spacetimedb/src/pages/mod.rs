@@ -728,6 +728,8 @@ pub fn run_trash_purge_tick(ctx: &ReducerContext, _job: TrashPurgeTick) -> Resul
 }
 
 fn purge_page_inner(ctx: &ReducerContext, page_id: u64) -> Result<(), String> {
+    use crate::external_sources::external_source_secret;
+    ctx.db.external_source_secret().database_id().delete(page_id);
     // Delete linked data (PageContent is 1:1 with Page)
     ctx.db.page_content().page_id().delete(page_id);
 

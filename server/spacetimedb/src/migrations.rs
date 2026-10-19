@@ -67,6 +67,11 @@ pub struct MigrationState {
 /// `MigrationState` rows for any unfinished migrations.
 #[reducer]
 pub fn run_pending_migrations(ctx: &ReducerContext) -> Result<(), String> {
+    if !crate::auth::sender_is_admin(ctx)
+        && !crate::module_install::sender_is_module_publisher(ctx)
+    {
+        return Err("Only an admin or publisher may run migrations".into());
+    }
     macro_rules! run_step {
         ($ctx:expr, $key:expr, $body:expr) => {{
             let key: &str = $key;
@@ -215,6 +220,7 @@ pub fn run_pending_migrations(ctx: &ReducerContext) -> Result<(), String> {
             Ok::<(), String>(())
         }
     );
+    run_step!(ctx, "external_source_credential_scope_v1", crate::external_sources::migrate_legacy_credentials);
     Ok(())
 }
 
