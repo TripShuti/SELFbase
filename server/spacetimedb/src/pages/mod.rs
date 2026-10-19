@@ -505,6 +505,10 @@ pub fn save_yjs_state(ctx: &ReducerContext, page_id: u64, data: Vec<u8>) -> Resu
 pub fn delete_page(ctx: &ReducerContext, page_id: u64) -> Result<(), String> {
     require_page_write(ctx, page_id)?;
     let page = ctx.db.page().id().find(page_id).ok_or("Page not found")?;
+    if page.deleted_at.is_some() {
+        ensure_trash_purge_tick(ctx);
+        return Ok(());
+    }
     ctx.db.page().id().update(Page {
         deleted_at: Some(ctx.timestamp),
         updated_at: ctx.timestamp,
@@ -518,21 +522,24 @@ pub fn delete_page(ctx: &ReducerContext, page_id: u64) -> Result<(), String> {
 /// Soft-delete a page AND all of its descendants in one atomic call.
 /// `delete_page` alone strands children invisibly (still active rows whose
 /// parent no longer renders); page-level deletes in the UI and agent tools
-/// use this so a tree behaves like a tree. Fires the PageDeleted automation
-/// trigger for the root only — one user action, one event.
+/// use this so a tree behaves like a tree. Traversal includes already-trashed
+/// nodes so their live descendants are not stranded.
 #[reducer]
 pub fn delete_page_subtree(ctx: &ReducerContext, page_id: u64) -> Result<(), String> {
     require_page_write(ctx, page_id)?;
     ctx.db.page().id().find(page_id).ok_or("Page not found")?;
 
     let mut queue = vec![page_id];
+    let mut seen = std::collections::HashSet::new();
     while let Some(id) = queue.pop() {
+        if !seen.insert(id) {
+            continue;
+        }
         let children: Vec<u64> = ctx
             .db
             .page()
             .parent_pk()
             .filter(&id)
-            .filter(|p| p.deleted_at.is_none())
             .map(|p| p.id)
             .collect();
         queue.extend(children);
@@ -606,13 +613,12 @@ pub fn delete_attachment(ctx: &ReducerContext, attachment_id: u64) -> Result<(),
     Ok(())
 }
 
-/// Permanently delete a soft-deleted page and its direct data. Fails if page is not in trash.
-/// Children are reparented to this page's parent (never purged) — we never cascade-delete
-/// non-deleted content.
+/// Permanently delete a trashed page and its trashed descendants.
+/// Active descendants survive and are reparented with their access grants.
 #[reducer]
 pub fn purge_page(ctx: &ReducerContext, page_id: u64) -> Result<(), String> {
     require_page_write(ctx, page_id)?;
-    purge_trashed_page(ctx, page_id)
+    purge_trashed_page(ctx, page_id, None)
 }
 
 /// Shared body of `purge_page`, `empty_trash`, and the retention tick.
@@ -620,36 +626,140 @@ pub fn purge_page(ctx: &ReducerContext, page_id: u64) -> Result<(), String> {
 /// by the subtree delete); ACTIVE descendants are never purged — they bubble
 /// up to the purged root's parent so live content stays reachable.
 /// Caller is responsible for authorization.
-fn purge_trashed_page(ctx: &ReducerContext, page_id: u64) -> Result<(), String> {
+fn purge_trashed_page(
+    ctx: &ReducerContext,
+    page_id: u64,
+    cutoff: Option<i64>,
+) -> Result<(), String> {
     let root = ctx.db.page().id().find(page_id).ok_or("Page not found")?;
     if root.deleted_at.is_none() {
         return Err("Page is not in trash. Move to trash first.".to_string());
     }
 
-    let mut to_purge: Vec<u64> = Vec::new();
+    let mut to_purge = std::collections::BTreeSet::new();
+    let mut survivors = Vec::new();
     let mut queue = vec![page_id];
     while let Some(id) = queue.pop() {
-        to_purge.push(id);
-        let children: Vec<Page> = ctx.db.page().parent_pk().filter(&id).collect();
-        for child in children {
-            if child.deleted_at.is_some() {
+        if !to_purge.insert(id) {
+            continue;
+        }
+        for child in ctx.db.page().parent_pk().filter(id) {
+            if eligible_for_purge(child.deleted_at, cutoff) {
                 queue.push(child.id);
             } else {
-                // Live content under a purged subtree surfaces at the root's
-                // parent rather than being destroyed or stranded.
-                ctx.db.page().id().update(Page {
-                    parent_id: root.parent_id,
-                    parent_pk: root.parent_id.unwrap_or(0),
-                    updated_at: ctx.timestamp,
-                    ..child
-                });
+                survivors.push(child);
             }
         }
     }
-    for id in to_purge {
-        purge_page_inner(ctx, id)?;
+    // Preflight before mutations: callers such as empty_trash intentionally
+    // skip refused roots. Do not delete definitions still inherited elsewhere.
+    let schemas: Vec<_> = ctx.db.database_schema().iter().collect();
+    let removed_schemas: std::collections::HashSet<_> = schemas
+        .iter()
+        .filter(|s| to_purge.contains(&s.page_id))
+        .map(|s| s.id)
+        .collect();
+    if schemas.iter().any(|s| {
+        !to_purge.contains(&s.page_id)
+            && s.parent_schema_id
+                .is_some_and(|id| removed_schemas.contains(&id))
+    }) {
+        return Err("Cannot purge a database while another database inherits its schema; detach or purge the dependent database first".into());
     }
+    // Reparenting a live row must not silently discard its cells when its
+    // database's definitions are removed. Trash those rows first or retain
+    // the database; ordinary document children without cells may survive.
+    for property in ctx
+        .db
+        .property_definition()
+        .iter()
+        .filter(|p| removed_schemas.contains(&p.schema_id))
+    {
+        if ctx
+            .db
+            .page_property_value()
+            .property_definition_id()
+            .filter(property.id)
+            .any(|cell| {
+                !to_purge.contains(&cell.page_id) && ctx.db.page().id().find(cell.page_id).is_some()
+            })
+        {
+            return Err("Cannot purge a database with surviving rows using its columns; move those rows to trash first".into());
+        }
+    }
+    for child in survivors {
+        // Preserve the effective inherited grants before removing ancestors;
+        // otherwise a restricted surviving page can become open to everyone.
+        preserve_inherited_access(ctx, child.id, &to_purge);
+        ctx.db.page().id().update(Page {
+            parent_id: root.parent_id,
+            parent_pk: root.parent_id.unwrap_or(0),
+            updated_at: ctx.timestamp,
+            ..child
+        });
+    }
+    for id in &to_purge {
+        purge_page_inner(ctx, *id)?;
+    }
+    prune_incoming_relations(ctx, &to_purge)?;
     Ok(())
+}
+
+fn eligible_for_purge(deleted_at: Option<Timestamp>, cutoff: Option<i64>) -> bool {
+    deleted_at.is_some_and(|d| cutoff.is_none_or(|c| d.to_micros_since_unix_epoch() < c))
+}
+
+#[cfg(test)]
+mod deletion_tests {
+    use super::*;
+    #[test]
+    fn retention_preserves_active_and_recently_trashed_children() {
+        let stamp = |v| Some(Timestamp::from_micros_since_unix_epoch(v));
+        assert!(!eligible_for_purge(None, None));
+        assert!(!eligible_for_purge(None, Some(100)));
+        assert!(eligible_for_purge(stamp(99), Some(100)));
+        assert!(!eligible_for_purge(stamp(100), Some(100)));
+        assert!(!eligible_for_purge(stamp(101), Some(100)));
+        assert!(eligible_for_purge(stamp(101), None));
+    }
+}
+
+/// Materialize inherited grants before a page is detached from deleted parents.
+fn preserve_inherited_access(
+    ctx: &ReducerContext,
+    page_id: u64,
+    removed: &std::collections::BTreeSet<u64>,
+) {
+    use crate::access_control::{next_page_access_rule_id, page_access_rule, PageAccessRule};
+    let mut seen = std::collections::HashSet::new();
+    let mut parent = ctx.db.page().id().find(page_id).and_then(|p| p.parent_id);
+    while let Some(id) = parent {
+        // Surviving ancestors remain inherited after reparenting. Copying
+        // their grants would turn later revocations into ineffective edits.
+        if !removed.contains(&id) || !seen.insert(id) {
+            break;
+        }
+        let rules: Vec<_> = ctx.db.page_access_rule().page_id().filter(id).collect();
+        for rule in rules {
+            if !ctx
+                .db
+                .page_access_rule()
+                .page_id()
+                .filter(page_id)
+                .any(|r| r.principal == rule.principal && r.permission == rule.permission)
+            {
+                ctx.db.page_access_rule().insert(PageAccessRule {
+                    id: next_page_access_rule_id(ctx),
+                    page_id,
+                    principal: rule.principal,
+                    permission: rule.permission,
+                    granted_by: rule.granted_by,
+                    granted_at: rule.granted_at,
+                });
+            }
+        }
+        parent = ctx.db.page().id().find(id).and_then(|p| p.parent_id);
+    }
 }
 
 /// Permanently delete every trashed page the caller may write. Pages the
@@ -666,7 +776,7 @@ pub fn empty_trash(ctx: &ReducerContext) -> Result<(), String> {
         .collect();
     let mut purged = 0u32;
     for id in trashed {
-        if can_write_page(ctx, id, ctx.sender()) && purge_trashed_page(ctx, id).is_ok() {
+        if can_write_page(ctx, id, ctx.sender()) && purge_trashed_page(ctx, id, None).is_ok() {
             purged += 1;
         }
     }
@@ -703,6 +813,9 @@ pub(crate) fn ensure_trash_purge_tick(ctx: &ReducerContext) {
 /// Daily tick: purge pages trashed longer than the retention window.
 #[reducer]
 pub fn run_trash_purge_tick(ctx: &ReducerContext, _job: TrashPurgeTick) -> Result<(), String> {
+    if ctx.sender() != ctx.identity() {
+        return Err("Trash retention may only be invoked by the scheduler".into());
+    }
     let cutoff_micros = ctx
         .timestamp
         .to_micros_since_unix_epoch()
@@ -712,14 +825,13 @@ pub fn run_trash_purge_tick(ctx: &ReducerContext, _job: TrashPurgeTick) -> Resul
         .page()
         .iter()
         .filter(|p| {
-            p.deleted_at
-                .is_some_and(|d| d.to_micros_since_unix_epoch() < cutoff_micros)
+            eligible_for_purge(p.deleted_at, Some(cutoff_micros))
         })
         .map(|p| p.id)
         .collect();
     let count = expired.len();
     for id in expired {
-        let _ = purge_trashed_page(ctx, id);
+        let _ = purge_trashed_page(ctx, id, Some(cutoff_micros));
     }
     if count > 0 {
         log::info!("trash retention: purged {count} page(s) older than {TRASH_RETENTION_DAYS}d");
@@ -729,12 +841,59 @@ pub fn run_trash_purge_tick(ctx: &ReducerContext, _job: TrashPurgeTick) -> Resul
 
 fn purge_page_inner(ctx: &ReducerContext, page_id: u64) -> Result<(), String> {
     use crate::external_sources::external_source_secret;
-    ctx.db.external_source_secret().database_id().delete(page_id);
+    ctx.db
+        .external_source_secret()
+        .database_id()
+        .delete(page_id);
+    // Page-scoped collaboration and access rows must not outlive their page.
+    use crate::access_control::{block_access_rule, page_access_request, page_access_rule};
+    use crate::comments::block_comment;
+    let ids: Vec<_> = ctx
+        .db
+        .block_comment()
+        .page_id()
+        .filter(page_id)
+        .map(|r| r.id)
+        .collect();
+    for id in ids {
+        ctx.db.block_comment().id().delete(id);
+    }
+    let ids: Vec<_> = ctx
+        .db
+        .page_access_rule()
+        .page_id()
+        .filter(page_id)
+        .map(|r| r.id)
+        .collect();
+    for id in ids {
+        ctx.db.page_access_rule().id().delete(id);
+    }
+    let ids: Vec<_> = ctx
+        .db
+        .block_access_rule()
+        .page_id()
+        .filter(page_id)
+        .map(|r| r.id)
+        .collect();
+    for id in ids {
+        ctx.db.block_access_rule().id().delete(id);
+    }
+    let ids: Vec<_> = ctx
+        .db
+        .page_access_request()
+        .page_id()
+        .filter(page_id)
+        .map(|r| r.id)
+        .collect();
+    for id in ids {
+        ctx.db.page_access_request().id().delete(id);
+    }
+
     // Delete linked data (PageContent is 1:1 with Page)
     ctx.db.page_content().page_id().delete(page_id);
 
-    // Attachment rows go with the page. (The S3 bytes + blob-registry rows
-    // are off-module; reclaiming them is the orphaned-blob sweeper's job.)
+    // Attachment metadata goes with the page. S3 bytes are off-module;
+    // this reducer cannot delete objects, and no automatic sweeper exists.
     let attachment_ids: Vec<u64> = ctx
         .db
         .attachment()
@@ -804,7 +963,7 @@ fn purge_page_inner(ctx: &ReducerContext, page_id: u64) -> Result<(), String> {
             .map(|p| p.id)
             .collect();
         for pid in prop_ids {
-            ctx.db.property_definition().id().delete(pid);
+            crate::pages::schemas::purge_property(ctx, pid);
         }
         ctx.db.database_schema().id().delete(schema_id);
     }
@@ -818,6 +977,28 @@ fn purge_page_inner(ctx: &ReducerContext, page_id: u64) -> Result<(), String> {
         .collect();
     for vid in view_ids {
         ctx.db.database_view().id().delete(vid);
+    }
+
+    use crate::api_endpoints::{api_endpoint, database_row_marker};
+    let endpoints: Vec<_> = ctx
+        .db
+        .api_endpoint()
+        .iter()
+        .filter(|e| e.database_page_id == page_id)
+        .map(|e| e.id)
+        .collect();
+    for id in endpoints {
+        crate::api_endpoints::reducers::purge_api_endpoint(ctx, id);
+    }
+    let markers: Vec<_> = ctx
+        .db
+        .database_row_marker()
+        .page_id()
+        .filter(page_id)
+        .map(|m| m.id)
+        .collect();
+    for id in markers {
+        ctx.db.database_row_marker().id().delete(id);
     }
 
     ctx.db.page().id().delete(page_id);
@@ -890,5 +1071,41 @@ pub fn promote_to_instruction(
         updated_at: ctx.timestamp,
     });
     // Parent access is inherited dynamically; do not clone grants.
+    Ok(())
+}
+
+fn prune_incoming_relations(
+    ctx: &ReducerContext,
+    removed: &std::collections::BTreeSet<u64>,
+) -> Result<(), String> {
+    // Remove incoming links from current relation cells. Past values remain
+    // history, while current cells must not reference a nonexistent page.
+    let relations: Vec<_> = ctx
+        .db
+        .page_property_value()
+        .iter()
+        .filter_map(|cell| {
+            if let crate::pages::schemas::PropertyValue::Relation(ids) = &cell.value {
+                if ids.iter().any(|id| removed.contains(id)) {
+                    let remaining = ids
+                        .iter()
+                        .copied()
+                        .filter(|id| !removed.contains(id))
+                        .collect();
+                    return Some((cell.page_id, cell.property_definition_id, remaining));
+                }
+            }
+            None
+        })
+        .collect();
+    for (row, property, ids) in relations {
+        crate::pages::schemas::set_property_value_inner(
+            ctx,
+            row,
+            property,
+            crate::pages::schemas::PropertyValue::Relation(ids),
+            ActorType::Human,
+        )?;
+    }
     Ok(())
 }

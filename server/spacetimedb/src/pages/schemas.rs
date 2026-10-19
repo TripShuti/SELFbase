@@ -538,11 +538,49 @@ pub fn delete_property(ctx: &ReducerContext, property_definition_id: u64) -> Res
     if crate::external_sources::is_connected_link_column(ctx, property_definition_id) {
         return Err("Disconnect external sources before deleting their link column".into());
     }
+    purge_property(ctx, property_definition_id);
+    Ok(())
+}
+
+/// Remove a definition and all cells/history that reference it, including
+/// inherited cells stored on another database's rows.
+pub(crate) fn purge_property(ctx: &ReducerContext, property_definition_id: u64) {
+    crate::external_sources::remove_property_mappings(ctx, property_definition_id);
+    let values: Vec<u64> = ctx
+        .db
+        .page_property_value()
+        .property_definition_id()
+        .filter(property_definition_id)
+        .map(|v| v.id)
+        .collect();
+    for id in values {
+        ctx.db.page_property_value().id().delete(id);
+    }
+    let history: Vec<u64> = ctx
+        .db
+        .page_property_value_history()
+        .property_definition_id()
+        .filter(property_definition_id)
+        .map(|v| v.id)
+        .collect();
+    for id in history {
+        ctx.db.page_property_value_history().id().delete(id);
+    }
+    use crate::api_endpoints::api_field_mapping;
+    let mappings: Vec<_> = ctx
+        .db
+        .api_field_mapping()
+        .iter()
+        .filter(|m| m.property_definition_id == property_definition_id)
+        .map(|m| m.id)
+        .collect();
+    for id in mappings {
+        ctx.db.api_field_mapping().id().delete(id);
+    }
     ctx.db
         .property_definition()
         .id()
         .delete(property_definition_id);
-    Ok(())
 }
 
 #[reducer]

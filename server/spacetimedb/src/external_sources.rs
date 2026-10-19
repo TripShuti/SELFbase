@@ -1107,6 +1107,10 @@ fn row_config(
         return Err("Row is deleted".into());
     }
     let parent = row.parent_id.ok_or("Row is not in a database")?;
+    let database = ctx.db.page().id().find(parent).ok_or("Database not found")?;
+    if database.deleted_at.is_some() {
+        return Err("Database is deleted".into());
+    }
     let schema = schema_for(ctx, parent)?;
     let primary = config_for(&schema, true)?;
     let link_id = primary
@@ -1438,4 +1442,48 @@ pub fn apply_external_record(
         ctx.db.page().id().update(row);
     }
     Ok(())
+}
+
+/// Structural cleanup only: removing a column must not leave sync mappings
+/// targeting an absent definition. Bump revisions to reject in-flight writes.
+pub(crate) fn remove_property_mappings(ctx: &ReducerContext, property_id: u64) {
+    fn prune(source: &mut Value, property: &str, revision: &str) -> bool {
+        let Some(mappings) = source.get_mut("mappings").and_then(Value::as_array_mut) else {
+            return false;
+        };
+        let before = mappings.len();
+        mappings.retain(|mapping| {
+            mapping.get("targetPropertyId").and_then(Value::as_str) != Some(property)
+        });
+        if before == mappings.len() {
+            return false;
+        }
+        source["revision"] = Value::String(revision.into());
+        true
+    }
+    let id = property_id.to_string();
+    let revision = ctx.timestamp.to_micros_since_unix_epoch().to_string();
+    let schemas: Vec<_> = ctx.db.database_schema().iter().collect();
+    for mut schema in schemas {
+        let Ok(mut config) =
+            serde_json::from_str::<Value>(schema.config.as_deref().unwrap_or("{}"))
+        else {
+            continue;
+        };
+        let mut changed = config
+            .get_mut("externalSource")
+            .is_some_and(|source| prune(source, &id, &revision));
+        if let Some(sources) = config
+            .get_mut("externalSources")
+            .and_then(Value::as_array_mut)
+        {
+            for source in sources {
+                changed |= prune(source, &id, &revision);
+            }
+        }
+        if changed {
+            schema.config = Some(config.to_string());
+            ctx.db.database_schema().id().update(schema);
+        }
+    }
 }
