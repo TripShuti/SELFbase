@@ -30,6 +30,7 @@
 import { writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { DbConnection } from "../src/module_bindings/index.js";
 import type { DbConnection as DbConnectionType } from "../src/module_bindings/index.js";
 import { tables } from "../src/module_bindings/index.js";
@@ -42,9 +43,13 @@ import {
 
 const dbName = process.argv[2];
 const uri = process.argv[3] ?? "ws://localhost:3100";
+const repoRoot = fileURLToPath(new URL("../..", import.meta.url));
+const targetDir = resolve(repoRoot, process.env.CARGO_TARGET_DIR ?? "server/spacetimedb/target");
 const wasmPath =
   process.argv[4] ??
-  "../server/spacetimedb/target/wasm32-unknown-unknown/release/server.wasm";
+  (process.env.TEST_MODULE_WASM
+    ? resolve(process.env.TEST_MODULE_WASM)
+    : resolve(targetDir, "wasm32-unknown-unknown/release/server.wasm"));
 
 if (!dbName) {
   console.error("Usage: pnpm --filter web e2e:snapshot <db-name> [<ws-uri>] [<wasm-path>]");

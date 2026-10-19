@@ -15,7 +15,7 @@ import urllib.error
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[2]
-BIN = Path(os.environ.get("TEST_SPACETIME_BIN_DIR", str(Path.home() / ".local/share/spacetime/bin/2.0.3")))
+from regression_config import BASELINES, BIN, MODULE_WASM
 POLICY = json.loads((ROOT / "server/spacetimedb/snapshot_tables_v2.json").read_text())["include"]
 
 
@@ -53,7 +53,7 @@ def main():
                 old = temp / "baseline.wasm"
                 baseline_path = os.environ.get("TEST_BASELINE_WASM")
                 old.write_bytes(Path(baseline_path).read_bytes() if baseline_path else subprocess.check_output(
-                    ["git", "show", "d2c60f15a426c3dfd996d6ee510b210a55b0dbd7:server/docker/server.wasm"], cwd=ROOT))
+                    ["git", "show", f"{BASELINES['snapshots']}:server/docker/server.wasm"], cwd=ROOT))
                 publish(old, "snapshot-baseline")
                 token = re.search(r"eyJ[A-Za-z0-9_.-]+", (temp / "config/spacetime/cli.toml").read_text()).group()
 
@@ -107,7 +107,7 @@ def main():
                 call("snapshot-baseline", "import_v_2_commit", [json.dumps({"counts": {}})])
                 print("CONFIRMED baseline: empty manifest committed without accounting for imported tables", flush=True)
 
-                publish(ROOT / "server/spacetimedb/target/wasm32-unknown-unknown/release/server.wasm", "snapshot-fixed")
+                publish(MODULE_WASM, "snapshot-fixed")
                 db = "snapshot-fixed"
                 setup(db)
                 for counts in [{}, {"page": 0}, {**dict.fromkeys(POLICY, 0), "unknown": 0}]:
@@ -152,18 +152,18 @@ def main():
                 call(db, "import_v_2_commit", [json.dumps({"counts": counts})])
                 print("PASS: same-identity restore preserves identity/profile and bootstrap login/admin access", flush=True)
                 # Full SDK export/clear/import, followed by the real CLI path.
-                publish(ROOT / "server/spacetimedb/target/wasm32-unknown-unknown/release/server.wasm", "snapshot-roundtrip")
+                publish(MODULE_WASM, "snapshot-roundtrip")
                 exported = temp / "roundtrip.json"
                 test_env = dict(env, SNAPSHOT_TEST_TOKEN=token, SNAPSHOT_TEST_OUTPUT=str(exported), SPACETIME_CLI=str(BIN / "spacetimedb-cli"))
                 result = subprocess.run([str(ROOT / "web/node_modules/.bin/tsx"), "scripts/snapshot-v2-e2e.ts", "snapshot-roundtrip", base.replace("http:", "ws:"),
-                    str(ROOT / "server/spacetimedb/target/wasm32-unknown-unknown/release/server.wasm")], cwd=ROOT / "web", env=test_env,
+                    str(MODULE_WASM)], cwd=ROOT / "web", env=test_env,
                     text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=120)
                 assert result.returncode == 0, result.stdout
                 print(result.stdout, flush=True)
 
                 # Publish a fresh target first, so this also checks the CLI's
                 # same-identity bootstrap path without any production endpoint.
-                publish(ROOT / "server/spacetimedb/target/wasm32-unknown-unknown/release/server.wasm", "snapshot-cli")
+                publish(MODULE_WASM, "snapshot-cli")
                 cli_env = dict(env, SELFBASE_URL=base, SELFBASE_TOKEN=token)
                 result = subprocess.run([str(ROOT / "web/node_modules/.bin/tsx"), "scripts/restore-snapshot.ts", str(exported), "snapshot-cli"],
                     cwd=ROOT / "web", env=cli_env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=120)

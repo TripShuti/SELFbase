@@ -11,10 +11,20 @@
   "scripts": {
     "dev": "pnpm --filter web dev",
     "build": "pnpm --filter web build",
-    "generate": "pnpm --filter web generate"
+    "generate": "pnpm --filter web generate",
+    "test": "python3 scripts/check.py quick",
+    "check": "python3 scripts/check.py quick",
+    "check:integration": "python3 scripts/check.py integration",
+    "check:browser": "python3 scripts/check.py browser",
+    "check:docker": "python3 scripts/check.py docker",
+    "check:build": "python3 scripts/check.py build",
+    "check:all": "python3 scripts/check.py all"
   },
   "engines": {
     "node": ">=18",
     "pnpm": ">=10"
+  },
+  "devDependencies": {
+    "playwright": "1.64.1"
   }
 }

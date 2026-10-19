@@ -15,7 +15,7 @@ import urllib.error
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[2]
-BIN = Path(os.environ.get("TEST_SPACETIME_BIN_DIR", str(Path.home() / ".local/share/spacetime/bin/2.0.3")))
+from regression_config import BASELINES, BIN, MODULE_WASM
 POLICY = json.loads((ROOT / "server/spacetimedb/snapshot_tables_v2.json").read_text())["include"]
 
 
@@ -51,7 +51,7 @@ def main():
                     assert result.returncode == 0, result.stdout
 
                 baseline = temp / "baseline.wasm"
-                baseline.write_bytes(subprocess.check_output(["git", "show", "84a26b0:server/docker/server.wasm"], cwd=ROOT))
+                baseline.write_bytes(subprocess.check_output(["git", "show", f"{BASELINES['deletion']}:server/docker/server.wasm"], cwd=ROOT))
                 publish(baseline, "deletion-baseline")
                 token = re.search(r"eyJ[A-Za-z0-9_.-]+", (temp / "config/spacetime/cli.toml").read_text()).group()
                 def request(db, path, body, fail=False, credential=None):
@@ -127,7 +127,7 @@ def main():
                 print("CONFIRMED baseline: orphan comments/cells and lost inherited access after purge", flush=True)
 
                 db = "deletion-fixed"
-                publish(ROOT / "server/spacetimedb/target/wasm32-unknown-unknown/release/server.wasm", db)
+                publish(MODULE_WASM, db)
                 seed(db)
                 joined = sql(db, "SELECT database_schema.page_id, database_schema.config, page.deleted_at FROM database_schema JOIN page ON database_schema.page_id = page.id")
                 assert len(joined) == 4

@@ -17,7 +17,7 @@ import urllib.error
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[2]
-BIN = Path(os.environ.get("TEST_SPACETIME_BIN_DIR", str(Path.home() / ".local/share/spacetime/bin/2.0.3")))
+from regression_config import BASELINES, BIN, MODULE_WASM, TARGET_DIR
 POLICY = json.loads((ROOT / "server/spacetimedb/snapshot_tables_v2.json").read_text())["include"]
 
 
@@ -54,7 +54,7 @@ def main():
 
                 fixture = temp / "fixture"
                 fixture.mkdir()
-                archive = subprocess.check_output(["git", "archive", "4cd90eb", "server/spacetimedb/src"], cwd=ROOT)
+                archive = subprocess.check_output(["git", "archive", BASELINES["upgrades"], "server/spacetimedb/src"], cwd=ROOT)
                 with tarfile.open(fileobj=io.BytesIO(archive)) as files:
                     files.extractall(fixture, filter="data")
                 crate = fixture / "server/spacetimedb"
@@ -82,7 +82,7 @@ pub fn seed_upgrade_fixture(ctx: &ReducerContext) {
 '''
                 lib = crate / "src/lib.rs"
                 lib.write_text(lib.read_text() + seed)
-                target = ROOT / "server/spacetimedb/target"
+                target = TARGET_DIR
                 result = subprocess.run(["cargo", "build", "--offline", "--manifest-path", str(crate / "Cargo.toml"),
                     "--target-dir", str(target), "--target", "wasm32-unknown-unknown", "--release"],
                     cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=180)
@@ -118,7 +118,7 @@ pub fn seed_upgrade_fixture(ctx: &ReducerContext) {
                 assert not sql(db, "SELECT * FROM user_credential")[0]["is_admin"]
                 before = sql(db, "SELECT id, title, parent_id, deleted_at FROM page")
                 content = sql(db, "SELECT * FROM page_content")
-                publish(ROOT / "server/spacetimedb/target/wasm32-unknown-unknown/release/server.wasm", db)
+                publish(MODULE_WASM, db)
                 assert sql(db, "SELECT id, title, parent_id, deleted_at FROM page") == before
                 assert sql(db, "SELECT * FROM page_content") == content
                 call(db, "run_pending_migrations", [])
@@ -141,7 +141,7 @@ pub fn seed_upgrade_fixture(ctx: &ReducerContext) {
                 assert "admin or publisher" in request(db, "call/run_pending_migrations", [], fail=True, credential=member)
                 assert sql(db, "SELECT * FROM migration_state") == markers
                 print("PASS: admin role survives a new device; ordinary members cannot invoke migrations", flush=True)
-                publish(ROOT / "server/spacetimedb/target/wasm32-unknown-unknown/release/server.wasm", db)
+                publish(MODULE_WASM, db)
                 call(db, "run_pending_migrations", [])
                 assert sql(db, "SELECT * FROM migration_state") == markers
                 assert sql(db, "SELECT * FROM page_content") == content

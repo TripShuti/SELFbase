@@ -262,18 +262,20 @@ records and notes, unit conversion, null/zero handling, idempotent history,
 rejected stale writes, private-credential/admin boundaries, shared-key reuse by two databases, promotion
 without data loss, propagated edits and browser-based source management.
 Regression tests live in `web/src/lib/external-sources/` and
-`server/tests/external_source_regressions.py`. Run them with:
+`server/tests/external_source_regressions.py`. Run the shared local profiles:
 
 ```sh
-pnpm --filter @selfbase/web test
-python3 server/tests/external_source_regressions.py
+corepack pnpm check             # unit tests, types and entrypoint suites
+corepack pnpm check:integration # candidate WASM and disposable-database regressions
 ```
 
 The Python suite uses the pinned SpacetimeDB 2.0.3 binaries, disposable data and
 fake API credentials. Set `TEST_SPACETIME_BIN_DIR` if those binaries are installed
-outside `~/.local/share/spacetime/bin/2.0.3`. It tests the committed WASM, so rebuild
-and copy `server/docker/server.wasm` before checking backend changes. It never
-connects to the running workspace.
+outside `~/.local/share/spacetime/bin/2.0.3`. The shared runner builds a candidate
+WASM and passes it through `TEST_MODULE_WASM`, so it neither reads nor overwrites
+the committed `server/docker/server.wasm`. It never connects to the running
+workspace. See [TESTING.md](./TESTING.md) for prerequisites and individual
+profiles.
 
 
 ## Steam library using the generic collection mode

@@ -145,6 +145,13 @@ cargo build --release --target wasm32-unknown-unknown
 cp target/wasm32-unknown-unknown/release/server.wasm ../docker/server.wasm
 ```
 
+## Checks
+
+Run `pnpm check` for unit tests, TypeScript and entrypoint checks, or
+`pnpm check:all` for the complete regression run including disposable databases,
+Chromium, Docker upgrades and production builds. See [TESTING.md](./docs/TESTING.md)
+for prerequisites, individual profiles and execution details.
+
 ## Authentication
 
 Default — native SpacetimeDB email/password, zero config. Optional — any OIDC

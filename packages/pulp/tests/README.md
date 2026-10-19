@@ -1,14 +1,17 @@
 # Editor autosave recovery
 
-Run unit tests with `pnpm --filter @selfbase/pulp test`.
+Run all regular checks from the repository root with `pnpm check`, or only
+editor unit tests with `pnpm --filter @selfbase/pulp test`. See
+[the shared test guide](../../../docs/TESTING.md) for full and individual profiles.
 
 The browser regression uses real Chromium IndexedDB and a simulated reducer:
 
 ```sh
-node packages/pulp/tests/autosave-browser.mjs
+pnpm check:browser
 ```
 
-Install Playwright with Chromium first, or set `PLAYWRIGHT_MODULE` to an existing
+Playwright is pinned in the root development dependencies. Install Chromium with
+`pnpm exec playwright install chromium`, or set `PLAYWRIGHT_MODULE` to an existing
 Playwright module. The runner bundles the production document autosave and scoped-subscription hooks using
 the workspace test toolchain and serves it on a temporary localhost port. It
 tests offline recovery after remount, reconnect, updated reducer callbacks,
