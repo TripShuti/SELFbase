@@ -14,12 +14,18 @@ export function useDocumentAutosave(doc: Y.Doc, componentId: bigint, suppress: R
   latest.current = context;
   const queueRef = useRef<Autosave | null>(null);
   const prefix = context.config.idbPrefix;
+  const remoteState = useRef(serverState);
+  remoteState.current = serverState;
+  const hydratedState = useRef<{ data: Uint8Array | undefined } | null>(null);
 
   useLayoutEffect(() => {
+    hydratedState.current = null;
     let ready = false;
     let disposed = false;
     const queue = new Autosave({
-      canSave: () => ready && !suppress.current && latest.current.config.isConnected !== false && latest.current.tree.byId.has(componentId),
+      canSave: () => ready && !suppress.current && latest.current.config.isConnected !== false &&
+        latest.current.config.isReady !== false && hydratedState.current !== null &&
+        hydratedState.current.data === remoteState.current && latest.current.tree.byId.has(componentId),
       save: () => latest.current.saveYjsState({ componentId, data: Y.encodeStateAsUpdate(doc) }),
       onError: error => console.warn(`[RichText] unsaved changes for component ${componentId}; retrying:`, error),
     });
@@ -63,18 +69,27 @@ export function useDocumentAutosave(doc: Y.Doc, componentId: bigint, suppress: R
   }, [doc, componentId, prefix, suppress, initiallyDirty]);
 
   useLayoutEffect(() => {
-    if (context.config.isConnected === false) queueRef.current?.disconnected();
-    else void queueRef.current?.flush();
-  }, [context.config.isConnected]);
+    if (context.config.isConnected === false || context.config.isReady === false) {
+      hydratedState.current = null;
+      queueRef.current?.disconnected();
+    }
+  }, [context.config.isConnected, context.config.isReady]);
 
   useEffect(() => {
-    if (!serverState?.byteLength) return;
+    hydratedState.current = null;
+    if (context.config.isConnected === false || context.config.isReady === false) return;
     try {
-      // The substrate stores full snapshots. If another writer overwrote our
-      // acknowledged content, publish the merged document again.
-      if (hasUnsavedChanges(doc, serverState)) queueRef.current?.changed();
+      // Connection activity precedes subscription readiness. Merge the fresh
+      // server snapshot here before any timer, lifecycle event, or reconnect
+      // flush can publish our full local snapshot.
+      if (serverState?.byteLength) {
+        Y.applyUpdate(doc, serverState, "remote");
+        if (hasUnsavedChanges(doc, serverState)) queueRef.current?.changed();
+      }
+      hydratedState.current = { data: serverState };
+      void queueRef.current?.flush();
     } catch (error) {
       console.warn(`[RichText] invalid server state for component ${componentId}:`, error);
     }
-  }, [doc, componentId, serverState]);
+  }, [doc, componentId, prefix, suppress, initiallyDirty, serverState, context.config.isConnected, context.config.isReady]);
 }
