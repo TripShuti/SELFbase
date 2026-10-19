@@ -84,6 +84,10 @@ Open the web client and register — the first user becomes admin.
 `NEXT_PUBLIC_*` values are baked into the web bundle at build time; rebuild
 the web image after changing them.
 
+For an existing installation, follow [the upgrade and recovery procedure](./docs/UPGRADES.md).
+The database is ready for the new web build only after publish and migrations
+succeed. Existing running web containers must be stopped explicitly for upgrades.
+
 ## Development (without Docker)
 
 ```bash
@@ -92,15 +96,11 @@ spacetime start
 cd server/spacetimedb
 cargo build --release --target wasm32-unknown-unknown
 cd ..
-# NOTE: `spacetime publish <name>` cannot create databases on SpacetimeDB
-# 2.0.3 (empty-list resolution bug) — publish via HTTP directly, authed as
-# your stable CLI identity (this also makes you the module publisher, so
-# later updates keep working without wipes):
-TOKEN=$(python3 -c "import tomllib;print(tomllib.load(open('$HOME/.config/spacetime/cli.toml','rb'))['spacetimedb_token'])")
-curl -m 60 -X PUT --data-binary @./spacetimedb/target/wasm32-unknown-unknown/release/server.wasm \
-  "http://127.0.0.1:3000/v1/database/selfbase" \
-  -H "Content-Type: application/wasm" -H "Authorization: Bearer $TOKEN"
-spacetime call --server http://127.0.0.1:3000 --yes selfbase run_pending_migrations
+# Use the pinned SpacetimeDB 2.0.3 CLI and the existing owner identity.
+# Ignore local project defaults; migrations run only after publish succeeds.
+spacetime publish --server http://127.0.0.1:3000 --no-config --break-clients --yes \
+  --bin-path ./spacetimedb/target/wasm32-unknown-unknown/release/server.wasm selfbase &&
+spacetime call --server http://127.0.0.1:3000 --no-config --yes selfbase run_pending_migrations
 
 # new shell, repo root:
 pnpm install
