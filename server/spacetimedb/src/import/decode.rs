@@ -122,7 +122,7 @@ pub(super) fn decode_identity(v: &Value) -> Result<Identity, String> {
 pub(super) fn identity_from_hex(hex_str: &str) -> Result<Identity, String> {
     let bytes = hex::decode(hex_str.trim()).map_err(|e| format!("identity hex: {e}"))?;
     let arr: [u8; 32] = bytes.try_into().map_err(|_| "identity must be 32 bytes")?;
-    Ok(Identity::from_byte_array(arr))
+    Ok(Identity::from_be_byte_array(arr))
 }
 
 pub(super) fn decode_timestamp(v: &Value) -> Result<Timestamp, String> {
@@ -655,6 +655,13 @@ mod tests {
             .unwrap()
             .remove("objectId");
         assert!(decode_property_value(&invalid).is_err());
+    }
+
+    #[test]
+    fn snapshot_identity_hex_preserves_byte_order() {
+        let hex = "c200000000000000000000000000000000000000000000000000000000000042";
+        let value = json!({"__selfbase": "identity", "v": hex});
+        assert_eq!(decode_identity(&value).unwrap().to_hex().to_string(), hex);
     }
 
     #[test]

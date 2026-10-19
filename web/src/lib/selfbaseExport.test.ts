@@ -261,6 +261,7 @@ describe("chunkSelfbaseSnapshotV2", () => {
   const utf8 = new TextEncoder();
 
   function makeSnapshot(tablesData: Record<string, unknown[]>): SelfbaseSnapshotV2 {
+    tablesData = { ...Object.fromEntries(SNAPSHOT_TABLES_V2.map(name => [name, []])), ...tablesData };
     const counts: Record<string, number> = {};
     for (const [k, v] of Object.entries(tablesData)) counts[k] = v.length;
     return {
@@ -275,7 +276,7 @@ describe("chunkSelfbaseSnapshotV2", () => {
   }
 
   test("header and manifest carry the snapshot metadata and counts", () => {
-    const snap = makeSnapshot({ user: [{ a: 1 }], page: [] });
+    const snap = makeSnapshot({ workspace_setting: [{ id: 1 }], page: [] });
     const { header, manifest } = chunkSelfbaseSnapshotV2(snap);
     expect(header).toEqual({
       format: SELFBASE_SNAPSHOT_FORMAT_V2,
@@ -283,14 +284,14 @@ describe("chunkSelfbaseSnapshotV2", () => {
       workspace: snap.workspace,
       moduleVersion: "0.19.0",
     });
-    expect(manifest).toEqual({ counts: { user: 1, page: 0 } });
+    expect(manifest).toEqual({ counts: snap.counts });
   });
 
   test("reassembling chunk rows per table reproduces the snapshot; seq is contiguous from 1", () => {
     const rows = (n: number, tag: string) =>
-      Array.from({ length: n }, (_, i) => ({ id: i, tag, pad: "x".repeat(50) }));
+      Array.from({ length: n }, (_, i) => ({ id: i + 1, pageId: i + 1, tag, pad: "x".repeat(50) }));
     const snap = makeSnapshot({
-      user: rows(37, "user"),
+      workspace_setting: rows(37, "user"),
       page: [],
       page_content: rows(11, "pc"),
     });
@@ -303,16 +304,16 @@ describe("chunkSelfbaseSnapshotV2", () => {
       (reassembled[chunk.tableName] ??= []).push(...(JSON.parse(chunk.rowsJson) as unknown[]));
     }
     // Empty tables produce no chunks; they are represented by manifest.counts.
-    expect(reassembled).toEqual({ user: snap.tables.user, page_content: snap.tables.page_content });
+    expect(reassembled).toEqual({ workspace_setting: snap.tables.workspace_setting, page_content: snap.tables.page_content });
     expect(chunks.some((c) => c.tableName === "page")).toBe(false);
     // Multiple chunks were actually needed (the packing was exercised).
-    expect(chunks.filter((c) => c.tableName === "user").length).toBeGreaterThan(1);
+    expect(chunks.filter((c) => c.tableName === "workspace_setting").length).toBeGreaterThan(1);
   });
 
   test("every chunk respects maxBytes except flagged oversized single rows", () => {
     const maxBytes = 300;
     const snap = makeSnapshot({
-      user: [
+      workspace_setting: [
         { id: 1, pad: "a".repeat(60) },
         { id: 2, pad: "b".repeat(60) },
         { id: 3, pad: "€".repeat(400) }, // multibyte, alone exceeds maxBytes
@@ -332,7 +333,7 @@ describe("chunkSelfbaseSnapshotV2", () => {
     expect(chunks.filter((c) => c.oversized).length).toBe(1);
     // Nothing lost around the oversized row.
     const reassembled = chunks.flatMap((c) => JSON.parse(c.rowsJson) as unknown[]);
-    expect(reassembled).toEqual(snap.tables.user);
+    expect(reassembled).toEqual(snap.tables.workspace_setting);
   });
 
   test("moduleVersion is omitted from the header when absent", () => {
@@ -359,14 +360,14 @@ describe("parseSelfbaseSnapshotJson", () => {
       format: SELFBASE_SNAPSHOT_FORMAT_V2,
       exportedAt: "2026-01-01T00:00:00.000Z",
       workspace: { wsUri: "ws://x", dbName: "y" },
-      tables: { user: [] },
-      counts: { user: 0 },
+      tables: Object.fromEntries(SNAPSHOT_TABLES_V2.map(name => [name, []])),
+      counts: Object.fromEntries(SNAPSHOT_TABLES_V2.map(name => [name, 0])),
       blobManifest: { storageKeys: [] },
     });
     const parsed = parseSelfbaseSnapshotJson(v2);
     expect(parsed.format).toBe(SELFBASE_SNAPSHOT_FORMAT_V2);
     if (parsed.format === SELFBASE_SNAPSHOT_FORMAT_V2) {
-      expect(parsed.snapshot.counts).toEqual({ user: 0 });
+      expect(parsed.snapshot.counts.user).toBe(0);
     }
   });
 

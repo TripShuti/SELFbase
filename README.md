@@ -35,7 +35,7 @@ rich text.
 - **Files** — presigned S3 upload/download, metadata in SpacetimeDB.
 - **REST API** — expose any database as a versioned REST API (`/api/e/{slug}`) with API-key auth and OpenAPI spec. See [`docs/API_ENDPOINTS.md`](./docs/API_ENDPOINTS.md).
 - **External data sources** — connect an HTTP JSON API, search records from table cells, map fields to columns, and refresh linked rows in the background. See [`docs/EXTERNAL_DATA_SOURCES.md`](./docs/EXTERNAL_DATA_SOURCES.md).
-- **Backup** — export/import the workspace as a `selfbase-snapshot-v2` JSON file from settings.
+- **Backup** — export/import the workspace as a `selfbase-snapshot-v2` JSON file from settings. See [restore integrity and recovery](packages/snapshot-core/README.md).
 
 What this fork deliberately does **not** have (see upstream Pear if you need
 them): AI users, agent chats, Orcha orchestration, MCP server/client,

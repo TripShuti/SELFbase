@@ -27,6 +27,7 @@
  * derived from the URI port (`-s local3100` for :3100, else the default).
  */
 
+import { writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 import { DbConnection } from "../src/module_bindings/index.js";
@@ -101,6 +102,7 @@ async function connect(): Promise<DbConnectionType> {
     DbConnection.builder()
       .withUri(uri)
       .withDatabaseName(dbName)
+      .withToken(process.env.SNAPSHOT_TEST_TOKEN)
       .onConnect((c) => resolve(c))
       .onConnectError((_ctx, err) => reject(new Error(`connect failed: ${err.message}`)))
       .build();
@@ -127,11 +129,11 @@ async function register(conn: DbConnectionType, email: string): Promise<void> {
 }
 
 function republishCleared(): void {
-  const server = uri.includes(":3100") ? "local3100" : "local";
-  console.log(`[e2e] Republishing ${dbName} with --clear-database (server ${server})`);
+  const server = uri.replace(/^ws/, "http");
+  console.log(`[e2e] Republishing disposable database ${dbName}`);
   execFileSync(
-    "spacetime",
-    ["publish", "-s", server, dbName, "--clear-database", "--bin-path", resolve(wasmPath), "-y"],
+    process.env.SPACETIME_CLI ?? "spacetime",
+    ["publish", "--server", server, dbName, "--clear-database", "--no-config", "--bin-path", resolve(wasmPath), "-y"],
     { stdio: "inherit", cwd: "/tmp" },
   );
 }
@@ -213,6 +215,7 @@ async function main(): Promise<void> {
     dbName,
     tablesRegistry: tables,
   });
+  if (process.env.SNAPSHOT_TEST_OUTPUT) writeFileSync(process.env.SNAPSHOT_TEST_OUTPUT, JSON.stringify(snapshot));
   const { header, chunks, manifest } = chunkSelfbaseSnapshotV2(snapshot);
   const seededTables = Object.entries(snapshot.counts).filter(([, n]) => n > 0);
   console.log(
@@ -251,8 +254,11 @@ async function main(): Promise<void> {
   // ── Phase 3: verify ─────────────────────────────────────────────────────
   for (const [table, count] of Object.entries(snapshot.counts)) {
     const live = rows(conn, table).length;
-    // The restoring registrant adds one extra `user` row.
-    const expected = table === "user" ? count + 1 : count;
+    // A different restoring identity adds a bootstrap row; an existing one
+    // is restored in place while retaining its current login/admin access.
+    const sourceHasRestorer = snapshot.tables.user.some(row =>
+      (row as { identity: { v: string } }).identity.v === conn.identity?.toHexString());
+    const expected = table === "user" && !sourceHasRestorer ? count + 1 : count;
     expect(`count[${table}] == ${expected}`, live === expected, `live=${live}`);
   }
 

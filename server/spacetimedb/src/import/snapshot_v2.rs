@@ -250,6 +250,8 @@ pub fn import_v2_commit(ctx: &ReducerContext, manifest_json: String) -> Result<(
         .and_then(|v| v.as_object())
         .ok_or("missing counts")?;
 
+    validate_manifest_counts(counts)?;
+
     let mut mismatches: Vec<String> = Vec::new();
     for (name, expected) in counts {
         let expected = decode_u64(expected).map_err(|e| format!("counts.{name}: {e}"))?;
@@ -294,6 +296,22 @@ pub fn import_v2_abort(ctx: &ReducerContext) -> Result<(), String> {
         return Err("Only the import session creator or a workspace admin may abort.".to_string());
     }
     clear_session(ctx);
+    Ok(())
+}
+
+/// A manifest must account for every portable table, including empty ones.
+/// Otherwise `{ "counts": {} }` can commit any partially applied import.
+fn validate_manifest_counts(counts: &serde_json::Map<String, Value>) -> Result<(), String> {
+    for name in counts.keys() {
+        if !IMPORT_V2_TABLES.contains(&name.as_str()) {
+            return Err(format!("unknown manifest table: {name}"));
+        }
+    }
+    for name in IMPORT_V2_TABLES {
+        if counts.get(*name).and_then(Value::as_u64).is_none() {
+            return Err(format!("manifest counts.{name} must be a non-negative integer (include empty tables)"));
+        }
+    }
     Ok(())
 }
 
@@ -368,7 +386,30 @@ fn import_rows(
     }
 
     let counts: (u64, u64) = match table_name {
-        "user" => plain!(user, decode_user),
+        "user" => {
+            let mut applied = 0u64;
+            for row in arr {
+                let imported = decode_user(row)?;
+                // The restoring identity may also occur in its own backup.
+                // Retain its current login/admin state while restoring profile
+                // data; all other identities still require unique inserts.
+                if imported.identity == ctx.sender() {
+                    if let Some(existing) = ctx.db.user().identity().find(imported.identity) {
+                        ctx.db.user().identity().update(crate::User {
+                            is_authenticated: existing.is_authenticated,
+                            is_admin: existing.is_admin,
+                            ..imported
+                        });
+                    } else {
+                        ctx.db.user().insert(imported);
+                    }
+                } else {
+                    ctx.db.user().insert(imported);
+                }
+                applied += 1;
+            }
+            (applied, 0u64)
+        },
         "user_preference" => plain!(user_preference, decode_user_preference),
         "workspace_setting" => plain!(workspace_setting, decode_workspace_setting),
         "page" => plain!(page, decode_page),
@@ -734,6 +775,25 @@ mod snapshot_v2_tests {
                 ComponentCapability::WritesDatabase
             ]
         );
+    }
+
+    #[test]
+    fn manifest_requires_every_table_and_unsigned_counts() {
+        let complete: serde_json::Map<String, Value> = IMPORT_V2_TABLES.iter()
+            .map(|name| ((*name).to_string(), json!(0))).collect();
+        assert!(validate_manifest_counts(&complete).is_ok());
+        assert!(validate_manifest_counts(&serde_json::Map::new()).is_err());
+        let mut missing = complete.clone();
+        missing.remove("page");
+        assert!(validate_manifest_counts(&missing).unwrap_err().contains("counts.page"));
+        let mut unknown = complete.clone();
+        unknown.insert("unknown_table".into(), json!(0));
+        assert!(validate_manifest_counts(&unknown).unwrap_err().contains("unknown manifest table"));
+        for invalid in [json!(-1), json!(0.5), json!("0"), Value::Null] {
+            let mut bad = complete.clone();
+            bad.insert("page".into(), invalid);
+            assert!(validate_manifest_counts(&bad).is_err());
+        }
     }
 
     // NOTE (manual verification): the id_counter reset in `import_v2_commit`
