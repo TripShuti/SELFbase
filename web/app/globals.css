@@ -6,14 +6,44 @@
 
 :root {
   color-scheme: light;
+  --accent-focus: #a46a0b;
 }
 
 .dark {
   color-scheme: dark;
+  --accent-focus: #e8ad39;
 }
 
 html,
 body {
   margin: 0;
   padding: 0;
+}
+
+@layer base {
+  button:focus-visible,
+  a:focus-visible,
+  select:focus-visible {
+    outline: 2px solid var(--accent-focus);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .sidebar-active {
+    position: relative;
+    background-color: rgb(232 173 57 / 0.12);
+  }
+
+  .sidebar-active::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 5px;
+    bottom: 5px;
+    width: 3px;
+    border-radius: 999px;
+    background-color: var(--accent-focus);
+    pointer-events: none;
+  }
 }

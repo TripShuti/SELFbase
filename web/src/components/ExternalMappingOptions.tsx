@@ -32,7 +32,7 @@ export function ExternalMappingOptions({ mapping, onChange }: {
         </label>
         <button type="button" className="mt-2 text-xs text-red-500" onClick={() => onChange({ ...mapping, rules: mapping.rules!.filter((_, i) => i !== index) })}>Remove rule</button>
       </div>)}
-      <button type="button" disabled={(mapping.rules?.length || 0) >= 16} className="text-xs text-blue-600"
+      <button type="button" disabled={(mapping.rules?.length || 0) >= 16} className="text-xs text-accent-700 dark:text-accent-400"
         onClick={() => onChange({ ...mapping, rules: [...(mapping.rules || []), { path: "", operator: "equals", value: "true", result: "" }] })}>+ Add status rule</button>
       <label className="block text-xs">When no rule matches
         <input className={inputClass} value={mapping.defaultValue || ""} placeholder="Leave blank to preserve the saved value"

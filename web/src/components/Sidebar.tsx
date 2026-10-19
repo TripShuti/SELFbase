@@ -18,6 +18,7 @@ import { ContextMenu, type ContextMenuItem } from "@/src/components/ContextMenu"
 import { QuickSwitcher } from "@/src/components/QuickSwitcher";
 import { EmojiPicker } from "@/src/components/EmojiPicker";
 import { Trash2 } from "lucide-react";
+import { BrandMark } from "@/src/components/BrandMark";
 import { PageIcon } from "@/src/components/PageIcon";
 import { RepeaterSidebarTree } from "@/src/components/RepeaterSidebarTree";
 import { useRepeaterSidebarFlagState } from "@/src/lib/repeater/sidebarFlag";
@@ -162,7 +163,7 @@ function SidebarItem({
     <div>
       {/* Drop indicator: before */}
       {dropTarget?.type === "before" && dropTarget.pageId === page.id && dragOver === "before" && (
-        <div className="h-0.5 mx-2 rounded bg-blue-500" />
+        <div className="h-0.5 mx-2 rounded bg-accent-500" />
       )}
 
       <div
@@ -181,15 +182,16 @@ function SidebarItem({
         onDrop={handleDrop}
         onContextMenu={(e) => onContextMenu(e, page)}
         style={{ paddingLeft: `${8 + depth * 12}px` }}
-        className={`group flex items-center gap-1 pr-2 py-1 rounded text-sm cursor-pointer select-none transition-colors ${
+        aria-current={isActive ? "page" : undefined}
+        className={`group flex items-center gap-1 pr-2 py-1 rounded text-sm cursor-pointer select-none transition-colors ${isActive ? "sidebar-active" : ""} ${
           isDragging ? "opacity-40" : ""
         } ${
           dragOver === "into"
-            ? "bg-blue-100 dark:bg-blue-900/30 outline outline-1 outline-blue-400"
+            ? "bg-accent-100 dark:bg-accent-900/30 outline outline-1 outline-accent-400"
             : isSelected
-            ? "bg-blue-100 dark:bg-blue-900/40 text-neutral-900 dark:text-white"
+            ? "bg-accent-100 dark:bg-accent-900/40 text-neutral-900 dark:text-white"
             : isActive
-            ? "bg-neutral-200 dark:bg-neutral-800 text-neutral-900 dark:text-white"
+            ? "text-neutral-900 dark:text-white"
             : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-900 hover:text-neutral-900 dark:hover:text-white"
         }`}
       >
@@ -249,7 +251,7 @@ function SidebarItem({
 
       {/* Drop indicator: after */}
       {dropTarget?.type === "after" && dropTarget.pageId === page.id && dragOver === "after" && (
-        <div className="h-0.5 mx-2 rounded bg-blue-500" />
+        <div className="h-0.5 mx-2 rounded bg-accent-500" />
       )}
 
       {/* Children */}
@@ -669,9 +671,10 @@ export function Sidebar() {
       {/* Header */}
       <div className="px-4 py-3 border-b border-neutral-200 dark:border-neutral-800">
         <div className="flex items-center gap-2">
-          <span className="text-lg font-semibold text-neutral-900 dark:text-white tracking-tight">
-            SELFbase
-          </span>
+          <div className="flex min-w-0 items-center gap-2.5 text-neutral-900 dark:text-neutral-100">
+            <BrandMark className="h-7 w-6 shrink-0" />
+            <span className="whitespace-nowrap text-lg tracking-[-0.035em] leading-none"><span className="font-semibold">SELF</span><span className="font-normal">base</span></span>
+          </div>
           {!isActive && (
             <span className="ml-auto text-xs text-yellow-600 dark:text-yellow-500">connecting…</span>
           )}
@@ -770,7 +773,7 @@ export function Sidebar() {
           onClick={() => router.push("/workspace/trash")}
           className={`w-full text-left px-2 py-1.5 rounded text-sm transition-colors mt-2 ${
             activeId === "trash"
-              ? "bg-neutral-200 dark:bg-neutral-800 text-neutral-900 dark:text-white"
+              ? "sidebar-active text-neutral-900 dark:text-white"
               : "text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-900 hover:text-neutral-900 dark:hover:text-white"
           }`}
         >
@@ -788,7 +791,7 @@ export function Sidebar() {
           onClick={() => router.push("/workspace/settings")}
           className={`w-full text-left px-2 py-1.5 rounded text-sm transition-colors ${
             activeId === "settings"
-              ? "bg-neutral-200 dark:bg-neutral-800 text-neutral-900 dark:text-white"
+              ? "sidebar-active text-neutral-900 dark:text-white"
               : "text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-900 hover:text-neutral-900 dark:hover:text-white"
           }`}
         >
@@ -799,7 +802,7 @@ export function Sidebar() {
 
       {/* Multi-select action bar */}
       {selectedIds.size > 0 && (
-        <div className="px-2 py-2 border-t border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/40 flex items-center gap-2 text-xs">
+        <div className="px-2 py-2 border-t border-accent-200 dark:border-accent-900 bg-accent-50 dark:bg-accent-950/40 flex items-center gap-2 text-xs">
           <span className="flex-1 text-neutral-700 dark:text-neutral-300 font-medium">
             {selectedIds.size} selected
           </span>

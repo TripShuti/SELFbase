@@ -1526,7 +1526,7 @@ export function GridView({ page }: GridViewProps) {
           onClick={() => setFilterBarOpen((prev) => !prev)}
           className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors ${
             filterBarOpen || activeFilters.length > 0
-              ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+              ? "bg-accent-50 dark:bg-accent-900/30 text-accent-700 dark:text-accent-400"
               : "text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-700 dark:hover:text-neutral-300"
           }`}
         >
@@ -1535,7 +1535,7 @@ export function GridView({ page }: GridViewProps) {
           </svg>
           Filter
           {activeFilters.length > 0 && (
-            <span className="bg-blue-500 text-white text-[10px] font-medium rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
+            <span className="bg-accent-500 text-neutral-950 text-[10px] font-medium rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
               {activeFilters.length}
             </span>
           )}
@@ -1544,7 +1544,7 @@ export function GridView({ page }: GridViewProps) {
           onClick={() => setSortBarOpen((prev) => !prev)}
           className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors ${
             sortBarOpen || activeSort.length > 0
-              ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+              ? "bg-accent-50 dark:bg-accent-900/30 text-accent-700 dark:text-accent-400"
               : "text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-700 dark:hover:text-neutral-300"
           }`}
         >
@@ -1553,7 +1553,7 @@ export function GridView({ page }: GridViewProps) {
           </svg>
           Sort
           {activeSort.length > 0 && (
-            <span className="bg-blue-500 text-white text-[10px] font-medium rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
+            <span className="bg-accent-500 text-neutral-950 text-[10px] font-medium rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
               {activeSort.length}
             </span>
           )}
@@ -1562,9 +1562,10 @@ export function GridView({ page }: GridViewProps) {
         {/* View mode toggle — right-aligned */}
         <div className="ml-auto flex items-center gap-0.5 bg-neutral-100 dark:bg-neutral-800 rounded p-0.5">
           <button
+            aria-pressed={viewMode === "grid"}
             onClick={() => setViewMode("grid")}
             title="Grid view"
-            className={`p-1 rounded transition-colors ${viewMode === "grid" ? "bg-white dark:bg-neutral-700 shadow-sm text-neutral-700 dark:text-neutral-200" : "text-neutral-400 dark:text-neutral-500 hover:text-neutral-600 dark:hover:text-neutral-300"}`}
+            className={`p-1 rounded transition-colors ${viewMode === "grid" ? "bg-accent-100 dark:bg-accent-950/60 shadow-sm text-accent-700 dark:text-accent-400" : "text-neutral-400 dark:text-neutral-500 hover:text-neutral-600 dark:hover:text-neutral-300"}`}
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <rect x="1" y="1" width="5" height="5" rx="0.5" stroke="currentColor" strokeWidth="1.3"/>
@@ -1574,18 +1575,20 @@ export function GridView({ page }: GridViewProps) {
             </svg>
           </button>
           <button
+            aria-pressed={viewMode === "list"}
             onClick={() => setViewMode("list")}
             title="List view"
-            className={`p-1 rounded transition-colors ${viewMode === "list" ? "bg-white dark:bg-neutral-700 shadow-sm text-neutral-700 dark:text-neutral-200" : "text-neutral-400 dark:text-neutral-500 hover:text-neutral-600 dark:hover:text-neutral-300"}`}
+            className={`p-1 rounded transition-colors ${viewMode === "list" ? "bg-accent-100 dark:bg-accent-950/60 shadow-sm text-accent-700 dark:text-accent-400" : "text-neutral-400 dark:text-neutral-500 hover:text-neutral-600 dark:hover:text-neutral-300"}`}
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M1 3h12M1 7h12M1 11h12" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
             </svg>
           </button>
           <button
+            aria-pressed={viewMode === "kanban"}
             onClick={() => setViewMode("kanban")}
             title="Board view"
-            className={`p-1 rounded transition-colors ${viewMode === "kanban" ? "bg-white dark:bg-neutral-700 shadow-sm text-neutral-700 dark:text-neutral-200" : "text-neutral-400 dark:text-neutral-500 hover:text-neutral-600 dark:hover:text-neutral-300"}`}
+            className={`p-1 rounded transition-colors ${viewMode === "kanban" ? "bg-accent-100 dark:bg-accent-950/60 shadow-sm text-accent-700 dark:text-accent-400" : "text-neutral-400 dark:text-neutral-500 hover:text-neutral-600 dark:hover:text-neutral-300"}`}
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <rect x="1" y="1" width="3" height="12" rx="0.5" stroke="currentColor" strokeWidth="1.3"/>
@@ -1598,8 +1601,8 @@ export function GridView({ page }: GridViewProps) {
 
       {/* Bulk selection bar */}
       {selectedRowIds.size > 0 && (
-        <div className="flex items-center gap-3 px-3 py-1.5 border-b border-blue-200 dark:border-blue-900/60 bg-blue-50 dark:bg-blue-950/40">
-          <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
+        <div className="flex items-center gap-3 px-3 py-1.5 border-b border-accent-200 dark:border-accent-900/60 bg-accent-50 dark:bg-accent-950/40">
+          <span className="text-xs font-medium text-accent-700 dark:text-accent-300">
             {selectedRowIds.size} row{selectedRowIds.size !== 1 ? "s" : ""} selected
           </span>
           <button
@@ -1738,13 +1741,13 @@ export function GridView({ page }: GridViewProps) {
                   type="button"
                   title={sortDirOf(null) === "asc" ? "Sorted ascending — click for descending" : sortDirOf(null) === "desc" ? "Sorted descending — click to clear" : "Sort by name"}
                   onClick={(e) => { e.stopPropagation(); toggleHeaderSort(null); }}
-                  className={`flex-shrink-0 transition-opacity ${sortDirOf(null) ? "opacity-100 text-blue-500" : "opacity-0 group-hover/col:opacity-100 text-neutral-400"}`}
+                  className={`flex-shrink-0 transition-opacity ${sortDirOf(null) ? "opacity-100 text-accent-700 dark:text-accent-400" : "opacity-0 group-hover/col:opacity-100 text-neutral-400"}`}
                 >
                   {sortDirOf(null) === "desc" ? "▼" : "▲"}
                 </button>
                 </div>
                 <div
-                  className="absolute top-0 right-0 h-full w-1 cursor-col-resize opacity-0 group-hover/col:opacity-100 bg-blue-400/60 hover:bg-blue-500 transition-opacity z-10"
+                  className="absolute top-0 right-0 h-full w-1 cursor-col-resize opacity-0 group-hover/col:opacity-100 bg-accent-400/60 hover:bg-accent-500 transition-opacity z-10"
                   onMouseDown={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -1763,7 +1766,7 @@ export function GridView({ page }: GridViewProps) {
                     </div>
                     <input
                       autoFocus
-                      className="w-full bg-neutral-100 dark:bg-neutral-700 text-sm text-neutral-900 dark:text-white px-2 py-1 rounded outline-none border border-blue-500/60 font-mono"
+                      className="w-full bg-neutral-100 dark:bg-neutral-700 text-sm text-neutral-900 dark:text-white px-2 py-1 rounded outline-none border border-accent-500/60 font-mono"
                       placeholder="Value or formula…"
                       value={nameDefaultDraft}
                       onChange={(e) => setNameDefaultDraft(e.target.value)}
@@ -1807,7 +1810,7 @@ export function GridView({ page }: GridViewProps) {
                       )}
                       <div className="flex-1" />
                       <button
-                        className="text-xs py-1 px-3 rounded bg-blue-500 text-white hover:bg-blue-600"
+                        className="text-xs py-1 px-3 rounded bg-accent-500 text-neutral-950 hover:bg-accent-600"
                         onClick={() => {
                           const val = nameDefaultDraft.trim() || null;
                           updateSchemaConfig({
@@ -1997,7 +2000,7 @@ export function GridView({ page }: GridViewProps) {
       <div className="border-t border-neutral-200 dark:border-neutral-800 px-3 py-2">
         <button
           onClick={handleAddRow}
-          className="text-sm text-neutral-400 dark:text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 transition-colors"
+          className="rounded px-2 py-1 text-sm font-medium text-accent-700 dark:text-accent-400 hover:bg-accent-50 dark:hover:bg-accent-950/40 transition-colors"
         >
           + New row
         </button>
@@ -2036,7 +2039,7 @@ export function GridView({ page }: GridViewProps) {
           </div>
           <input
             autoFocus
-            className="w-full bg-neutral-100 dark:bg-neutral-700 text-sm text-neutral-900 dark:text-white px-2 py-1 rounded outline-none border border-blue-500/60"
+            className="w-full bg-neutral-100 dark:bg-neutral-700 text-sm text-neutral-900 dark:text-white px-2 py-1 rounded outline-none border border-accent-500/60"
             placeholder="Property name…"
             value={newPropName}
             onChange={(e) => setNewPropName(e.target.value)}
@@ -2086,7 +2089,7 @@ export function GridView({ page }: GridViewProps) {
               Cancel
             </button>
             <button
-              className="flex-1 text-xs py-1 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-40"
+              className="flex-1 text-xs py-1 rounded bg-accent-500 text-neutral-950 hover:bg-accent-600 disabled:opacity-40"
               disabled={!newPropName.trim()}
               onClick={() =>
                 pendingType === "Relation" ? setAddStep("relation-target") : commitAddProperty()
@@ -2185,7 +2188,7 @@ function RelationTargetPicker({
               key={String(db.id)}
               className={`w-full text-left px-2 py-1.5 text-sm rounded transition-colors ${
                 selectedId === db.id
-                  ? "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-200"
+                  ? "bg-accent-100 dark:bg-accent-900/50 text-accent-700 dark:text-accent-200"
                   : "text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700"
               }`}
               onClick={() => onSelect(selectedId === db.id ? null : db.id)}
@@ -2203,7 +2206,7 @@ function RelationTargetPicker({
           ← Back
         </button>
         <button
-          className="flex-1 text-xs py-1 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-40"
+          className="flex-1 text-xs py-1 rounded bg-accent-500 text-neutral-950 hover:bg-accent-600 disabled:opacity-40"
           disabled={!selectedId}
           onClick={onCommit}
         >
@@ -2365,7 +2368,7 @@ function ColumnHeader({
       {mode === "rename" ? (
         <input
           autoFocus
-          className="bg-neutral-100 dark:bg-neutral-700 text-neutral-900 dark:text-white text-xs px-1.5 py-0.5 rounded outline-none border border-blue-500/60 w-full"
+          className="bg-neutral-100 dark:bg-neutral-700 text-neutral-900 dark:text-white text-xs px-1.5 py-0.5 rounded outline-none border border-accent-500/60 w-full"
           value={renameValue}
           onChange={(e) => setRenameValue(e.target.value)}
           onBlur={commitRename}
@@ -2389,14 +2392,14 @@ function ColumnHeader({
             onClick={(e) => { e.stopPropagation(); onToggleSort(); }}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onToggleSort(); } }}
             onMouseDown={(e) => e.stopPropagation()}
-            className={`ml-auto flex-shrink-0 transition-opacity ${sortDirection ? "opacity-100 text-blue-500" : "opacity-0 group-hover/col:opacity-100 text-neutral-400"}`}
+            className={`ml-auto flex-shrink-0 transition-opacity ${sortDirection ? "opacity-100 text-accent-700 dark:text-accent-400" : "opacity-0 group-hover/col:opacity-100 text-neutral-400"}`}
           >
             {sortDirection === "desc" ? "▼" : "▲"}
           </span>
         </button>
       )}
       <div
-        className="absolute top-0 right-0 h-full w-1 cursor-col-resize opacity-0 group-hover/col:opacity-100 bg-blue-400/60 hover:bg-blue-500 transition-opacity z-10"
+        className="absolute top-0 right-0 h-full w-1 cursor-col-resize opacity-0 group-hover/col:opacity-100 bg-accent-400/60 hover:bg-accent-500 transition-opacity z-10"
         onMouseDown={(e) => {
           e.preventDefault();
           e.stopPropagation(); // don't trigger column drag
@@ -2520,7 +2523,7 @@ function ColumnHeader({
                 Cancel
               </button>
               <button
-                className="flex-1 text-xs py-1 rounded bg-blue-500 text-white hover:bg-blue-600"
+                className="flex-1 text-xs py-1 rounded bg-accent-500 text-neutral-950 hover:bg-accent-600"
                 onClick={() => void applyChangeType(pendingType.tag, pendingType.relTarget)}
               >
                 Convert
@@ -2545,7 +2548,7 @@ function ColumnHeader({
               className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
               onClick={() => { onSetCalculation(key); closeMenu(); }}
             >
-              <span className="w-4 flex-shrink-0 text-blue-500 text-xs">
+              <span className="w-4 flex-shrink-0 text-accent-700 dark:text-accent-400 text-xs">
                 {calculation === key ? "✓" : ""}
               </span>
               {label}
@@ -2595,7 +2598,7 @@ function ColumnHeader({
           </div>
           <input
             autoFocus
-            className="w-full bg-neutral-100 dark:bg-neutral-700 text-sm text-neutral-900 dark:text-white px-2 py-1 rounded outline-none border border-blue-500/60 font-mono"
+            className="w-full bg-neutral-100 dark:bg-neutral-700 text-sm text-neutral-900 dark:text-white px-2 py-1 rounded outline-none border border-accent-500/60 font-mono"
             placeholder="Value or formula…"
             value={defaultDraft}
             onChange={(e) => setDefaultDraft(e.target.value)}
@@ -2647,7 +2650,7 @@ function ColumnHeader({
             )}
             <div className="flex-1" />
             <button
-              className="text-xs py-1 px-3 rounded bg-blue-500 text-white hover:bg-blue-600"
+              className="text-xs py-1 px-3 rounded bg-accent-500 text-neutral-950 hover:bg-accent-600"
               onClick={() => {
                 const val = defaultDraft.trim() || null;
                 updatePropertyConfig({
@@ -2882,7 +2885,7 @@ function OptionsEditor({
                 {isRenamingThis ? (
                   <input
                     autoFocus
-                    className="flex-1 min-w-0 text-xs bg-neutral-100 dark:bg-neutral-700 text-neutral-900 dark:text-white px-1.5 py-0.5 rounded outline-none border border-blue-500/60"
+                    className="flex-1 min-w-0 text-xs bg-neutral-100 dark:bg-neutral-700 text-neutral-900 dark:text-white px-1.5 py-0.5 rounded outline-none border border-accent-500/60"
                     value={editingLabel}
                     onChange={(e) => setEditingLabel(e.target.value)}
                     onBlur={() => commitRename(idx)}
@@ -2967,7 +2970,7 @@ function OptionsEditor({
                       </select>
                     ) : (
                       <input
-                        className="bg-neutral-100 dark:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs px-1.5 py-0.5 rounded outline-none border border-transparent focus:border-blue-500/60 w-20"
+                        className="bg-neutral-100 dark:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs px-1.5 py-0.5 rounded outline-none border border-transparent focus:border-accent-500/60 w-20"
                         placeholder="value…"
                         value={condValue}
                         onChange={(e) => setCondValue(e.target.value)}
@@ -2979,7 +2982,7 @@ function OptionsEditor({
                     <button
                       onClick={() => commitCondition(opt)}
                       disabled={!condPropName || !condValue}
-                      className="text-[10px] px-2 py-0.5 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-40 transition-colors"
+                      className="text-[10px] px-2 py-0.5 rounded bg-accent-500 text-neutral-950 hover:bg-accent-600 disabled:opacity-40 transition-colors"
                     >
                       Save
                     </button>
@@ -3035,7 +3038,7 @@ function OptionsEditor({
       <div className="px-3 py-2 border-t border-neutral-100 dark:border-neutral-700">
         <input
           ref={newInputRef}
-          className="w-full text-xs bg-neutral-100 dark:bg-neutral-700 text-neutral-900 dark:text-white px-2 py-1.5 rounded outline-none placeholder:text-neutral-400 dark:placeholder:text-neutral-500 border border-transparent focus:border-blue-500/60 transition-colors"
+          className="w-full text-xs bg-neutral-100 dark:bg-neutral-700 text-neutral-900 dark:text-white px-2 py-1.5 rounded outline-none placeholder:text-neutral-400 dark:placeholder:text-neutral-500 border border-transparent focus:border-accent-500/60 transition-colors"
           placeholder="New option…"
           value={newInput}
           onChange={(e) => setNewInput(e.target.value)}
@@ -3091,7 +3094,7 @@ function ListView({
         return (
           <div
             key={String(row.id)}
-            className={`group flex items-center gap-2 px-3 h-9 border-b border-neutral-200/60 dark:border-neutral-800/60 hover:bg-neutral-50 dark:hover:bg-neutral-900/40 transition-colors cursor-pointer${isSelected ? " bg-blue-50/60 dark:bg-blue-950/30" : ""}`}
+            className={`group flex items-center gap-2 px-3 h-9 border-b border-neutral-200/60 dark:border-neutral-800/60 hover:bg-neutral-50 dark:hover:bg-neutral-900/40 transition-colors cursor-pointer${isSelected ? " bg-accent-50/60 dark:bg-accent-950/30" : ""}`}
             onClick={() => onOpenRow(row)}
           >
             <input
@@ -3099,7 +3102,7 @@ function ListView({
               checked={isSelected}
               onChange={() => {/* handled by onClick */}}
               onClick={(e) => { e.stopPropagation(); onRowSelect(row.id, rowIdx, e.shiftKey); }}
-              className={`h-3.5 w-3.5 flex-shrink-0 rounded border-neutral-300 dark:border-neutral-600 text-blue-600 cursor-pointer transition-opacity ${anyRowsSelected || isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+              className={`h-3.5 w-3.5 flex-shrink-0 rounded border-neutral-300 dark:border-neutral-600 text-accent-700 cursor-pointer transition-opacity ${anyRowsSelected || isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
             />
             <span className="flex-1 text-sm text-neutral-800 dark:text-neutral-200 truncate">
               {row.title || "Untitled"}
@@ -3169,7 +3172,7 @@ function ListCellValue({ values, prop }: { values: RowPropertyValues; prop: NonN
     const pv = val.value as { tag?: string; value?: boolean } | undefined;
     const checked = pv && "tag" in pv && pv.tag === "Checkbox" && pv.value === true;
     return checked ? (
-      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-blue-500 flex-shrink-0">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-accent-700 dark:text-accent-400 flex-shrink-0">
         <rect x="0.5" y="0.5" width="11" height="11" rx="2.5" fill="currentColor" fillOpacity="0.15" stroke="currentColor"/>
         <path d="M3 6l2.5 2.5L9 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
@@ -3281,9 +3284,9 @@ function GridRow({
     <tr
       ref={measureRef}
       data-index={virtualIndex}
-      className={`border-b border-neutral-200/60 dark:border-neutral-800/60 hover:bg-neutral-50 dark:hover:bg-neutral-900/40 group${isRowSelected ? " bg-blue-50/60 dark:bg-blue-950/30" : ""}`}>
+      className={`border-b border-neutral-200/60 dark:border-neutral-800/60 hover:bg-neutral-50 dark:hover:bg-neutral-900/40 group${isRowSelected ? " bg-accent-50/60 dark:bg-accent-950/30" : ""}`}>
       <td
-        className={`px-3 py-0 h-9 border-r border-neutral-200 dark:border-neutral-800 sticky left-0 z-[1] transition-colors [box-shadow:1px_0_0_0_#e5e7eb] dark:[box-shadow:1px_0_0_0_#262626] ${isRowSelected ? "bg-blue-50/80 dark:bg-blue-950/40 group-hover:bg-blue-100/60 dark:group-hover:bg-blue-950/60" : "bg-white dark:bg-neutral-950 group-hover:bg-neutral-50 dark:group-hover:bg-neutral-900/40"}`}
+        className={`px-3 py-0 h-9 border-r border-neutral-200 dark:border-neutral-800 sticky left-0 z-[1] transition-colors [box-shadow:1px_0_0_0_#e5e7eb] dark:[box-shadow:1px_0_0_0_#262626] ${isRowSelected ? "bg-accent-50/80 dark:bg-accent-950/40 group-hover:bg-accent-100/60 dark:group-hover:bg-accent-950/60" : "bg-white dark:bg-neutral-950 group-hover:bg-neutral-50 dark:group-hover:bg-neutral-900/40"}`}
         onContextMenu={onRowContextMenu}
       >
         <div className="flex items-center gap-1.5">
@@ -3292,7 +3295,7 @@ function GridRow({
             checked={isRowSelected}
             onChange={() => {/* handled by onClick */}}
             onClick={(e) => { e.stopPropagation(); onRowSelect(e.shiftKey); }}
-            className={`h-3.5 w-3.5 flex-shrink-0 rounded border-neutral-300 dark:border-neutral-600 text-blue-600 cursor-pointer transition-opacity ${anyRowsSelected || isRowSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+            className={`h-3.5 w-3.5 flex-shrink-0 rounded border-neutral-300 dark:border-neutral-600 text-accent-700 cursor-pointer transition-opacity ${anyRowsSelected || isRowSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
           />
           {editingTitle ? (
             <input
@@ -3311,7 +3314,7 @@ function GridRow({
                   setEditingTitle(false);
                 }
               }}
-              className="min-w-0 flex-1 rounded-sm border border-blue-500/70 bg-transparent px-1 py-0.5 text-sm text-neutral-900 outline-none dark:text-white"
+              className="min-w-0 flex-1 rounded-sm border border-accent-500/70 bg-transparent px-1 py-0.5 text-sm text-neutral-900 outline-none dark:text-white"
               aria-label="Row name"
             />
           ) : (
@@ -3374,9 +3377,9 @@ function GridRow({
             key={String(prop.id)}
             className={`px-0 py-0 h-9 border-r border-neutral-200 dark:border-neutral-800 relative select-none ${
               isSelected
-                ? "shadow-[inset_0_0_0_2px_#3b82f6] bg-blue-50/40 dark:bg-blue-900/20"
+                ? "shadow-[inset_0_0_0_2px_var(--accent-focus)] bg-accent-50/40 dark:bg-accent-900/20"
                 : isFillRange
-                ? "bg-blue-50/60 dark:bg-blue-900/25 shadow-[inset_0_0_0_1px_#93c5fd]"
+                ? "bg-accent-50/60 dark:bg-accent-900/25 shadow-[inset_0_0_0_1px_var(--accent-focus)]"
                 : ""
             }`}
             onClick={(e) => onCellClick(row.id, prop.id, e)}
@@ -3398,7 +3401,7 @@ function GridRow({
             {showFillHandle && (
               <div
                 title="Drag to fill cells"
-                className="absolute bottom-0 right-0 w-3 h-3 z-10 cursor-nwse-resize translate-x-1/2 translate-y-1/2 rounded-sm border border-white dark:border-neutral-900 bg-blue-500 shadow-sm hover:bg-blue-600 hover:scale-110 transition-transform"
+                className="absolute bottom-0 right-0 w-3 h-3 z-10 cursor-nwse-resize translate-x-1/2 translate-y-1/2 rounded-sm border border-white dark:border-neutral-900 bg-accent-500 shadow-sm hover:bg-accent-600 hover:scale-110 transition-transform"
                 onMouseDown={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -3580,7 +3583,7 @@ function FilterValueInput({
   onChange: (v: string) => void;
 }) {
   const sharedCls =
-    "bg-neutral-100 dark:bg-neutral-700 text-neutral-800 dark:text-neutral-200 px-2 py-1 rounded text-xs outline-none border border-transparent focus:border-blue-500/60 min-w-0 transition-colors";
+    "bg-neutral-100 dark:bg-neutral-700 text-neutral-800 dark:text-neutral-200 px-2 py-1 rounded text-xs outline-none border border-transparent focus:border-accent-500/60 min-w-0 transition-colors";
 
   // Relation — enumerate actual pages from the target database
   const [allPages] = useTable(tables.page);

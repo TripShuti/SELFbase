@@ -168,11 +168,11 @@ export function ExternalSourceSettings({ databaseId }: { databaseId: bigint }) {
             {sources.map(source => <option key={source.sourceId} value={source.sourceId}>{source.name}{connections.some(c => c.sourceId === source.sourceId) ? " · connected" : ""}</option>)}
           </select>
         </label>
-        <p className="text-xs text-neutral-500"><a href="/workspace/settings#data-sources" className="text-blue-600 underline">Manage workspace sources</a></p>
+        <p className="text-xs text-neutral-500"><a href="/workspace/settings#data-sources" className="text-accent-700 dark:text-accent-400 underline">Manage workspace sources</a></p>
         {config && !config.sourceId && <button type="button" onClick={makeReusable} className="rounded border border-neutral-200 px-2 py-1 text-xs dark:border-neutral-700">Make saved connection reusable</button>}
         <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={form.enabled} onChange={e => setForm(p => ({ ...p, enabled: e.target.checked }))} />Enable connection and synchronization</label>
         {!form.sourceId && config && <SourceConnectionFields form={form} setForm={setForm} secret={secret} setSecret={setSecret} />}
-        {form.sourceId && <p className="text-xs text-neutral-500">Address and credentials are managed once in <a href="/workspace/settings#data-sources" className="text-blue-600 underline">Settings → Data sources</a>.</p>}
+        {form.sourceId && <p className="text-xs text-neutral-500">Address and credentials are managed once in <a href="/workspace/settings#data-sources" className="text-accent-700 dark:text-accent-400 underline">Settings → Data sources</a>.</p>}
         <details open><summary className="cursor-pointer text-sm font-medium">Columns to update</summary>
           <p className="mt-2 text-xs text-neutral-500">Use Add from source or the link icon beside a row name. Existing record links are kept automatically.</p>
           {form.mappings.length === 0 && <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">No fields are mapped yet. Selecting a record can fill its name; map fields below to also fill other columns.</p>}
@@ -209,7 +209,7 @@ export function ExternalSourceSettings({ databaseId }: { databaseId: bigint }) {
             <ExternalMappingOptions mapping={mapping} onChange={updated => setForm(p => ({ ...p, mappings: p.mappings.map((m, i) => i === index ? updated : m) }))} />
           </div>)}
           <button type="button" disabled={form.mappings.length >= 32} onClick={() => setForm(p => ({ ...p, mappings: [...p.mappings, { sourcePath: "", targetPropertyId: "", targetType: "Text", transform: "identity" }] }))}
-            className="mt-2 rounded px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 dark:hover:bg-neutral-800">+ Map another field</button>
+            className="mt-2 rounded px-2 py-1 text-xs text-accent-700 dark:text-accent-400 hover:bg-accent-50 dark:hover:bg-neutral-800">+ Map another field</button>
         </details>
         {form.sourceId && <p className="text-xs text-neutral-500">Refresh schedule is shared by all databases and configured in Settings → Data sources.</p>}
         {config && <button type="button" onClick={disconnectConnection} className="text-xs text-red-500">Disconnect source · keep values</button>}
@@ -220,7 +220,7 @@ export function ExternalSourceSettings({ databaseId }: { databaseId: bigint }) {
       <div className="mt-4 flex justify-end gap-2">
         {config?.enabled && <button disabled={busy} onClick={refreshConnection} className="rounded px-3 py-1.5 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800">Refresh connected rows now</button>}
         {config?.enabled && <button disabled={busy} onClick={testConnection} className="rounded px-3 py-1.5 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800">Test saved connection</button>}
-        <button disabled={busy || !schema || !canConfigure || (!form.sourceId && !config)} onClick={save} className="rounded bg-blue-600 px-3 py-1.5 text-xs text-white disabled:opacity-50">{busy ? "Working…" : "Save connection"}</button>
+        <button disabled={busy || !schema || !canConfigure || (!form.sourceId && !config)} onClick={save} className="rounded bg-accent-600 px-3 py-1.5 text-xs text-neutral-950 disabled:opacity-50">{busy ? "Working…" : "Save connection"}</button>
       </div>
     </FloatingPopup>}
   </>;

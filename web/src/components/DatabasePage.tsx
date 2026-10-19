@@ -79,7 +79,7 @@ export function DatabasePage({ page }: DatabasePageProps) {
             aria-label="Page history"
             className={`shrink-0 p-1.5 rounded transition-colors ${
               historyOpen
-                ? "text-neutral-900 dark:text-white bg-neutral-200 dark:bg-neutral-700"
+                ? "text-accent-700 dark:text-accent-400 bg-accent-50 dark:bg-accent-950/40"
                 : "text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800"
             }`}
           >

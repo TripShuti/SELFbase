@@ -291,7 +291,7 @@ function TextCell({
     <input
       ref={inputRef}
       size={1}
-      className="h-full w-full min-w-0 px-2 py-1 text-sm bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white outline-none border border-blue-500/60 rounded-sm"
+      className="h-full w-full min-w-0 px-2 py-1 text-sm bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white outline-none border border-accent-500/60 rounded-sm"
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={commit}
@@ -368,7 +368,7 @@ function NumberCell({
       ref={inputRef}
       type="number"
       size={1}
-      className="h-full w-full min-w-0 px-2 py-1 text-sm bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white outline-none border border-blue-500/60 rounded-sm"
+      className="h-full w-full min-w-0 px-2 py-1 text-sm bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white outline-none border border-accent-500/60 rounded-sm"
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={commit}
@@ -473,7 +473,7 @@ function SelectCell({
         <input
           ref={inputRef}
           size={1}
-          className="h-full w-full min-w-0 px-2 py-1 bg-transparent text-sm text-neutral-900 dark:text-white outline-none border border-blue-500/70 rounded-sm"
+          className="h-full w-full min-w-0 px-2 py-1 bg-transparent text-sm text-neutral-900 dark:text-white outline-none border border-accent-500/70 rounded-sm"
           value={search}
           placeholder={value || "Search or create…"}
           onChange={(e) => setSearch(e.target.value)}
@@ -538,7 +538,7 @@ function SelectCell({
                   {opt}
                 </span>
                 {opt === value && (
-                  <span className="ml-auto text-blue-500 text-xs">✓</span>
+                  <span className="ml-auto text-accent-700 dark:text-accent-400 text-xs">✓</span>
                 )}
               </button>
             ))}
@@ -676,7 +676,7 @@ function MultiSelectCell({
       ref={cellRef}
       className={`h-9 overflow-hidden px-2 flex items-center gap-1 ${
         editing
-          ? "border border-blue-500/70 rounded-sm"
+          ? "border border-accent-500/70 rounded-sm"
           : "cursor-default hover:bg-neutral-100 dark:hover:bg-neutral-800/50"
       }`}
       onDoubleClick={() => { if (!editing) setEditing(true); }}
@@ -743,7 +743,7 @@ function MultiSelectCell({
                 <span
                   className={`w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center text-xs ${
                     value.includes(opt)
-                      ? "bg-blue-500 border-blue-500 text-white"
+                      ? "bg-accent-500 border-accent-500 text-neutral-950"
                       : "border-neutral-400 dark:border-neutral-500"
                   }`}
                 >
@@ -821,7 +821,7 @@ function CheckboxCell({
           else if (e.key === "Tab") { e.preventDefault(); onRequestNavigate?.(e.shiftKey ? "left" : "right"); }
           else if (e.key === "Escape") onRequestNavigate?.("escape");
         }}
-        className="accent-blue-500 cursor-pointer"
+        className="accent-accent-500 cursor-pointer"
       />
     </div>
   );
@@ -956,7 +956,7 @@ function DurationCell({
     <input
       ref={inputRef}
       size={1}
-      className="h-full w-full min-w-0 px-2 py-1 text-sm bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white outline-none border border-blue-500/60 rounded-sm"
+      className="h-full w-full min-w-0 px-2 py-1 text-sm bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white outline-none border border-accent-500/60 rounded-sm"
       value={draft}
       placeholder="80h 3m"
       onChange={(e) => setDraft(e.target.value)}
@@ -1260,7 +1260,7 @@ function PersonCell({
                 className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                 onClick={() => toggle(hex)}
               >
-                <span className="w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center text-xs bg-blue-500 border-blue-500 text-white">
+                <span className="w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center text-xs bg-accent-500 border-accent-500 text-neutral-950">
                   ✓
                 </span>
                 <span

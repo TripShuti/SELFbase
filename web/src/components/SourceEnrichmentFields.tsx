@@ -26,7 +26,7 @@ export function SourceEnrichmentFields({ form, setForm }: { form: SourceConfig; 
       <p className="text-[11px] text-neutral-500">Map added fields using {rule.targetField || "activity"}.field_name. Existing record fields are never overwritten.</p>
       <button type="button" className="text-xs text-red-500" onClick={() => setForm(previous => ({ ...previous, enrichments: (previous.enrichments || []).filter((_, i) => i !== index) }))}>Remove additional list</button>
     </div>)}
-    <button type="button" disabled={rules.length >= 4} className="mt-2 text-xs text-blue-600 disabled:opacity-50" onClick={() => setForm(previous => {
+    <button type="button" disabled={rules.length >= 4} className="mt-2 text-xs text-accent-700 dark:text-accent-400 disabled:opacity-50" onClick={() => setForm(previous => {
       const current = previous.enrichments || [];
       let suffix = 1;
       while (current.some(rule => rule.targetField === `extra_${suffix}`)) suffix++;

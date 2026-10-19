@@ -49,7 +49,7 @@ export function WorkspaceSourcesSettings() {
   return <section id="data-sources" className="mb-10 scroll-mt-6">
     <div className="mb-3 flex items-center justify-between">
       <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Data sources</h2>
-      {canEdit && <button type="button" disabled={busy} onClick={() => edit()} className="rounded px-2 py-1 text-xs text-blue-600 hover:bg-neutral-100 dark:hover:bg-neutral-800">+ New Source</button>}
+      {canEdit && <button type="button" disabled={busy} onClick={() => edit()} className="rounded px-2 py-1 text-xs text-accent-700 dark:text-accent-400 hover:bg-neutral-100 dark:hover:bg-neutral-800">+ New Source</button>}
     </div>
     <p className="mb-4 text-xs text-neutral-500">Connect to an external HTTP API once and reuse it across your databases. Each database chooses its own columns to update.</p>
     {!ready ? <p className="text-xs text-neutral-500">Loading sources…</p> : !sources.length && <p className="text-sm text-neutral-500">No workspace sources yet. Create one here, or make an existing database connection reusable from its Data source settings.</p>}
@@ -62,7 +62,7 @@ export function WorkspaceSourcesSettings() {
           <div className="text-xs text-neutral-500">{count} connected database{count === 1 ? "" : "s"}</div>
         </div>
         {canEdit && <>
-          <button disabled={busy} onClick={() => edit(source)} className="px-2 py-1 text-xs text-blue-600">Edit</button>
+          <button disabled={busy} onClick={() => edit(source)} className="px-2 py-1 text-xs text-accent-700 dark:text-accent-400">Edit</button>
           <button disabled={busy || count > 0} title={count ? "Disconnect databases before removing this source" : "Remove source"} onClick={() => remove(source.sourceId!)} className="px-2 py-1 text-xs text-red-500 disabled:opacity-40">Remove</button>
         </>}
       </div>;
@@ -75,7 +75,7 @@ export function WorkspaceSourcesSettings() {
       </fieldset>
       <div className="mt-4 flex justify-end gap-2">
         <button disabled={busy} onClick={() => { setEditingId(null); setSecret(""); }} className="rounded px-3 py-1.5 text-xs">Cancel</button>
-        <button disabled={busy || !canEdit} onClick={save} className="rounded bg-blue-600 px-3 py-1.5 text-xs text-white disabled:opacity-50">{busy ? "Saving…" : "Save source"}</button>
+        <button disabled={busy || !canEdit} onClick={save} className="rounded bg-accent-600 px-3 py-1.5 text-xs text-neutral-950 disabled:opacity-50">{busy ? "Saving…" : "Save source"}</button>
       </div>
     </div>}
     {error && <p role="alert" className="mt-3 text-xs text-red-500">{error}</p>}

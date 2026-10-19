@@ -412,7 +412,7 @@ export function BoardView({
               <div
                 className={`flex flex-col gap-2 min-h-[100px] p-1.5 rounded-lg transition-colors ${
                   isDragTarget
-                    ? "bg-blue-50/80 dark:bg-blue-950/30 ring-1 ring-blue-300 dark:ring-blue-700"
+                    ? "bg-accent-50/80 dark:bg-accent-950/30 ring-1 ring-accent-300 dark:ring-accent-700"
                     : "bg-neutral-100/60 dark:bg-neutral-800/40"
                 }`}
                 onDragOver={(e) => {

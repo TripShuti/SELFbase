@@ -86,7 +86,7 @@ export function EmojiPicker({ anchorRef, currentIcon, onSelect, onClose }: Emoji
                   type="button"
                   title={name}
                   onClick={() => pick(value)}
-                  className={`w-8 h-8 flex items-center justify-center rounded text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors ${selected ? "bg-blue-100 dark:bg-blue-900/40 ring-1 ring-blue-500/50" : ""}`}
+                  className={`w-8 h-8 flex items-center justify-center rounded text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors ${selected ? "bg-accent-100 dark:bg-accent-900/40 ring-1 ring-accent-500/50" : ""}`}
                 >
                   <PageIcon icon={value} size={17} />
                 </button>
@@ -106,7 +106,7 @@ export function EmojiPicker({ anchorRef, currentIcon, onSelect, onClose }: Emoji
               key={`${emoji}-${i}`}
               type="button"
               onClick={() => pick(emoji)}
-              className={`w-8 h-8 flex items-center justify-center rounded text-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors ${currentIcon === emoji ? "bg-blue-100 dark:bg-blue-900/40 ring-1 ring-blue-500/50" : ""}`}
+              className={`w-8 h-8 flex items-center justify-center rounded text-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors ${currentIcon === emoji ? "bg-accent-100 dark:bg-accent-900/40 ring-1 ring-accent-500/50" : ""}`}
             >
               {emoji}
             </button>
