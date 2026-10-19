@@ -334,6 +334,7 @@ export function ComponentTreeRenderer({
     () => ({
       idbPrefix: `selfbase:${idbNamespace}`,
       isConnected: isActive,
+      isReady: !tree.loading,
       validateProps: validateComponentProps,
       slashItems: slashItemsForDefs(SLASH_ITEMS, tree.defs),
       linkTargets,
@@ -342,7 +343,7 @@ export function ComponentTreeRenderer({
         ? (nodeId: bigint) => onCommentBlock(String(nodeId))
         : undefined,
     }),
-    [idbNamespace, isActive, linkTargets, tree.defs, queryResolver, onCommentBlock],
+    [idbNamespace, isActive, tree.loading, linkTargets, tree.defs, queryResolver, onCommentBlock],
   );
 
   const attachmentCtx = useMemo(
