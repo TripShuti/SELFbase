@@ -1,3 +1,4 @@
+import { readBoundedBody, BodyTooLargeError } from "../read-bounded-body";
 import { createHash } from "node:crypto";
 import { HttpStdbTransport } from "../api-endpoint/http-transport";
 import { decodePropertyValue, unwrapScalar } from "../api-endpoint/codec";
@@ -102,23 +103,22 @@ async function requestJsonUncached(source: LoadedSource, url: URL): Promise<unkn
     if (source.config.authHeader) headers.set(source.config.authHeader, source.config.authPrefix + source.secret);
   } catch { throw new Error("Invalid source authentication header"); }
   let response: Response;
+  const signal = AbortSignal.timeout(15_000);
   try {
-    response = await fetch(url, { headers, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(15_000) });
+    response = await fetch(url, { headers, cache: "no-store", redirect: "error", signal });
   } catch { throw new Error("Cannot reach the external source (connection, redirect or timeout)"); }
-  if (!response.ok) throw new Error(`External source returned HTTP ${response.status}`);
-  // Stream with a hard bound: a malformed source must not exhaust server memory.
-  const reader = response.body?.getReader();
-  if (!reader) throw new Error("External source returned an empty response");
-  const decoder = new TextDecoder();
-  let bytes = 0, body = "";
-  while (true) {
-    const chunk = await reader.read();
-    if (chunk.done) break;
-    bytes += chunk.value.byteLength;
-    if (bytes > 2_000_000) { await reader.cancel(); throw new Error("External source response exceeds 2 MB"); }
-    body += decoder.decode(chunk.value, { stream: true });
+  if (!response.ok) {
+    void response.body?.cancel().catch(() => {});
+    throw new Error(`External source returned HTTP ${response.status}`);
   }
-  body += decoder.decode();
+  if (!response.body) throw new Error("External source returned an empty response");
+  let body: string;
+  try {
+    body = new TextDecoder().decode(await readBoundedBody(response.body, 2_000_000, signal));
+  } catch (error) {
+    if (error instanceof BodyTooLargeError) throw new Error("External source response exceeds 2 MB");
+    throw new Error("Cannot read the external source (connection or timeout)");
+  }
   try { return JSON.parse(body); } catch { throw new Error("External source did not return JSON"); }
 }
 interface CollectionSnapshot { records: ExternalRecord[]; raw: Map<string, unknown> }

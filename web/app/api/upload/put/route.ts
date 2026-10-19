@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getS3Client, getS3Bucket, isS3Configured } from "@/src/lib/s3";
+import { readBoundedBody, BodyTooLargeError } from "@/src/lib/read-bounded-body";
 import { authorizeBlobRequest, pageIdFromKey } from "../_auth";
 
 /** Server-side cap for proxied uploads (bytes). */
 const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
+/** Total deadline includes receiving the file and forwarding it to storage. */
+const UPLOAD_TIMEOUT_MS = 5 * 60_000;
 
 /**
  * PUT /api/upload/put?db=<dbName>&key=<storageKey> + Bearer stdb token.
@@ -35,18 +38,24 @@ export async function PUT(request: NextRequest) {
   if (denied) return denied;
 
   const contentType = request.headers.get("content-type")?.trim() || "application/octet-stream";
-  const declared = Number(request.headers.get("content-length") ?? 0);
+  const lengthHeader = request.headers.get("content-length");
+  if (lengthHeader !== null && (!/^\d+$/.test(lengthHeader) || !Number.isSafeInteger(Number(lengthHeader)))) {
+    return NextResponse.json({ error: "Invalid Content-Length" }, { status: 400 });
+  }
+  const declared = Number(lengthHeader ?? 0);
   if (declared > MAX_UPLOAD_BYTES) {
     return NextResponse.json({ error: "File too large" }, { status: 413 });
   }
 
-  let body: ArrayBuffer;
+  const signal = AbortSignal.any([request.signal, AbortSignal.timeout(UPLOAD_TIMEOUT_MS)]);
+  let body: Uint8Array;
   try {
-    body = await request.arrayBuffer();
-  } catch {
-    return NextResponse.json({ error: "Failed to read upload body" }, { status: 400 });
+    body = await readBoundedBody(request.body, MAX_UPLOAD_BYTES, signal);
+  } catch (error) {
+    const status = error instanceof BodyTooLargeError ? 413 : signal.aborted ? 408 : 400;
+    return NextResponse.json({ error: status === 413 ? "File too large" : status === 408 ? "Upload interrupted or timed out" : "Failed to read upload body" }, { status });
   }
-  if (body.byteLength === 0 || body.byteLength > MAX_UPLOAD_BYTES) {
+  if (body.byteLength === 0) {
     return NextResponse.json({ error: "Invalid upload body" }, { status: 400 });
   }
 
@@ -56,10 +65,12 @@ export async function PUT(request: NextRequest) {
         Bucket: getS3Bucket(),
         Key: key,
         ContentType: contentType,
-        Body: Buffer.from(body),
-      })
+        Body: body,
+      }),
+      { abortSignal: signal }
     );
   } catch (err) {
+    if (signal.aborted) return NextResponse.json({ error: "Upload interrupted or timed out" }, { status: 408 });
     console.error("[upload/put] put error:", err);
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }

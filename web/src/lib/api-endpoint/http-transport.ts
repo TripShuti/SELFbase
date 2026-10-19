@@ -23,7 +23,7 @@ export interface HttpTransportOptions {
   token: string;
   /** Allows tests/Workers to inject their fetch. Defaults to global `fetch`. */
   fetchImpl?: typeof fetch;
-  /** Optional request timeout in ms. */
+  /** Optional timeout in ms, including response-body consumption. */
   timeoutMs?: number;
 }
 
@@ -84,23 +84,24 @@ export class HttpStdbTransport implements StdbTransport {
 
   private async sqlRaw<Row = unknown>(finalSql: string): Promise<Row[]> {
     const url = `${this.baseUrl}/v1/database/${this.dbName}/sql`;
-    const res = await this.request(url, {
+    const data = await this.request(url, {
       method: "POST",
       headers: {
         "Content-Type": "text/plain",
         Authorization: `Bearer ${this.token}`,
       },
       body: finalSql,
+    }, async res => {
+      if (!res.ok) {
+        const text = await safeText(res);
+        throw new ApiEndpointError(
+          502,
+          "stdb_sql_error",
+          `SpacetimeDB SQL failed (${res.status}): ${text}`,
+        );
+      }
+      return (await res.json()) as SqlStatementResult[];
     });
-    if (!res.ok) {
-      const text = await safeText(res);
-      throw new ApiEndpointError(
-        502,
-        "stdb_sql_error",
-        `SpacetimeDB SQL failed (${res.status}): ${text}`,
-      );
-    }
-    const data = (await res.json()) as SqlStatementResult[];
     if (!Array.isArray(data) || data.length === 0) return [];
 
     const result = data[0];
@@ -118,32 +119,56 @@ export class HttpStdbTransport implements StdbTransport {
 
   async call(reducer: string, args: unknown[]): Promise<void> {
     const url = `${this.baseUrl}/v1/database/${this.dbName}/call/${encodeURIComponent(reducer)}`;
-    const res = await this.request(url, {
+    await this.request(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${this.token}`,
       },
       body: JSON.stringify(args, replaceBigInt),
+    }, async res => {
+      if (!res.ok) {
+        const text = await safeText(res);
+        throw new ApiEndpointError(
+          502,
+          "stdb_reducer_error",
+          `SpacetimeDB reducer '${reducer}' failed (${res.status}): ${text}`,
+        );
+      }
+      // Successful reducers have no useful response payload. Release the body.
+      void res.body?.cancel().catch(() => {});
     });
-    if (!res.ok) {
-      const text = await safeText(res);
-      throw new ApiEndpointError(
-        502,
-        "stdb_reducer_error",
-        `SpacetimeDB reducer '${reducer}' failed (${res.status}): ${text}`,
-      );
-    }
   }
 
-  private async request(url: string, init: RequestInit): Promise<Response> {
-    if (!this.timeoutMs) return this.fetchImpl(url, init);
+  private async request<T>(url: string, init: RequestInit, consume: (res: Response) => Promise<T>): Promise<T> {
+    if (!this.timeoutMs) return consume(await this.fetchImpl(url, init));
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), this.timeoutMs);
+    let timer: ReturnType<typeof setTimeout>;
+    const deadline = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        ctrl.abort();
+        reject(new ApiEndpointError(504, "stdb_timeout", "SpacetimeDB request timed out"));
+      }, this.timeoutMs);
+    });
+    let response: Response | undefined;
     try {
-      return await this.fetchImpl(url, { ...init, signal: ctrl.signal });
+      return await Promise.race([deadline, (async () => {
+        response = await this.fetchImpl(url, { ...init, signal: ctrl.signal });
+        if (ctrl.signal.aborted) {
+          void response.body?.cancel().catch(() => {});
+          throw new ApiEndpointError(504, "stdb_timeout", "SpacetimeDB request timed out");
+        }
+        return consume(response);
+      })()]);
+    } catch (error) {
+      if (ctrl.signal.aborted) {
+        // Native fetch aborts the body; this also releases injected transports.
+        if (response?.body && !response.body.locked) void response.body.cancel().catch(() => {});
+        throw new ApiEndpointError(504, "stdb_timeout", "SpacetimeDB request timed out");
+      }
+      throw error;
     } finally {
-      clearTimeout(timer);
+      clearTimeout(timer!);
     }
   }
 }
@@ -187,7 +212,8 @@ function replaceBigInt(_: string, value: unknown): unknown {
 async function safeText(res: Response): Promise<string> {
   try {
     return await res.text();
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && ["AbortError", "TimeoutError"].includes(error.name)) throw error;
     return "<no body>";
   }
 }

@@ -60,6 +60,7 @@ export async function authorizeBlobRequest(
       baseUrl: stdbBaseUrl(),
       dbName,
       token,
+      timeoutMs: 15_000,
     });
     await transport.call("authorize_blob_access", [pageId, write]);
     return null;

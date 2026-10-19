@@ -120,6 +120,14 @@ Notes for native runs:
   `SPACETIMEDB_INTERNAL_URL=http://localhost:3000` in the web process env.
 - Without S3 (`S3_*` unset) uploads answer 503; everything else works.
 
+Network limits apply to Docker and native runs alike: REST gateway and blob
+permission checks allow 15 seconds per SpacetimeDB request, including response
+reading. External-source responses allow 15 seconds and 2 MB. Proxied file
+uploads accept at most 100 MiB of actual body data, even without a reliable
+`Content-Length`, with a five-minute total deadline for receiving the file and
+forwarding it to S3. Oversized uploads return 413; interrupted or expired uploads
+return 408. Reverse proxies such as Caddy may impose additional limits.
+
 After any change under `server/spacetimedb/src/`, regenerate bindings with
 the **pinned CLI 2.0.3** (a newer host CLI rewrites the whole bindings
 format — e.g. via the `clockworklabs/spacetime:v2.0.3` image):
