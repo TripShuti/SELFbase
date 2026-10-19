@@ -143,6 +143,7 @@ pub fn update_api_endpoint(
         .ok_or("API endpoint not found")?;
 
     require_creator_or_admin(ctx, endpoint.created_by, "update this endpoint")?;
+    crate::access_control::helpers::require_page_write(ctx, endpoint.database_page_id)?;
 
     validate_slug(&slug)?;
     if display_name.trim().is_empty() {
@@ -181,6 +182,7 @@ pub fn delete_api_endpoint(ctx: &ReducerContext, endpoint_id: u64) -> Result<(),
         .ok_or("API endpoint not found")?;
 
     require_creator_or_admin(ctx, endpoint.created_by, "delete this endpoint")?;
+    crate::access_control::helpers::require_page_write(ctx, endpoint.database_page_id)?;
 
     purge_api_endpoint(ctx, endpoint_id);
     Ok(())
@@ -245,15 +247,34 @@ pub fn create_api_field_mapping(
         .ok_or("API endpoint not found")?;
 
     require_creator_or_admin(ctx, endpoint.created_by, "manage field mappings")?;
+    crate::access_control::helpers::require_page_write(ctx, endpoint.database_page_id)?;
 
     validate_field_name(&field_name)?;
 
-    // Verify property definition exists
-    ctx.db
+    // Verify the property definition belongs to this endpoint's database
+    // (resolving inherited columns), so a mapping cannot point at a foreign
+    // schema's definition id.
+    let prop = ctx
+        .db
         .property_definition()
         .id()
         .find(property_definition_id)
         .ok_or("Property definition not found")?;
+    let in_schema = ctx
+        .db
+        .database_schema()
+        .page_id()
+        .filter(&endpoint.database_page_id)
+        .next()
+        .map(|schema| {
+            effective_property_definitions(ctx, schema.id)
+                .iter()
+                .any(|p| p.id == prop.id)
+        })
+        .unwrap_or(false);
+    if !in_schema {
+        return Err("Property definition does not belong to this endpoint's database".to_string());
+    }
 
     // Check field name uniqueness within this endpoint
     let name_taken = ctx
@@ -318,6 +339,7 @@ pub fn update_api_field_mapping(
         .ok_or("API endpoint not found")?;
 
     require_creator_or_admin(ctx, endpoint.created_by, "manage field mappings")?;
+    crate::access_control::helpers::require_page_write(ctx, endpoint.database_page_id)?;
 
     validate_field_name(&field_name)?;
 
@@ -365,6 +387,7 @@ pub fn delete_api_field_mapping(ctx: &ReducerContext, mapping_id: u64) -> Result
         .ok_or("API endpoint not found")?;
 
     require_creator_or_admin(ctx, endpoint.created_by, "manage field mappings")?;
+    crate::access_control::helpers::require_page_write(ctx, endpoint.database_page_id)?;
 
     ctx.db.api_field_mapping().id().delete(mapping_id);
     Ok(())
@@ -390,6 +413,7 @@ pub fn create_api_endpoint_key(
         .ok_or("API endpoint not found")?;
 
     require_creator_or_admin(ctx, endpoint.created_by, "manage API keys")?;
+    crate::access_control::helpers::require_page_write(ctx, endpoint.database_page_id)?;
 
     if label.trim().is_empty() {
         return Err("Key label cannot be empty".to_string());
@@ -444,6 +468,7 @@ pub fn revoke_api_endpoint_key(ctx: &ReducerContext, key_id: u64) -> Result<(), 
         .ok_or("API endpoint not found")?;
 
     require_creator_or_admin(ctx, endpoint.created_by, "revoke API keys")?;
+    crate::access_control::helpers::require_page_write(ctx, endpoint.database_page_id)?;
 
     ctx.db.api_endpoint_key().id().delete(key_id);
     Ok(())
@@ -483,6 +508,9 @@ pub fn create_database_row(
     if title.trim().is_empty() {
         return Err("Title cannot be empty".to_string());
     }
+    if values.len() > 512 {
+        return Err("Too many property values in a single request".to_string());
+    }
 
     let database = ctx
         .db
@@ -503,8 +531,16 @@ pub fn create_database_row(
         .client_request_id()
         .find(&client_request_id)
     {
-        if ctx.db.page().id().find(existing.page_id).is_some() {
-            return Ok(());
+        if let Some(existing_page) = ctx.db.page().id().find(existing.page_id) {
+            // Idempotent replay only applies to the same database. A marker
+            // minted for another database must not let a caller resolve a row
+            // id it does not own.
+            if existing_page.parent_id == Some(database_page_id) {
+                return Ok(());
+            }
+            return Err(
+                "client_request_id was already used for a different database".to_string(),
+            );
         }
     }
 
@@ -587,6 +623,9 @@ pub fn update_database_row(
     }
     if row.deleted_at.is_some() {
         return Err("Cannot update a deleted row".to_string());
+    }
+    if set_values.len() > 512 || clear_values.len() > 512 {
+        return Err("Too many property values in a single request".to_string());
     }
 
     let new_title = match title {
@@ -708,6 +747,10 @@ pub fn touch_api_endpoint_key(ctx: &ReducerContext, key_id: u64) -> Result<(), S
         .id()
         .find(key_id)
         .ok_or("API key not found")?;
+    // Service/audit operation: only the key's minter, an admin, or the module
+    // publisher (the gateway service identity) may stamp `last_used_at`.
+    // Without this, any member could stomp the "unused key" audit signal.
+    require_creator_or_admin(ctx, key.created_by, "touch this API key")?;
     ctx.db.api_endpoint_key().id().update(ApiEndpointKey {
         last_used_at: Some(ctx.timestamp),
         ..key

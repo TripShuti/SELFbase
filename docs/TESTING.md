@@ -19,7 +19,7 @@ own failure propagation, timeout cleanup and prerequisite handling
 | Command | Checks | Extra requirements |
 | --- | --- | --- |
 | `pnpm check` or `pnpm test` | Runner self-checks, web and editor unit tests, all three TypeScript packages and manual probe types, Rust unit tests, both entrypoint subprocess suites | GNU `timeout`, standard POSIX tools |
-| `pnpm check:integration` | Build one candidate WASM; external-source, snapshot, deletion, migration and comment-schema upgrade regressions | SpacetimeDB CLI **and standalone 2.0.3**, WASM target, OpenSSL, full Git history |
+| `pnpm check:integration` | Build one candidate WASM; access-control, external-source, snapshot, deletion, migration and comment-schema upgrade regressions | SpacetimeDB CLI **and standalone 2.0.3**, WASM target, OpenSSL, full Git history |
 | `pnpm check:browser` | Editor autosave and subscription lifecycle with real Chromium/IndexedDB | Playwright Chromium |
 | `pnpm check:docker` | Build candidate; fresh container, old-to-new upgrade, restart and failed publish | Docker daemon, Compose v2, local pinned image, full Git history |
 | `pnpm check:build` | Release WASM and production Next.js build | Rust WASM target |

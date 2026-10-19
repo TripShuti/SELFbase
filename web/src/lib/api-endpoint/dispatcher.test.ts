@@ -6,6 +6,7 @@ import type { AuthResult, StdbTransport } from "./types";
 
 class EndpointConfigTransport implements StdbTransport {
   endpointReads = 0;
+  pageState: "live" | "trashed" | "missing" = "live";
 
   constructor(
     private readonly config: {
@@ -31,6 +32,10 @@ class EndpointConfigTransport implements StdbTransport {
           require_auth: this.config.requireAuth,
         },
       ] as Row[];
+    }
+    if (query.includes("FROM page")) {
+      // Live page (Option<Timestamp>::None in positional SATS shape).
+      return (this.pageState === "missing" ? [] : [{ deleted_at: this.pageState === "live" ? [1, []] : [0, [1700000000000000]] }]) as Row[];
     }
     if (query.includes("FROM api_field_mapping")) {
       return [
@@ -204,4 +209,15 @@ describe("endpoint config cache isolation", () => {
 
     expect(transport.endpointReads).toBe(1);
   });
+});
+
+test.each(["trashed", "missing"] as const)("cached endpoint rejects a %s database", async (state) => {
+  const cache = new EndpointConfigCache();
+  const transport = new EndpointConfigTransport({ endpointId: 1, databasePageId: 101,
+    displayName: "Records", requireAuth: false, fieldName: "value" });
+  const args = { transport, cache, cacheNamespace: "liveness" };
+  expect((await dispatchSchema(args)).status).toBe(200);
+  transport.pageState = state;
+  expect((await dispatchSchema(args)).status).toBe(404);
+  expect(transport.endpointReads).toBe(1);
 });

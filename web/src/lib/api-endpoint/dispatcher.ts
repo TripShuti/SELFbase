@@ -423,7 +423,10 @@ async function loadEndpointConfig(
   const cacheKey = endpointConfigCacheKey(cacheNamespace, slug);
   if (cache && cacheKey) {
     const cached = cache.get(cacheKey);
-    if (cached) return cached;
+    if (cached) {
+      await requireLiveDatabase(transport, cached.endpoint.databasePageId, slug);
+      return cached;
+    }
   }
 
   const endpoints = await transport.sql<{
@@ -446,6 +449,8 @@ async function loadEndpointConfig(
     throw new ApiEndpointError(404, "endpoint_not_found", `No endpoint '${slug}'`);
   }
   const e = endpoints[0];
+
+  await requireLiveDatabase(transport, e.database_page_id, slug);
 
   // SpacetimeDB's SQL subset rejects `ORDER BY` on non-indexed columns
   // (`field_order` has no btree index; only `id` PK and `endpoint_id` do),
@@ -547,7 +552,7 @@ function endpointConfigCacheKey(
  */
 const HTTP_METHOD_TAGS = ["GET", "POST", "PATCH", "DELETE"] as const;
 
-function parseAllowedMethods(raw: unknown): HttpMethodName[] {
+export function parseAllowedMethods(raw: unknown): HttpMethodName[] {
   // SpacetimeDB's SQL HTTP endpoint encodes `Vec<HttpMethod>` in several
   // shapes depending on version. Accept everything we've seen:
   //   • `"Get"`                       — bare variant name
@@ -911,4 +916,18 @@ function randomUuid(): string {
   bytes[8] = (bytes[8] & 0x3f) | 0x80;
   const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+async function requireLiveDatabase(
+  transport: StdbTransport,
+  databasePageId: string | number,
+  slug: string,
+): Promise<void> {
+  const pages = await transport.sql<{ deleted_at: unknown }>(
+    `SELECT deleted_at FROM page WHERE id = ? LIMIT 1`,
+    [databasePageId],
+  );
+  if (pages.length === 0 || !isOptionNone(pages[0].deleted_at)) {
+    throw new ApiEndpointError(404, "endpoint_not_found", `No endpoint '${slug}'`);
+  }
 }

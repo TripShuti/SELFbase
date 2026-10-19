@@ -95,7 +95,7 @@ pub(super) fn decode_i64(v: &Value) -> Result<i64, String> {
         return Ok(n);
     }
     if let Some(n) = v.as_u64() {
-        return Ok(n as i64);
+        return i64::try_from(n).map_err(|e| format!("i64: {e}"));
     }
     if let Some(s) = v.as_str() {
         return s.parse().map_err(|e| format!("i64: {e}"));
@@ -604,6 +604,7 @@ pub(super) fn decode_api_field_mapping(v: &Value) -> Result<ApiFieldMapping, Str
     })
 }
 
+#[allow(dead_code)] // Retained for the snapshot format; import now skips credential rows.
 pub(super) fn decode_api_endpoint_key(v: &Value) -> Result<ApiEndpointKey, String> {
     let m = obj(v, "api_endpoint_key")?;
     Ok(ApiEndpointKey {

@@ -106,32 +106,55 @@ rows are rewritten or deleted by this release. Views recompute from existing
 identity, page, ACL, and participant rows. This is a page/conversation boundary
 change, not a workspace-wide audit of unrelated operational tables.
 
+## Snapshot and management boundaries
+
+Creating a saved page version changes its history and requires write access,
+just like saving a version with client-supplied content. Read access still
+allows reading existing history. Endpoint management also requires current
+write access to its database, even for the original endpoint creator.
+A schema writer cannot delete or change a column's type when its current or
+historical values belong to pages that writer cannot modify.
+
+Personal view configuration, names and deletion require both page write and
+ownership (or admin/publisher authority). The current grid creates shared
+views (`owner_identity = None`), so its shared-view workflows keep page-write
+authorization.
+
+Snapshot imports preserve existing identities' live authentication/admin flags;
+new identities receive neither privilege. Imported API endpoints require auth,
+and imported API keys are skipped. Reissue keys after restore and explicitly
+reopen endpoints intended for public use. OIDC profile email requires the
+trusted issuer's `email_verified = true`; client-supplied profile fields cannot
+replace verified account data.
+
+Workspace deep links may automatically select only the current host, the
+configured public SpacetimeDB host, or hosts explicitly listed in
+`ALLOWED_WORKSPACE_HOSTS` for Compose builds
+(`NEXT_PUBLIC_ALLOWED_WORKSPACE_HOSTS` for direct web builds). This restricts
+automatic adoption from links; manually configured connections remain available.
+
 ## Validation
 
-Run a separate local host (the suite refuses non-localhost URLs):
+The access-control regression suite is self-contained: it starts a throwaway
+SpacetimeDB standalone on a random localhost port with a temporary data
+directory and generated JWT keys, publishes the candidate module to a unique
+disposable database, and exercises snapshot import, page moves and subtree
+deletion with synthetic identities. From the repository root:
 
 ```sh
-spacetime start --listen-addr 127.0.0.1:3098 --data-dir /tmp/selfbase-access-stdb --in-memory --non-interactive
+python3 server/tests/access_control_regressions.py
+# or run it with the rest of the integration suites (builds one candidate WASM):
+python3 scripts/check.py integration
 ```
 
-From `server/spacetimedb`:
+Formatting/type checks:
 
 ```sh
-cargo build --locked --offline --target wasm32-unknown-unknown --release
-cargo test --locked --offline
+(cd server/spacetimedb && cargo test --locked --offline)
+(cd web && pnpm test && pnpm exec tsc --noEmit)
 ```
 
-From `web`:
-
-```sh
-node --import tsx scripts/access-control-e2e.ts http://127.0.0.1:3098
-pnpm test
-pnpm exec tsc --noEmit
-```
-
-The live suite publishes to a unique disposable database, creates synthetic
-human/AI identities, exercises SQL plus live WebSocket subscriptions, and removes
-its database at the end. It does not use production credentials or data.
+The suite never touches a live workspace, production credentials or data.
 
 ## Rollout
 

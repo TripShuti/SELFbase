@@ -19,7 +19,7 @@
 use super::decode::*;
 use crate::auth::sender_is_admin;
 use crate::{
-    api_call_log, api_endpoint, api_endpoint_key, api_field_mapping, attachment, block_access_rule,
+    api_call_log, api_endpoint, api_field_mapping, attachment, block_access_rule,
     block_comment, component_node, component_type_definition, component_yjs_state,
     database_row_marker, database_schema, database_view, id_counter, page, page_access_request,
     page_access_rule, page_content, page_property_value, page_property_value_history,
@@ -389,22 +389,27 @@ fn import_rows(
         "user" => {
             let mut applied = 0u64;
             for row in arr {
-                let imported = decode_user(row)?;
-                // The restoring identity may also occur in its own backup.
-                // Retain its current login/admin state while restoring profile
-                // data; all other identities still require unique inserts.
-                if imported.identity == ctx.sender() {
-                    if let Some(existing) = ctx.db.user().identity().find(imported.identity) {
-                        ctx.db.user().identity().update(crate::User {
-                            is_authenticated: existing.is_authenticated,
-                            is_admin: existing.is_admin,
-                            ..imported
-                        });
-                    } else {
+                let mut imported = decode_user(row)?;
+                match ctx.db.user().identity().find(imported.identity) {
+                    Some(existing) => {
+                        // Existing account: restore profile fields, but never
+                        // let untrusted snapshot content change the live
+                        // privilege flags. `is_admin`/`is_authenticated` are
+                        // authoritative only for the account that owns this
+                        // identity in the running database.
+                        imported.is_authenticated = existing.is_authenticated;
+                        imported.is_admin = existing.is_admin;
+                        ctx.db.user().identity().update(imported);
+                    }
+                    None => {
+                        // Restored rows assert identity/profile only. They must
+                        // not silently grant workspace membership
+                        // (is_authenticated) or admin rights (is_admin);
+                        // restored members re-authenticate (OIDC or password).
+                        imported.is_authenticated = false;
+                        imported.is_admin = false;
                         ctx.db.user().insert(imported);
                     }
-                } else {
-                    ctx.db.user().insert(imported);
                 }
                 applied += 1;
             }
@@ -451,9 +456,27 @@ fn import_rows(
         "block_access_rule" => plain!(block_access_rule, decode_block_access_rule),
         "block_comment" => plain!(block_comment, decode_block_comment),
         "page_access_request" => plain!(page_access_request, decode_page_access_request),
-        "api_endpoint" => plain!(api_endpoint, decode_api_endpoint),
+        "api_endpoint" => {
+            let mut applied = 0u64;
+            for row in arr {
+                let mut endpoint = decode_api_endpoint(row)?;
+                // A snapshot is untrusted content. Never let it silently
+                // publish a database to the internet: restored endpoints start
+                // closed and must be re-opened deliberately by their owner.
+                endpoint.require_auth = true;
+                ctx.db.api_endpoint().insert(endpoint);
+                applied += 1;
+            }
+            (applied, 0u64)
+        },
         "api_field_mapping" => plain!(api_field_mapping, decode_api_field_mapping),
-        "api_endpoint_key" => plain!(api_endpoint_key, decode_api_endpoint_key),
+        "api_endpoint_key" => {
+            // API keys are credentials. Importing them would let the snapshot
+            // author plant a key whose plaintext they already know (and the
+            // plain import path used to accept hashes the reducer rejects).
+            // Skip every key; the owner mints fresh keys after a restore.
+            (0u64, arr.len() as u64)
+        }
         "api_call_log" => plain!(api_call_log, decode_api_call_log),
         other => {
             return Err(format!(
@@ -632,8 +655,10 @@ fn decode_api_call_log(v: &Value) -> Result<ApiCallLog, String> {
         key_id: opt_u64_at(m, "keyId")?,
         method: decode_http_method(m.get("method").ok_or("method")?)?,
         path: string_at(m, "path")?,
-        status_code: u64_at(m, "statusCode")? as u16,
-        latency_ms: u64_at(m, "latencyMs")? as u32,
+        status_code: u16::try_from(u64_at(m, "statusCode")?)
+            .map_err(|e| format!("statusCode: {e}"))?,
+        latency_ms: u32::try_from(u64_at(m, "latencyMs")?)
+            .map_err(|e| format!("latencyMs: {e}"))?,
         caller_ip: opt_string_at(m, "callerIp")?,
         error_message: opt_string_at(m, "errorMessage")?,
         at: decode_timestamp(m.get("at").ok_or("at")?)?,

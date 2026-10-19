@@ -315,7 +315,40 @@ pub fn move_page(
     if let Some(pid) = new_parent_id {
         require_page_write(ctx, pid)?;
     }
+
+    // Refuse self-parenting and moves into the page's own subtree: either
+    // would create a page-tree cycle, silently breaking every ancestor walk
+    // (including access-rule inheritance, which stops at the first repeat).
+    if new_parent_id == Some(page_id) {
+        return Err("A page cannot be its own parent".to_string());
+    }
+    let mut walk = new_parent_id;
+    let mut visited = std::collections::HashSet::new();
+    while let Some(id) = walk {
+        if id == page_id {
+            return Err("Cannot move a page into its own subtree".to_string());
+        }
+        if !visited.insert(id) {
+            break;
+        }
+        walk = ctx.db.page().id().find(id).and_then(|p| p.parent_id);
+    }
+
     let page = ctx.db.page().id().find(page_id).ok_or("Page not found")?;
+
+    // Moving a page out from under a restricted ancestor would drop that
+    // ancestor's rules for the whole subtree, letting a member who merely had
+    // inherited access reopen it to everyone. Materialize exactly the rules
+    // the page is leaving before it is reparented.
+    let old_ancestors: std::collections::HashSet<u64> =
+        ancestor_ids(ctx, page.parent_id).into_iter().collect();
+    let new_ancestors: std::collections::HashSet<u64> =
+        ancestor_ids(ctx, new_parent_id).into_iter().collect();
+    let removed: std::collections::BTreeSet<u64> =
+        old_ancestors.difference(&new_ancestors).copied().collect();
+    if !removed.is_empty() {
+        preserve_inherited_access(ctx, page_id, &removed);
+    }
 
     // Collect and sort active siblings of the new parent (excluding the moving page).
     let mut siblings: Vec<Page> = ctx
@@ -535,6 +568,12 @@ pub fn delete_page_subtree(ctx: &ReducerContext, page_id: u64) -> Result<(), Str
         if !seen.insert(id) {
             continue;
         }
+        // A caller may only trash nodes it can write. Descendants hidden
+        // behind a restricted node are left untouched (and not traversed),
+        // so an open ancestor can no longer trash a restricted child.
+        if !can_write_page(ctx, id, ctx.sender()) {
+            continue;
+        }
         let children: Vec<u64> = ctx
             .db
             .page()
@@ -562,6 +601,23 @@ pub fn delete_page_subtree(ctx: &ReducerContext, page_id: u64) -> Result<(), Str
 pub fn restore_page(ctx: &ReducerContext, page_id: u64) -> Result<(), String> {
     require_page_write(ctx, page_id)?;
     let page = ctx.db.page().id().find(page_id).ok_or("Page not found")?;
+    // Restoring a single child of a trashed subtree would leave a live page
+    // stranded under deleted ancestors (unreachable in the sidebar/search).
+    // The whole subtree must be restored from its (live) root.
+    let mut parent = page.parent_id;
+    let mut seen = std::collections::HashSet::new();
+    while let Some(pid) = parent {
+        if !seen.insert(pid) {
+            break;
+        }
+        match ctx.db.page().id().find(pid) {
+            Some(ancestor) if ancestor.deleted_at.is_some() => {
+                return Err("Cannot restore a page whose ancestor is still in the trash".to_string());
+            }
+            Some(ancestor) => parent = ancestor.parent_id,
+            None => break,
+        }
+    }
     ctx.db.page().id().update(Page {
         deleted_at: None,
         updated_at: ctx.timestamp,
@@ -643,6 +699,11 @@ fn purge_trashed_page(
         if !to_purge.insert(id) {
             continue;
         }
+        // Scheduled retention is workspace-wide; interactive purges must
+        // authorize every node before any mutation takes place.
+        if cutoff.is_none() && !can_write_page(ctx, id, ctx.sender()) {
+            return Err("Cannot purge a subtree containing pages you cannot write".into());
+        }
         for child in ctx.db.page().parent_pk().filter(id) {
             if eligible_for_purge(child.deleted_at, cutoff) {
                 queue.push(child.id);
@@ -722,6 +783,21 @@ mod deletion_tests {
         assert!(!eligible_for_purge(stamp(101), Some(100)));
         assert!(eligible_for_purge(stamp(101), None));
     }
+}
+
+/// Ancestor page ids of `parent` (nearest first), stopping at a repeat so a
+/// pre-existing cycle cannot hang the walk.
+fn ancestor_ids(ctx: &ReducerContext, mut parent: Option<u64>) -> Vec<u64> {
+    let mut ids = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    while let Some(id) = parent {
+        if !seen.insert(id) {
+            break;
+        }
+        ids.push(id);
+        parent = ctx.db.page().id().find(id).and_then(|p| p.parent_id);
+    }
+    ids
 }
 
 /// Materialize inherited grants before a page is detached from deleted parents.

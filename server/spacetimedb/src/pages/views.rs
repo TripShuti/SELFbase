@@ -4,7 +4,9 @@
 use spacetimedb::{reducer, table, ReducerContext, SpacetimeType, Table, Timestamp};
 
 use crate::access_control::helpers::require_page_write;
+use crate::auth::sender_is_admin;
 use crate::id_counters::alloc_id;
+use crate::module_install::sender_is_module_publisher;
 use crate::pages::{page, ActorType};
 
 pub(crate) fn next_database_view_id(ctx: &ReducerContext) -> u64 {
@@ -49,6 +51,21 @@ pub struct DatabaseView {
 // ============================================================
 // View Reducers
 // ============================================================
+
+/// Personal views (`owner_identity = Some(..)`) are owned by the member who
+/// created them; a page writer may not rename, reconfigure or delete someone
+/// else's personal view. Shared views only need page write. Admins and the
+/// module publisher may always act, so a workspace can be cleaned up.
+fn require_view_authority(ctx: &ReducerContext, view: &DatabaseView) -> Result<(), String> {
+    require_page_write(ctx, view.page_id)?;
+    if let Some(owner) = &view.owner_identity {
+        let caller = ctx.sender().to_hex().to_string();
+        if owner != &caller && !sender_is_admin(ctx) && !sender_is_module_publisher(ctx) {
+            return Err("Only the view's owner can modify a personal view".to_string());
+        }
+    }
+    Ok(())
+}
 
 /// Creates a view. First view for a page is automatically set as default.
 #[reducer]
@@ -95,7 +112,7 @@ pub fn update_view_config(
         .id()
         .find(view_id)
         .ok_or("View not found")?;
-    require_page_write(ctx, view.page_id)?;
+    require_view_authority(ctx, &view)?;
     ctx.db.database_view().id().update(DatabaseView {
         config,
         updated_at: ctx.timestamp,
@@ -112,7 +129,7 @@ pub fn rename_view(ctx: &ReducerContext, view_id: u64, name: String) -> Result<(
         .id()
         .find(view_id)
         .ok_or("View not found")?;
-    require_page_write(ctx, view.page_id)?;
+    require_view_authority(ctx, &view)?;
     ctx.db.database_view().id().update(DatabaseView {
         name,
         updated_at: ctx.timestamp,
@@ -130,7 +147,7 @@ pub fn set_default_view(ctx: &ReducerContext, view_id: u64) -> Result<(), String
         .id()
         .find(view_id)
         .ok_or("View not found")?;
-    require_page_write(ctx, target.page_id)?;
+    require_view_authority(ctx, &target)?;
     let page_id = target.page_id;
 
     // Collect other current-default views before mutating
@@ -166,7 +183,7 @@ pub fn delete_view(ctx: &ReducerContext, view_id: u64) -> Result<(), String> {
         .id()
         .find(view_id)
         .ok_or("View not found")?;
-    require_page_write(ctx, view.page_id)?;
+    require_view_authority(ctx, &view)?;
     ctx.db.database_view().id().delete(view_id);
     Ok(())
 }

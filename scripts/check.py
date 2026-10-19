@@ -46,6 +46,7 @@ QUICK = [
     Step('Entrypoint readiness tests', python_test('entrypoint_readiness.py'), timeout=60),
 ]
 INTEGRATION = [WASM, *[Step(name, python_test(file)) for name, file in [
+    ('Access-control regressions', 'access_control_regressions.py'),
     ('External-source regressions', 'external_source_regressions.py'),
     ('Snapshot restore regressions', 'snapshot_restore_regressions.py'),
     ('Deletion regressions', 'deletion_regressions.py'),

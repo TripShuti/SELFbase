@@ -10,6 +10,7 @@
 
 export {
   dispatchApiEndpointRequest,
+  parseAllowedMethods,
   type DispatchArgs,
 } from "./dispatcher";
 export {

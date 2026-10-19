@@ -15,9 +15,15 @@ import {
   HttpStdbTransport,
   dispatchApiEndpointRequest,
   isCustomTemplate,
+  parseAllowedMethods,
   resolveEndpointUrl,
+  unwrapScalar,
   type StdbTransport,
 } from "@/src/lib/api-endpoint";
+import { BodyTooLargeError, readBoundedBody } from "@/src/lib/read-bounded-body";
+
+/** Upper bound for a custom-API JSON body, applied even without Content-Length. */
+const MAX_REQUEST_BODY_BYTES = 1_048_576;
 
 const SHARED_CACHE = new EndpointConfigCache({ maxEntries: 256, ttlMs: 60_000 });
 
@@ -96,21 +102,22 @@ async function authenticateRequest(
     }
     const key = rows[0];
 
-    // Expiry check (Option<Timestamp> SATS shape: `{some: <us>}` or `{none:[]}`).
-    if (
-      key.expires_at &&
-      typeof key.expires_at === "object" &&
-      "some" in (key.expires_at as object)
-    ) {
-      const some = (key.expires_at as { some: number | string }).some;
-      const expiresMs =
-        typeof some === "string" ? Number(some) / 1000 : Number(some) / 1000;
+    // Expiry check. STDB's `/sql` returns `Option<Timestamp>` positionally as
+    // `[0, [micros]]` (Some) / `[1, []]` (None) — `unwrapScalar` normalises both
+    // that and the older `{some:{…}}`/`{none:[]}` object form. Comparing only
+    // the object form (as this code used to) left every positional-shape key
+    // valid forever.
+    const expiresMicros = unwrapScalar(key.expires_at);
+    if (expiresMicros != null) {
+      const micros =
+        typeof expiresMicros === "string" ? Number(expiresMicros) : expiresMicros;
+      const expiresMs = micros / 1000;
       if (Number.isFinite(expiresMs) && expiresMs < Date.now()) {
         throw new ApiEndpointError(401, "auth_invalid", "API key has expired");
       }
     }
 
-    if (!keyAllowsMethod(key.allowed_methods, method)) {
+    if (!(parseAllowedMethods(key.allowed_methods) as string[]).includes(method.toUpperCase())) {
       throw new ApiEndpointError(
         403,
         "method_not_allowed_for_key",
@@ -125,18 +132,6 @@ async function authenticateRequest(
   // request when `endpoint.requireAuth` is true. Self-hosted SELFbase can later
   // wire its OIDC session here to elevate to `kind: "session"`.
   return { kind: "open" };
-}
-
-function keyAllowsMethod(allowed: unknown, method: string): boolean {
-  if (!Array.isArray(allowed)) return false;
-  const want = method.charAt(0).toUpperCase() + method.slice(1).toLowerCase();
-  return allowed.some((m) => {
-    if (typeof m === "string") return m === want;
-    if (typeof m === "object" && m !== null) {
-      return Object.keys(m as object)[0] === want;
-    }
-    return false;
-  });
 }
 
 interface ServeOptions {
@@ -184,7 +179,12 @@ export async function serveEndpointRequest(opts: ServeOptions): Promise<Response
     return errorJson(e);
   }
 
-  const body = await readJsonBody(request);
+  let body: unknown;
+  try {
+    body = await readJsonBody(request);
+  } catch (error) {
+    return errorJson(error);
+  }
   const callerIp =
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     request.headers.get("cf-connecting-ip") ||
@@ -210,7 +210,24 @@ export async function serveEndpointRequest(opts: ServeOptions): Promise<Response
 
 async function readJsonBody(request: Request): Promise<unknown> {
   if (request.method === "GET" || request.method === "DELETE") return undefined;
-  const text = await request.text();
+  let text: string;
+  try {
+    const bytes = await readBoundedBody(
+      request.body,
+      MAX_REQUEST_BODY_BYTES,
+      request.signal,
+    );
+    text = new TextDecoder().decode(bytes);
+  } catch (err) {
+    if (err instanceof BodyTooLargeError) {
+      throw new ApiEndpointError(
+        413,
+        "payload_too_large",
+        "Request body exceeds the 1 MiB limit",
+      );
+    }
+    throw err;
+  }
   if (!text.trim()) return undefined;
   try {
     return JSON.parse(text);
