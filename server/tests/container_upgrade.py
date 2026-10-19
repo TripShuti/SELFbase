@@ -7,6 +7,8 @@ import subprocess
 import tempfile
 import time
 
+from regression_config import BASELINES, MODULE_WASM
+
 ROOT = Path(__file__).resolve().parents[2]
 IMAGE = 'clockworklabs/spacetime:v2.0.3'
 
@@ -19,7 +21,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix='selfbase-container-upgrade-') as directory:
         state = Path(directory)
         module = state / 'module.wasm'
-        module.write_bytes(subprocess.check_output(['git', 'show', '4cd90eb:server/docker/server.wasm'], cwd=ROOT))
+        module.write_bytes(subprocess.check_output(['git', 'show', f"{BASELINES['upgrades']}:server/docker/server.wasm"], cwd=ROOT))
         cid = subprocess.check_output(['docker', 'run', '-d', '--network', 'none', '--user', 'root',
             '-e', 'STDB_DATA_DIR=/test-state/data', '-e', 'XDG_CONFIG_HOME=/test-state/config',
             '-e', 'STDB_STARTUP_TIMEOUT=30', '-e', 'STDB_PUBLISH_TIMEOUT=60', '-e', 'STDB_MIGRATION_TIMEOUT=60',
@@ -61,7 +63,7 @@ def main():
             print('PASS: fresh pinned Docker image publishes and runs migrations before becoming healthy', flush=True)
             # Replace only the test artifact, keeping data and CLI credentials.
             subprocess.run(['docker', 'stop', '--time', '8', cid], check=True, stdout=subprocess.DEVNULL)
-            module.write_bytes((ROOT / 'server/docker/server.wasm').read_bytes())
+            module.write_bytes(MODULE_WASM.read_bytes())
             subprocess.run(['docker', 'start', cid], check=True, stdout=subprocess.DEVNULL)
             wait_ready()
             assert sql('SELECT id, title FROM page') == data

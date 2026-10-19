@@ -1,14 +1,12 @@
 import { defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
 
-// Scoped to the shared platform-agnostic libs for now — the app itself is
-// exercised by Next's own tooling. (`src/hooks/useSyncChildPageLinks.test.ts`
-// predates this config and needs a jsdom environment + fixture work before
-// it can join the include list.)
+// Pure library and hook-helper tests run in Node. Browser lifecycle cases
+// are exercised by packages/pulp/tests/autosave-browser.mjs.
 export default defineConfig({
   resolve: { alias: { "@": fileURLToPath(new URL(".", import.meta.url)) } },
   test: {
     environment: "node",
-    include: ["src/lib/**/*.test.ts"],
+    include: ["src/**/*.test.ts"],
   },
 });

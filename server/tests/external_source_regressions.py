@@ -18,7 +18,7 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = Path(__file__).resolve().parents[2]
-BIN = Path(os.environ.get("TEST_SPACETIME_BIN_DIR", str(Path.home() / ".local/share/spacetime/bin/2.0.3")))
+from regression_config import BASELINES, BIN, MODULE_WASM
 SECRET = "regression-only-original-key"
 
 
@@ -77,7 +77,7 @@ def main():
                         assert result.returncode == 0, result.stdout
 
                     old = temp / "previous.wasm"
-                    old.write_bytes(subprocess.check_output(["git", "show", "79e9317:server/docker/server.wasm"], cwd=ROOT))
+                    old.write_bytes(subprocess.check_output(["git", "show", f"{BASELINES['external_sources']}:server/docker/server.wasm"], cwd=ROOT))
                     publish(old)
                     token = re.search(r"eyJ[A-Za-z0-9_.-]+", (temp / "config/spacetime/cli.toml").read_text()).group()
 
@@ -139,7 +139,7 @@ def main():
                     call("purge_page", [orphan])
                     assert len(sql("SELECT database_id FROM external_source_secret")) == 2
                     cells = sql("SELECT * FROM page_property_value")
-                    publish(ROOT / "server/docker/server.wasm")
+                    publish(MODULE_WASM)
                     call("run_pending_migrations", [])
                     call("run_pending_migrations", [])
                     assert sql("SELECT * FROM page_property_value") == cells

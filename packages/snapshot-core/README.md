@@ -61,5 +61,5 @@ The runner uses temporary keys, configuration, data and a random localhost port;
 it does not connect to the running workspace. Set `TEST_SPACETIME_BIN_DIR` if the
 pinned binaries are not in `~/.local/share/spacetime/bin/2.0.3`.
 
-The baseline comparison uses the WASM from commit `d2c60f1`; keep that Git
+The baseline comparison uses the WASM from commit `139085a`; keep that Git
 history available, or set `TEST_BASELINE_WASM` to the corresponding old module.
