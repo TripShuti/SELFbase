@@ -1240,10 +1240,13 @@ export function GridView({ page }: GridViewProps) {
       const propId = BigInt(propIdStr);
       const prop = properties.find((p) => p.id === propId);
       if (!prop) continue;
-      setPropertyValue({
+      // Clearing must remove the cell, not write a "fake empty" value:
+      // emptyPropertyValue returns Number(0)/Checkbox(false), which the server
+      // treats as real (non-empty) values, and has no case for
+      // Person/File/Ai/Formula/Rollup (it used to write a Text "" into them).
+      clearPropertyValue({
         pageId: BigInt(rowIdStr),
         propertyDefinitionId: propId,
-        value: emptyPropertyValue(prop.propertyType.tag),
       });
     }
     setSelectedCells(new Set());
@@ -3409,22 +3412,6 @@ function GridRow({
       <td />
     </tr>
   );
-}
-
-// Returns the "cleared" value for a given property type tag.
-// BigInt(0) is falsy in JS so DateCell treats it as "no date".
-function emptyPropertyValue(tag: string) {
-  switch (tag) {
-    case "Number":      return { tag: "Number" as const, value: 0 };
-    case "Checkbox":    return { tag: "Checkbox" as const, value: false };
-    case "Select":      return { tag: "Select" as const, value: "" };
-    case "MultiSelect": return { tag: "MultiSelect" as const, value: [] as string[] };
-    case "Relation":    return { tag: "Relation" as const, value: [] as bigint[] };
-    case "Date":        return { tag: "Date" as const, value: BigInt(0) };
-    case "Duration":    return { tag: "Duration" as const, value: BigInt(0) };
-    case "Url":         return { tag: "Url" as const, value: "" };
-    default:            return { tag: "Text" as const, value: "" };
-  }
 }
 
 // ────────────────────────── Sort rule row ────────────────────────────────────

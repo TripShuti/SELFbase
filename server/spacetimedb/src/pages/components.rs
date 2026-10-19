@@ -30,7 +30,7 @@ use std::time::Duration;
 
 use spacetimedb::{reducer, table, Identity, ReducerContext, SpacetimeType, Table, Timestamp};
 
-use crate::access_control::helpers::require_page_write;
+use crate::access_control::helpers::{require_page_write, require_workspace_principal};
 use crate::auth::user;
 use crate::id_counters::alloc_id;
 use crate::module_install::module_install_meta;
@@ -1865,8 +1865,15 @@ pub fn register_component_type(
     has_yjs_state: bool,
     accepts_children: bool,
 ) -> Result<(), String> {
+    // The component-type registry is global and shared by every workspace
+    // page, so registering into it is workspace membership, not an anonymous
+    // operation. (Anonymous identities could otherwise squat type names.)
+    require_workspace_principal(ctx)?;
     if component_type.trim().is_empty() {
         return Err("component_type cannot be empty".to_string());
+    }
+    if component_type.len() > 128 {
+        return Err("component_type is too long".to_string());
     }
     if ctx
         .db

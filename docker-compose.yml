@@ -14,9 +14,11 @@ services:
       # set GARAGE_HOST_PORT in env, default 9000.
       - "${GARAGE_HOST_PORT:-9000}:3900"   # S3 API (Garage listens on 3900 internally)
     environment:
-      # Secrets read by Garage when absent from garage.toml. Compose-network
-      # internal (RPC/admin ports are not published); defaults are fine for
-      # local self-hosting, override in .env for anything exposed.
+      # Secrets read by Garage when absent from garage.toml. The defaults below
+      # are PUBLIC (they ship in this repo) and are only acceptable for a
+      # localhost-only quickstart. Set GARAGE_RPC_SECRET / GARAGE_ADMIN_TOKEN
+      # (and S3_ACCESS_KEY / S3_SECRET_KEY below) in .env before exposing this
+      # stack to any network — see .env.example for generation guidance.
       GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:-9dd7325b40c1f0ab926e0a35e6592f9026fda9ec7d5c0d1fa1c4c05dfa79dc44}
       GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:-selfbase-garage-admin}
     volumes:
@@ -79,6 +81,10 @@ services:
       # Allow the three bounded startup phases (120 seconds each). A
       # successful probe becomes healthy immediately during this window.
       start_period: 6m
+    # The upstream image + entrypoint write /stdb/data and the persistent CLI
+    # identity under /root/.config/spacetime; both named volumes are root-owned.
+    # Running non-root requires a non-root image AND matching volume ownership
+    # (a chown sidecar), so this is documented rather than switched silently.
     user: root
     restart: unless-stopped
     networks:
@@ -91,7 +97,10 @@ services:
     #   WEB_IMAGE=registry.yourdomain.com/kara/selfbase-web:latest
     # Falls back to a local tag for dev builds.
     image: ${WEB_IMAGE:-selfbase-web:latest}
-    pull_policy: build
+    # `build` (default) suits local/dev checkouts. Registry deployments should
+    # set WEB_PULL_POLICY=always — otherwise Compose rebuilds the local context
+    # and silently ignores the pushed WEB_IMAGE.
+    pull_policy: ${WEB_PULL_POLICY:-build}
     build:
       context: .
       dockerfile: web/Dockerfile
@@ -99,10 +108,17 @@ services:
         # NEXT_PUBLIC_* vars are baked into the browser bundle at build time.
         # The browser must reach these URLs directly, so use the public-facing
         # addresses (Cloudflare Tunnel hostname or exposed host port).
-        NEXT_PUBLIC_SPACETIMEDB_URI: ${SPACETIMEDB_PUBLIC_URI:-ws://localhost:3000}
+        # Use `-` (not `:-`) so an explicitly empty value is preserved: that is
+        # how the documented same-origin proxy mode disables the direct
+        # WebSocket URL and lets the browser derive ws(s)://<web-host>.
+        NEXT_PUBLIC_SPACETIMEDB_URI: ${SPACETIMEDB_PUBLIC_URI-ws://localhost:3000}
         NEXT_PUBLIC_SPACETIMEDB_DB_NAME: ${SPACETIMEDB_DB_NAME:-selfbase}
         NEXT_PUBLIC_SPACETIMEAUTH_CLIENT_ID: ${SPACETIMEAUTH_CLIENT_ID:-}
         NEXT_PUBLIC_SPACETIMEAUTH_AUTHORITY: ${SPACETIMEAUTH_AUTHORITY:-}
+        # Optional comma-separated allowlist for `?ws=` deep links (host or
+        # host:port). Same-host and SPACETIMEDB_PUBLIC_URI hosts are always
+        # trusted; add extra SpacetimeDB hosts here.
+        NEXT_PUBLIC_ALLOWED_WORKSPACE_HOSTS: ${ALLOWED_WORKSPACE_HOSTS:-}
         # Optional same-origin proxy to SpacetimeDB via Next.js rewrites.
         # Set SPACETIMEDB_PROXY_ORIGIN=http://spacetimedb:3000 and leave
         # SPACETIMEDB_PUBLIC_URI empty to let the browser use ws(s)://<web-host>.

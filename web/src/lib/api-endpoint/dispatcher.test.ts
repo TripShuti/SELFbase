@@ -32,6 +32,10 @@ class EndpointConfigTransport implements StdbTransport {
         },
       ] as Row[];
     }
+    if (query.includes("FROM page")) {
+      // Live page (Option<Timestamp>::None in positional SATS shape).
+      return [{ deleted_at: [1, []] }] as Row[];
+    }
     if (query.includes("FROM api_field_mapping")) {
       return [
         {

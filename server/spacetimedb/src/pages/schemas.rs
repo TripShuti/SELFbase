@@ -4,7 +4,7 @@
 
 use spacetimedb::{reducer, table, ReducerContext, SpacetimeType, Table, Timestamp};
 
-use crate::access_control::helpers::require_page_write;
+use crate::access_control::helpers::{can_write_page, require_page_write};
 use crate::id_counters::alloc_id;
 use crate::pages::{page, ActorType};
 
@@ -490,6 +490,17 @@ pub fn add_property(
             "Property \"{name}\" already exists on a related schema (id {other}) in this inheritance chain"
         ));
     }
+    // find_shadowing_conflict only inspects *related* schemas, so guard the
+    // schema's own columns here: two columns with one name are unresolvable.
+    if ctx
+        .db
+        .property_definition()
+        .schema_id()
+        .filter(&schema_id)
+        .any(|p| p.name == name)
+    {
+        return Err(format!("A property named \"{name}\" already exists"));
+    }
     let max_order = ctx
         .db
         .property_definition()
@@ -535,10 +546,47 @@ pub fn reorder_property(
 #[reducer]
 pub fn delete_property(ctx: &ReducerContext, property_definition_id: u64) -> Result<(), String> {
     require_property_write(ctx, property_definition_id)?;
+    require_value_pages_write(ctx, property_definition_id)?;
     if crate::external_sources::is_connected_link_column(ctx, property_definition_id) {
         return Err("Disconnect external sources before deleting their link column".into());
     }
     purge_property(ctx, property_definition_id);
+    Ok(())
+}
+
+/// Inherited cells can live on other databases' rows (an ancestor definition is
+/// reused by descendants). A structural change to a shared definition must
+/// therefore be authorized on every affected page, not just the schema's
+/// owning page — otherwise a member with write on an open ancestor could
+/// delete or rewrite cells on a restricted child database.
+fn require_value_pages_write(
+    ctx: &ReducerContext,
+    property_definition_id: u64,
+) -> Result<(), String> {
+    let mut pages: std::collections::HashSet<u64> = std::collections::HashSet::new();
+    for value in ctx
+        .db
+        .page_property_value()
+        .property_definition_id()
+        .filter(property_definition_id)
+    {
+        pages.insert(value.page_id);
+    }
+    for history in ctx
+        .db
+        .page_property_value_history()
+        .property_definition_id()
+        .filter(property_definition_id)
+    {
+        pages.insert(history.page_id);
+    }
+    for page_id in pages {
+        if !can_write_page(ctx, page_id, ctx.sender()) {
+            return Err(
+                "This column has values on a page you do not have write access to".to_string(),
+            );
+        }
+    }
     Ok(())
 }
 
@@ -602,6 +650,15 @@ pub fn rename_property(
                 "Property \"{name}\" already exists on a related schema (id {other}) in this inheritance chain"
             ));
         }
+        if ctx
+            .db
+            .property_definition()
+            .schema_id()
+            .filter(&prop.schema_id)
+            .any(|p| p.name == name)
+        {
+            return Err(format!("A property named \"{name}\" already exists"));
+        }
     }
     ctx.db
         .property_definition()
@@ -664,6 +721,7 @@ pub fn update_property_type(
     property_type: PropertyType,
 ) -> Result<(), String> {
     require_property_write(ctx, property_definition_id)?;
+    require_value_pages_write(ctx, property_definition_id)?;
     let is_link = crate::external_sources::is_connected_link_column(ctx, property_definition_id);
     if is_link && property_type != PropertyType::Text {
         return Err("Disconnect external sources before changing their link column type".into());

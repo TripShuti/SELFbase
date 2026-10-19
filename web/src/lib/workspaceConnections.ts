@@ -99,6 +99,43 @@ export function getWorkspaceUriValidationError(w: WorkspaceConnection): string |
   return v.ok ? null : v.message;
 }
 
+/**
+ * Whether a workspace URI from an untrusted source (`?ws=` deep link) may be
+ * adopted. Accepting an arbitrary `?ws=` silently repoints the client at an
+ * attacker-chosen SpacetimeDB server, so by default only the page's own host
+ * and the deployment-configured server are trusted. Operators running several
+ * hosts can opt in via `NEXT_PUBLIC_ALLOWED_WORKSPACE_HOSTS` (comma-separated
+ * `host` or `host:port` entries).
+ */
+export function isTrustedWorkspaceUri(uri: string): boolean {
+  const resolved = ensureWebSocketUri(uri.trim());
+  if (!resolved) return false;
+  let target: URL;
+  try {
+    target = new URL(resolved);
+  } catch {
+    return false;
+  }
+
+  const allowed = new Set<string>();
+  if (typeof window !== "undefined") allowed.add(window.location.host);
+  const envUri = defaultWsUriFromEnv();
+  if (envUri) {
+    try {
+      allowed.add(new URL(ensureWebSocketUri(envUri)).host);
+    } catch {
+      // ignore malformed env value
+    }
+  }
+  const extra = process.env.NEXT_PUBLIC_ALLOWED_WORKSPACE_HOSTS;
+  for (const entry of (extra ?? "").split(",")) {
+    const host = entry.trim();
+    if (host) allowed.add(host);
+  }
+
+  return allowed.has(target.host);
+}
+
 function newId(): string {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
   return `ws-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;

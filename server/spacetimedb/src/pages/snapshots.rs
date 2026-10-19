@@ -64,7 +64,7 @@ pub fn take_snapshot(
     page_id: u64,
     snapshot_type: SnapshotType,
 ) -> Result<(), String> {
-    crate::access_control::helpers::require_page_read(ctx, page_id)?;
+    crate::access_control::helpers::require_page_write(ctx, page_id)?;
 
     let page = ctx.db.page().id().find(page_id).ok_or("Page not found")?;
     let content = match page.content_format {

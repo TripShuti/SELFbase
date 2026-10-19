@@ -11,7 +11,7 @@ use spacetimedb::{reducer, Identity, ReducerContext, Table};
 
 use crate::access_control::helpers::{
     explicit_page_access_rule_allows, principal_matches_identity, require_rule_authority,
-    workspace_member,
+    require_workspace_principal, workspace_member,
 };
 use crate::access_control::{
     block_access_rule, next_block_access_rule_id, next_page_access_request_id,
@@ -58,6 +58,7 @@ pub fn request_page_access(
     permission: Permission,
     reason: String,
 ) -> Result<(), String> {
+    require_workspace_principal(ctx)?;
     ctx.db.page().id().find(page_id).ok_or("Page not found")?;
 
     if explicit_page_access_rule_allows(ctx, page_id, ctx.sender(), &permission) {

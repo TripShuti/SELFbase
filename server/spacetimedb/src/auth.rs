@@ -314,7 +314,7 @@ pub fn set_user_admin(
     let target_email = target.email.trim().to_lowercase();
     let credential = ctx.db.user_credential().email().find(&target_email);
 
-    if target.is_admin == is_admin && credential.as_ref().map(|c| c.is_admin) != Some(is_admin) {
+    if target.is_admin == is_admin && credential.as_ref().map(|c| c.is_admin) == Some(is_admin) {
         return Ok(());
     }
 
@@ -372,18 +372,37 @@ pub fn logout(ctx: &ReducerContext) {
     }
 }
 
-/// Allows the client to push updated OIDC profile claims after reconnect.
-/// No-op when called by an unauthenticated identity.
+/// Allows the client to sync OIDC profile claims after reconnect.
+///
+/// The `name`/`email` arguments are retained for wire compatibility but are
+/// deliberately **ignored**: they are authority-bearing (authorship records and
+/// the email-keyed admin linkage both read `User.email`), so an authenticated
+/// user must not be able to rewrite them to an arbitrary or someone else's
+/// value. Instead the verified claims are re-read from the presented token.
+/// No-op when there is no trusted OIDC profile and for unauthenticated callers.
 #[reducer]
 pub fn set_user_profile(ctx: &ReducerContext, name: String, email: String) {
+    let _ = (name, email);
     let identity = ctx.sender();
     if let Some(existing) = ctx.db.user().identity().find(identity) {
         if !existing.is_authenticated {
             return;
         }
+        let (verified_email, verified_name) = extract_oidc_profile(ctx);
+        if verified_email.is_empty() && verified_name.is_empty() {
+            return;
+        }
         ctx.db.user().identity().update(User {
-            name,
-            email,
+            name: if verified_name.is_empty() {
+                existing.name.clone()
+            } else {
+                verified_name
+            },
+            email: if verified_email.is_empty() {
+                existing.email.clone()
+            } else {
+                verified_email
+            },
             last_seen_at: ctx.timestamp,
             ..existing
         });
@@ -449,6 +468,14 @@ pub(crate) fn extract_oidc_profile(ctx: &ReducerContext) -> (String, String) {
         return (String::new(), String::new());
     }
     let email = claims["email"].as_str().unwrap_or("").to_string();
+    // Only a verified email may seed identity/authority fields (authorship and
+    // the email-keyed admin linkage). An issuer that lets users choose an
+    // unverified address must not let them claim someone else's.
+    let email = if claims["email_verified"].as_bool() == Some(true) {
+        email
+    } else {
+        String::new()
+    };
     let name = claims["name"]
         .as_str()
         .or_else(|| claims["preferred_username"].as_str())
@@ -519,6 +546,7 @@ pub fn set_user_preference(
     key: String,
     value_json: String,
 ) -> Result<(), String> {
+    crate::access_control::helpers::require_workspace_principal(ctx)?;
     if key.trim().is_empty() {
         return Err("preference key cannot be empty".to_string());
     }

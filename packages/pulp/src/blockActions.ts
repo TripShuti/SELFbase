@@ -1,7 +1,7 @@
 import type { EditorView } from "prosemirror-view";
 import { Selection } from "prosemirror-state";
 import * as Y from "yjs";
-import { prosemirrorToYDoc } from "y-prosemirror";
+import { prosemirrorToYDoc, yDocToProsemirrorJSON } from "y-prosemirror";
 import type { SurfaceFocusValue } from "./focus/SurfaceFocusCoordinator";
 import { knownSiblingIdsForParent } from "./focus/insertFocusHelpers";
 import { resolveNestTarget, getDocumentPrevBlock } from "./navigation/blockNavigation";
@@ -41,17 +41,58 @@ export function mergePlainTextIntoRichText(
   }
 
   const yjs = tree.yjs.get(prevId);
-  let existing = "";
-  if (yjs?.data && yjs.data.byteLength > 0) {
-    const doc = new Y.Doc();
-    Y.applyUpdate(doc, yjs.data);
-    existing = yDocToPlainText(doc);
+  if (!yjs?.data || yjs.data.byteLength === 0) {
+    // No stored rich-text state yet — start a fresh document from the text.
+    const doc = plainTextToYDoc(text);
+    try {
+      saveYjsState({
+        componentId: prevId,
+        data: Y.encodeStateAsUpdate(doc),
+      });
+    } finally {
+      doc.destroy();
+    }
+    return 0;
   }
-  const mergePoint = existing.length;
-  saveYjsState({
-    componentId: prevId,
-    data: Y.encodeStateAsUpdate(plainTextToYDoc(existing + text)),
-  });
+
+  // Rewriting the block from `yDocToPlainText(existing) + text` (the old
+  // behaviour) flattened every mark and block-level format in the surviving
+  // block. Decode the existing Y.Doc to ProseMirror JSON, append the merged
+  // text to its last text block, and encode it back — existing formatting is
+  // preserved, only the plain-text suffix is added.
+  const doc = new Y.Doc();
+  let mergePoint = 0;
+  try {
+    Y.applyUpdate(doc, yjs.data);
+    const json = yDocToProsemirrorJSON(
+      doc,
+      PROSEMIRROR_FRAGMENT_KEY,
+    ) as ProseMirrorJsonNode;
+    const blocks = json.content ?? [];
+    mergePoint = plainTextOfJson(blocks).length;
+    const target = lastTextblock(blocks);
+    if (target) {
+      target.content = [...(target.content ?? []), { type: "text", text }];
+    } else {
+      blocks.push({ type: "paragraph", content: [{ type: "text", text }] });
+    }
+    json.content = blocks;
+
+    const merged = prosemirrorToYDoc(
+      richTextSchema.nodeFromJSON(json),
+      PROSEMIRROR_FRAGMENT_KEY,
+    );
+    try {
+      saveYjsState({
+        componentId: prevId,
+        data: Y.encodeStateAsUpdate(merged),
+      });
+    } finally {
+      merged.destroy();
+    }
+  } finally {
+    doc.destroy();
+  }
   return mergePoint;
 }
 
@@ -539,6 +580,43 @@ function plainTextToYDoc(text: string): Y.Doc {
   );
   const pmDoc = richTextSchema.node("doc", null, [para]);
   return prosemirrorToYDoc(pmDoc, PROSEMIRROR_FRAGMENT_KEY);
+}
+
+type ProseMirrorJsonNode = {
+  type: string;
+  attrs?: Record<string, unknown>;
+  text?: string;
+  marks?: unknown[];
+  content?: ProseMirrorJsonNode[];
+};
+
+/** Last leaf block in document order that can hold inline text. */
+function lastTextblock(nodes: ProseMirrorJsonNode[]): ProseMirrorJsonNode | null {
+  for (let i = nodes.length - 1; i >= 0; i -= 1) {
+    const node = nodes[i];
+    if (
+      node.type === "paragraph" ||
+      node.type === "heading" ||
+      node.type === "code_block" ||
+      node.type === "codeBlock"
+    ) {
+      return node;
+    }
+    if (node.content?.length) {
+      const nested = lastTextblock(node.content);
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+
+function plainTextOfJson(nodes: ProseMirrorJsonNode[]): string {
+  let out = "";
+  for (const node of nodes) {
+    if (node.type === "text") out += node.text ?? "";
+    else if (node.content) out += plainTextOfJson(node.content);
+  }
+  return out;
 }
 
 function safeParseProps(s: string): Record<string, unknown> {

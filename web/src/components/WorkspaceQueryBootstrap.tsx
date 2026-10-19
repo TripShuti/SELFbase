@@ -10,7 +10,7 @@
  * is safe under StrictMode double-render.
  */
 
-import { ensureSharedWorkspaceActive } from "@/src/lib/workspaceConnections";
+import { ensureSharedWorkspaceActive, isTrustedWorkspaceUri } from "@/src/lib/workspaceConnections";
 
 let applied = false;
 
@@ -20,7 +20,10 @@ export function WorkspaceQueryBootstrap() {
     const params = new URLSearchParams(window.location.search);
     const ws = params.get("ws");
     const db = params.get("db");
-    if (ws && db) {
+    // Only adopt `?ws=` when it points at the page's own host or a
+    // deployment-approved server; otherwise a malicious link could silently
+    // repoint the client at an attacker-controlled SpacetimeDB.
+    if (ws && db && isTrustedWorkspaceUri(ws)) {
       ensureSharedWorkspaceActive({
         name: params.get("wsname") ?? undefined,
         wsUri: ws,

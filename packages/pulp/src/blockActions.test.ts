@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import * as Y from "yjs";
 import { EditorState } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
+import { prosemirrorToYDoc } from "y-prosemirror";
 import {
   canNestBlock,
   canUnnestBlock,
@@ -13,7 +14,10 @@ import {
   unnestBlock,
 } from "./blockActions";
 import { plainTextToYDoc } from "./rich-text/richTextFormatting";
-import { richTextSchema } from "./rich-text/richTextSchema";
+import {
+  PROSEMIRROR_FRAGMENT_KEY,
+  richTextSchema,
+} from "./rich-text/richTextSchema";
 import { yDocToHtml, yDocToPlainText } from "./rich-text/yjsToHtml";
 import {
   createMockFocus,
@@ -345,6 +349,59 @@ describe("mergeBlockIntoDocumentPrev", () => {
     expect(onRemoveSelf).toHaveBeenCalledOnce();
 
     prevView.destroy();
+    myView.destroy();
+  });
+
+  it("preserves existing rich-text marks when merging without a live editor", () => {
+    const tree = makeTree([
+      { id: 1, type: "Container", parent: null },
+      { id: 2, type: "RichText", parent: 1 },
+      { id: 3, type: "RichText", parent: 1 },
+    ]);
+
+    // Stored previous block: **Bold**.
+    const prevPm = richTextSchema.node("doc", null, [
+      richTextSchema.node("paragraph", null, [
+        richTextSchema.text("Bold", [richTextSchema.marks.bold.create()]),
+      ]),
+    ]);
+    const prevY = prosemirrorToYDoc(prevPm, PROSEMIRROR_FRAGMENT_KEY);
+    tree.yjs.set(2n, { componentNodeId: 2n, data: Y.encodeStateAsUpdate(prevY) });
+    prevY.destroy();
+
+    const myView = new EditorView(document.createElement("div"), {
+      state: EditorState.create({
+        schema: richTextSchema,
+        doc: richTextSchema.node("doc", null, [
+          richTextSchema.node("paragraph", null, [richTextSchema.text("Next")]),
+        ]),
+      }),
+    });
+
+    // No mounted editor for the previous block -> the Y.Doc rewrite path.
+    const focus = createMockFocus();
+    const saveYjsState = vi.fn();
+    const onRemoveSelf = vi.fn();
+
+    const ok = mergeBlockIntoDocumentPrev(
+      node(tree, 3),
+      myView,
+      tree,
+      focus,
+      { saveYjsState, moveBlock: vi.fn() },
+      onRemoveSelf,
+    );
+
+    expect(ok).toBe(true);
+    expect(saveYjsState).toHaveBeenCalledOnce();
+    const saved = saveYjsState.mock.calls[0][0] as { data: Uint8Array };
+    const merged = new Y.Doc();
+    Y.applyUpdate(merged, saved.data);
+    expect(yDocToPlainText(merged)).toBe("BoldNext");
+    // The old plain-text round-trip flattened this to "BoldNext" with no marks.
+    expect(yDocToHtml(merged)).toContain("<strong>Bold</strong>");
+    expect(onRemoveSelf).toHaveBeenCalledOnce();
+    merged.destroy();
     myView.destroy();
   });
 });

@@ -447,6 +447,17 @@ async function loadEndpointConfig(
   }
   const e = endpoints[0];
 
+  // Never serve an endpoint whose database page is gone or in the trash: the
+  // atomic row reducers run as the service identity and would otherwise let a
+  // trashed database keep accepting public reads/writes.
+  const dbPages = await transport.sql<{ deleted_at: unknown }>(
+    `SELECT deleted_at FROM page WHERE id = ? LIMIT 1`,
+    [e.database_page_id],
+  );
+  if (dbPages.length === 0 || !isOptionNone(dbPages[0].deleted_at)) {
+    throw new ApiEndpointError(404, "endpoint_not_found", `No endpoint '${slug}'`);
+  }
+
   // SpacetimeDB's SQL subset rejects `ORDER BY` on non-indexed columns
   // (`field_order` has no btree index; only `id` PK and `endpoint_id` do),
   // so fetch unordered and sort in JS. Mapping counts per endpoint are tiny
@@ -547,7 +558,7 @@ function endpointConfigCacheKey(
  */
 const HTTP_METHOD_TAGS = ["GET", "POST", "PATCH", "DELETE"] as const;
 
-function parseAllowedMethods(raw: unknown): HttpMethodName[] {
+export function parseAllowedMethods(raw: unknown): HttpMethodName[] {
   // SpacetimeDB's SQL HTTP endpoint encodes `Vec<HttpMethod>` in several
   // shapes depending on version. Accept everything we've seen:
   //   • `"Get"`                       — bare variant name
