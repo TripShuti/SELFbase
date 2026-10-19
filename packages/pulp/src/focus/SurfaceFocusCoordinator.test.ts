@@ -78,3 +78,25 @@ describe("SurfaceFocusCoordinator — batch insert (paste)", () => {
     expect(focused).toEqual([7n]);
   });
 });
+
+
+describe("initial document save failure", () => {
+  it.each([false, true])("retains the document for autosave recovery (batch=%s)", async batch => {
+    const coord = new SurfaceFocusCoordinator();
+    const api = coord.getApi();
+    const doc = plainTextToYDoc("preserve this suffix");
+    if (batch) api.armForInsertBatch([{ parentId: 1n, initialDoc: doc }]);
+    else api.armForInsert(1n, undefined, { initialDoc: doc });
+    const error = new Error("network failure");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      coord.handleNodeInsert(row(77n, 1n), SURFACE, () => Promise.reject(error));
+      await Promise.resolve();
+      expect(warn).toHaveBeenCalled();
+      expect(api.consumeInitialDoc(77n)).toBe(doc);
+    } finally {
+      warn.mockRestore();
+      doc.destroy();
+    }
+  });
+});

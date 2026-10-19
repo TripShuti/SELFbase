@@ -79,7 +79,7 @@ export type SurfaceFocusValue = {
 
 type FocusFn = (placement?: FocusPlacement) => void;
 
-type SaveYjsFn = (componentId: BlockId, data: Uint8Array) => void;
+type SaveYjsFn = (componentId: BlockId, data: Uint8Array) => void | Promise<void>;
 
 type PendingInsert = {
   parentId: BlockId;
@@ -260,7 +260,9 @@ export class SurfaceFocusCoordinator {
       this.pendingInitialDocsRef.set(idKey(newId), entry.initialDoc);
       if (saveYjsState) {
         try {
-          saveYjsState(newId, Y.encodeStateAsUpdate(entry.initialDoc));
+          void Promise.resolve(saveYjsState(newId, Y.encodeStateAsUpdate(entry.initialDoc))).catch(error => {
+            console.warn(`[pulp/SurfaceFocus] batch doc ${newId} awaits autosave recovery:`, error);
+          });
         } catch (err) {
           if (typeof console !== "undefined") {
             console.warn(
@@ -327,7 +329,9 @@ export class SurfaceFocusCoordinator {
       this.pendingInitialDocsRef.set(idKey(newId), pending.initialDoc);
       if (saveYjsState) {
         try {
-          saveYjsState(newId, Y.encodeStateAsUpdate(pending.initialDoc));
+          void Promise.resolve(saveYjsState(newId, Y.encodeStateAsUpdate(pending.initialDoc))).catch(error => {
+            console.warn(`[pulp/SurfaceFocus] initial doc ${newId} awaits autosave recovery:`, error);
+          });
         } catch (err) {
           if (typeof console !== "undefined") {
             console.warn(

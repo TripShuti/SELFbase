@@ -74,6 +74,8 @@ export type PulpMutations = {
 };
 
 export type PulpConfig = {
+  /** Resume pending document writes when the transport reconnects. */
+  isConnected?: boolean;
   /** IndexedDB namespace prefix, e.g. `selfbase:my-workspace`. */
   idbPrefix: string;
   validateProps?: (

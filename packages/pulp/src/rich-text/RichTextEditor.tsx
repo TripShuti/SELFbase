@@ -5,10 +5,8 @@ import {
   useLayoutEffect,
   useRef,
   useState,
-  type RefObject,
 } from "react";
 import * as Y from "yjs";
-import { IndexeddbPersistence } from "y-indexeddb";
 import { EditorState } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import { keymap } from "prosemirror-keymap";
@@ -28,7 +26,6 @@ import {
   richTextSchema,
   PROSEMIRROR_FRAGMENT_KEY,
 } from "./richTextSchema";
-import { usePulp } from "../context/PulpProvider";
 import { useSurfaceFocus } from "../focus/SurfaceFocusProvider";
 import {
   applyEditorFocus,
@@ -59,9 +56,6 @@ import {
 import type { SlashMenuItem } from "../SlashMenu";
 
 export type { EditorSurfaceMode } from "./richTextKeymap";
-
-/** Cadence — see `docs/SELFBASE_WEB_RENDERER.md` § Editor stack — Save cycle. */
-const SAVE_INTERVAL_MS = 30_000;
 
 const EDITOR_PROSE_DEFAULT =
   "my-2 text-neutral-900 dark:text-neutral-100 leading-relaxed [&_.ProseMirror]:outline-none [&_.ProseMirror_p]:my-2 [&_.ProseMirror_a]:underline [&_.ProseMirror_code]:rounded [&_.ProseMirror_code]:bg-neutral-100 dark:[&_.ProseMirror_code]:bg-neutral-800 [&_.ProseMirror_code]:px-1 [&_.ProseMirror_code]:py-0.5 [&_.ProseMirror_strong]:font-semibold [&_.ProseMirror_em]:italic [&_.ProseMirror_u]:underline [&_.ProseMirror_s]:line-through";
@@ -114,7 +108,6 @@ export function RichTextEditor({
   onSlashNavigate,
   onSlashCommit,
   onSlashDismiss,
-  suppressSaveRef,
   onNavigatePrev,
   onNavigateNext,
   onIndent,
@@ -181,11 +174,6 @@ export function RichTextEditor({
   onSlashCommit?: () => boolean;
   /** While the slash menu is open — dismiss without inserting. */
   onSlashDismiss?: () => void;
-  /**
-   * When true, skip Yjs persistence — the block is being soft-deleted and
-   * `save_component_yjs_state` would reject a deleted node.
-   */
-  suppressSaveRef?: RefObject<boolean>;
   /** ArrowUp at doc start — focus previous sibling (caret at end). */
   onNavigatePrev?: () => boolean;
   /** ArrowDown at doc end — focus next sibling (caret at start). */
@@ -216,13 +204,8 @@ export function RichTextEditor({
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
-  const idbRef = useRef<IndexeddbPersistence | null>(null);
-  const { saveYjsState, config, tree } = usePulp();
   const focus = useSurfaceFocus();
   const { registerYjsUndoManager } = useSurfaceUndo();
-  const idbPrefix = config.idbPrefix;
-  const treeRef = useRef(tree);
-  treeRef.current = tree;
   // Exposed to the floating toolbar so it can read the editor selection
   // and dispatch toggleMark commands. Lives in state (not ref) because the
   // toolbar is a separate React subtree and needs to re-render when the
@@ -275,10 +258,6 @@ export function RichTextEditor({
 
   useLayoutEffect(() => {
     if (!hostRef.current) return;
-
-    const idbName = `${idbPrefix}:component:${componentId}`;
-    const idb = new IndexeddbPersistence(idbName, doc);
-    idbRef.current = idb;
 
     const fragment = doc.getXmlFragment(PROSEMIRROR_FRAGMENT_KEY);
 
@@ -547,62 +526,19 @@ export function RichTextEditor({
       );
     }
 
-    // Save cycle. Only flush when there have been local-origin updates since
-    // the last flush; ignore remote/AI updates (they were authored elsewhere
-    // and saved by that author).
-    let dirty = false;
-    const onUpdate = (_update: Uint8Array, origin: unknown) => {
-      if (origin === "remote" || origin === "ai") return;
-      dirty = true;
-    };
-    doc.on("update", onUpdate);
-    const flush = () => {
-      if (suppressSaveRef?.current) return;
-      if (!treeRef.current.byId.has(componentId)) return;
-      if (!dirty) return;
-      dirty = false;
-      try {
-        void Promise.resolve(
-          saveYjsState({
-            componentId,
-            data: Y.encodeStateAsUpdate(doc),
-          }),
-        ).catch(() => {
-          // Block may have been soft-deleted between flush scheduling and
-          // the reducer round-trip — safe to ignore.
-        });
-      } catch (err) {
-        if (typeof console !== "undefined") {
-          console.warn(
-            `[RichTextEditor] save failed for component ${componentId}:`,
-            err,
-          );
-        }
-      }
-    };
-    const interval = window.setInterval(flush, SAVE_INTERVAL_MS);
-    const onBeforeUnload = () => flush();
-    window.addEventListener("beforeunload", onBeforeUnload);
-
     return () => {
       for (const id of focusRetryTimeouts) window.clearTimeout(id);
       unregisterBindFocus?.();
       unregisterEditor();
       unregisterUndo();
-      doc.off("update", onUpdate);
-      window.clearInterval(interval);
-      window.removeEventListener("beforeunload", onBeforeUnload);
-      flush();
       editorView.destroy();
       viewRef.current = null;
       setView(null);
-      idb.destroy();
-      idbRef.current = null;
     };
     // We intentionally rebuild the view if the doc identity changes — that
     // signals a different RichText node, not an update to the same one.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doc, componentId, idbPrefix]);
+  }, [doc, componentId]);
 
   const proseClass =
     surfaceMode.kind === "heading"
