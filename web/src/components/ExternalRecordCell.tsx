@@ -31,7 +31,8 @@ export function ExternalRecordCell({ pageId, databaseId, value, forceEdit, onClo
   const linkedSource = sourceForLink(sources, value);
   const selected = sources.find(source => (source.sourceId || "") === selectedSourceId);
   const canSearch = sources.length ? !!selected?.enabled : sourceEnabled;
-  const linkedEnabled = linkedSource?.enabled ?? sourceEnabled;
+  const linkedEnabled = linkedSource?.enabled ?? (sources.length ? false : sourceEnabled);
+  const linkedSourceName = linkedSource?.name || (sources.length ? "" : sourceName) || "unavailable source";
   const available = sources.length ? sources.some(source => source.enabled) : sourceEnabled;
   const signature = sources.map(source => (source.sourceId || "") + ":" + source.revision).join("|");
   useEffect(() => {
@@ -81,9 +82,9 @@ export function ExternalRecordCell({ pageId, databaseId, value, forceEdit, onClo
       onMouseDown={e => e.stopPropagation()}
       aria-label={variant === "title" ? `${action}: ${rowTitle || "Untitled"}` : undefined}
       className={variant === "title"
-        ? `inline-flex shrink-0 items-center gap-1 rounded px-1 py-0.5 text-xs transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800 ${link ? "text-accent-700 dark:text-accent-400" : "text-neutral-400 hover:text-accent-700 dark:text-accent-400 dark:hover:text-accent-400"}`
+        ? `inline-flex shrink-0 items-center gap-1 rounded px-1 py-0.5 text-xs transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800 ${link ? "text-accent-700 dark:text-accent-400" : "text-neutral-400 dark:text-neutral-500 hover:text-accent-700 dark:hover:text-accent-400"}`
         : "h-full w-full truncate px-2 py-1 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800/50"}
-      title={link ? `Linked to ${linkedSource?.name || sourceName || "external source"}: ${link.label || link.id}. Refresh, change or unlink.` : action}>
+      title={link ? `Linked to ${linkedSourceName}: ${link.label || link.id}. Refresh, change or unlink.` : action}>
       {variant === "title" ? <>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M10 13a5 5 0 0 0 7 .2l3-3a5 5 0 0 0-7-7l-2 2M14 11a5 5 0 0 0-7-.2l-3 3a5 5 0 0 0 7 7l2-2" />

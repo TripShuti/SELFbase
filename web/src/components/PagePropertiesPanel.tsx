@@ -5,7 +5,7 @@ import { useTable } from "spacetimedb/react";
 import { tables } from "@/src/module_bindings";
 import { PropertyCell } from "./PropertyCell";
 import { ExternalRecordCell } from "./ExternalRecordCell";
-import { visibleSourceProperties, externalLinkValue, type SourceConfig } from "@/src/lib/external-sources/types";
+import { visibleSourceProperties, externalLinkValue, parseRecordLink, sourceForLink, type SourceConfig } from "@/src/lib/external-sources/types";
 import { PropertyTypeIcon } from "./propertyTypeIcons";
 import { usePagePropertyValues, usePropertyDefinitions } from "@/src/hooks/useDatabase";
 import { useUsers } from "@/src/hooks/useUser";
@@ -33,15 +33,20 @@ export function PagePropertiesPanel({
     [values, properties]
   );
 
+  const linkValue = externalLinkValue(values, externalSource);
+  const link = parseRecordLink(linkValue);
+  const sources = externalSources.length ? externalSources : externalSource ? [externalSource] : [];
+  const linkedSource = sourceForLink(sources, linkValue);
+
   return (
     <div className="space-y-1">
       {externalSource && <div className="mb-2 flex items-center gap-2 text-xs text-neutral-500">
-        <span>{externalSources.length > 1 ? "External source" : externalSource.name}</span>
+        <span>{link ? linkedSource?.name || "Unavailable source" : "Not linked to a source"}</span>
         <ExternalRecordCell variant="title" pageId={pageId}
           databaseId={allPages.find(p => p.id === pageId)?.parentId}
-          value={externalLinkValue(values, externalSource)}
+          value={linkValue}
           rowTitle={allPages.find(p => p.id === pageId)?.title ?? ""}
-          sourceEnabled={externalSource.enabled} sourceName={externalSource.name} sources={externalSources} />
+          sourceEnabled={externalSource.enabled} sourceName={linkedSource?.name ?? ""} sources={sources} />
       </div>}
       {visibleSourceProperties(properties, externalSource).map((prop) => {
         const val = values.find((v) => v.propertyDefinitionId === prop.id);

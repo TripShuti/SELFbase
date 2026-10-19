@@ -158,7 +158,8 @@ export function parseSourceConfigs(raw: string | null | undefined): SourceConfig
 }
 export function sourceForLink(sources: readonly SourceConfig[], raw: string): SourceConfig | undefined {
   const link = parseRecordLink(raw);
-  return link?.sourceId ? sources.find(source => source.sourceId === link.sourceId) : sources[0];
+  if (!link) return undefined;
+  return link.sourceId ? sources.find(source => source.sourceId === link.sourceId) : sources[0];
 }
 export function refreshInterval(source: SourceConfig): number {
   return source.sourceId && !source.syncMode ? 21600 : source.syncIntervalSeconds;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EMPTY_SOURCE, visibleSourceProperties, externalLinkValue, isEmptyRowTitle, parseRecordLink } from "./types";
+import { EMPTY_SOURCE, visibleSourceProperties, externalLinkValue, isEmptyRowTitle, parseRecordLink, sourceForLink } from "./types";
 const source = { ...EMPTY_SOURCE, linkPropertyId: "85" };
 const definitions = [
   { id: 83n, name: "Play time", config: "{}" },
@@ -32,4 +32,9 @@ describe("external record links managed from row names", () => {
     expect(isEmptyRowTitle("My collection entry")).toBe(false);
     expect(isEmptyRowTitle("Untitled project")).toBe(false);
   });
+});
+
+it("only resolves a source when a saved record link exists", () => {
+  expect(sourceForLink([source], "")).toBeUndefined();
+  expect(sourceForLink([source], "invalid json")).toBeUndefined();
 });
