@@ -1,6 +1,6 @@
 //! Provider-independent HTTP data sources. Networking stays in the web service;
 //! reducers own configuration, credentials, row links and atomic mapped writes.
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::{json, Value};
 use spacetimedb::{reducer, table, ReducerContext, Table};
 
@@ -23,6 +23,8 @@ pub struct ExternalSourceSecret {
     #[primary_key]
     pub database_id: u64,
     pub secret: String,
+    #[default(None::<String>)]
+    pub scope: Option<String>,
 }
 
 pub const SOURCE_PREFIX: &str = "external-source.";
@@ -35,7 +37,7 @@ pub struct SharedExternalSourceSecret {
     pub scope: String,
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, serde::Serialize, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct StatusRule {
     path: String,
@@ -44,7 +46,7 @@ struct StatusRule {
     result: String,
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, serde::Serialize, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct RelatedDate {
     path: String,
@@ -58,7 +60,7 @@ struct RelatedDate {
     page_size: u32,
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, serde::Serialize, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Mapping {
     source_path: String,
@@ -77,7 +79,7 @@ struct Mapping {
     zero_is_empty: Option<bool>,
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, serde::Serialize, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Enrichment {
     path: String,
@@ -87,7 +89,7 @@ struct Enrichment {
     target_field: String,
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, serde::Serialize, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SourceConfig {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -281,6 +283,27 @@ pub fn configure_external_source(
         .link_property_id
         .parse()
         .map_err(|_| "Invalid link column")?;
+    // Repair a missing definition from an older deployment without changing
+    // its ID: existing links and all other connections still refer to it.
+    if ctx.db.property_definition().id().find(link_id).is_none()
+        && primary.as_ref().is_some_and(|p| p.link_property_id == source.link_property_id)
+    {
+        let defs: Vec<_> = ctx.db.property_definition().schema_id().filter(schema.id).collect();
+        let mut name = "External record".to_string();
+        let mut suffix = 2;
+        while defs.iter().any(|p| p.name == name) {
+            name = format!("External record {suffix}");
+            suffix += 1;
+        }
+        ctx.db.property_definition().insert(PropertyDefinition {
+            id: link_id,
+            schema_id: schema.id,
+            name,
+            property_type: PropertyType::Text,
+            config: "{}".into(),
+            order: defs.iter().map(|p| p.order).max().unwrap_or(0) + 1,
+        });
+    }
     let mut link = ctx
         .db
         .property_definition()
@@ -419,6 +442,7 @@ pub fn configure_external_source(
                 old.get("sourceId").and_then(Value::as_str).is_some()
                     || old["baseUrl"].as_str() != Some(source.base_url.as_str())
                     || old["authHeader"].as_str() != Some(source.auth_header.as_str())
+                    || old["authPrefix"].as_str() != Some(source.auth_prefix.as_str())
             })
         {
             return Err(
@@ -434,6 +458,7 @@ pub fn configure_external_source(
             let row = ExternalSourceSecret {
                 database_id,
                 secret,
+                scope: Some(credential_scope(&source)),
             };
             if ctx
                 .db
@@ -454,7 +479,7 @@ pub fn configure_external_source(
                 .external_source_secret()
                 .database_id()
                 .find(database_id)
-                .is_none_or(|s| s.secret.is_empty())
+                .is_none_or(|s| s.secret.is_empty() || s.scope.as_deref() != Some(credential_scope(&source).as_str()))
         {
             return Err("Enter a credential for this authenticated source".into());
         }
@@ -555,7 +580,7 @@ fn validate_source(source: &SourceConfig) -> Result<(), String> {
                 .first()
                 .is_some_and(|b| b.is_ascii_alphabetic() || *b == b'_')
             || !targets.insert(target)
-            || [&source.id_path, &source.label_path, &source.image_path]
+            || [&source.id_path, &source.label_path]
                 .iter()
                 .any(|p| p.split('.').next() == Some(target))
         {
@@ -734,6 +759,38 @@ fn credential_scope(source: &SourceConfig) -> String {
     .unwrap()
 }
 
+/// Capture the trusted pre-import endpoint of credentials created by older modules.
+/// Import clears private credentials before accepting any snapshot definitions.
+pub(crate) fn migrate_legacy_credentials(ctx: &ReducerContext) -> Result<(), String> {
+    let secrets: Vec<_> = ctx.db.external_source_secret().iter().collect();
+    for mut row in secrets {
+        let source = schema_for(ctx, row.database_id)
+            .and_then(|schema| config_for(&schema, true))
+            .ok()
+            .filter(|source| source.source_id.is_none() && !source.auth_header.is_empty());
+        if let Some(source) = source {
+            if row.scope.is_none() {
+                row.scope = Some(credential_scope(&source));
+                ctx.db.external_source_secret().database_id().update(row);
+            }
+        } else {
+            ctx.db.external_source_secret().database_id().delete(row.database_id);
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn is_connected_link_column(ctx: &ReducerContext, property_id: u64) -> bool {
+    let Some(prop) = ctx.db.property_definition().id().find(property_id) else {
+        return false;
+    };
+    ctx.db.database_schema().id().find(prop.schema_id).is_some_and(|schema| {
+        configs_for(&schema).is_ok_and(|configs| configs.iter().any(|source| {
+            source.link_property_id == property_id.to_string()
+        }))
+    })
+}
+
 fn shared_config(ctx: &ReducerContext, id: &str) -> Result<SourceConfig, String> {
     let row = ctx
         .db
@@ -816,6 +873,7 @@ pub fn save_shared_external_source(
                 .external_source_secret()
                 .database_id()
                 .find(database_id)
+                .filter(|s| s.scope.as_deref() == Some(credential_scope(&binding).as_str()))
                 .map(|s| s.secret);
         }
         imported = Some((schema, binding));
@@ -991,12 +1049,12 @@ pub fn disconnect_external_source(
         .link_property_id
         .parse::<u64>()
         .map_err(|_| "Invalid link column")?;
-    if ctx
+    let linked_cells: Vec<_> = ctx
         .db
         .page_property_value()
         .property_definition_id()
         .filter(link_id)
-        .any(|v| match v.value {
+        .filter(|v| match &v.value {
             PropertyValue::Text(raw) => {
                 serde_json::from_str::<RecordLink>(&raw).is_ok_and(|link| {
                     link.source_id.as_deref().or(primary.source_id.as_deref())
@@ -1004,11 +1062,16 @@ pub fn disconnect_external_source(
                 })
             }
             _ => false,
-        })
-    {
+        }).collect();
+    if linked_cells.iter().any(|cell| ctx.db.page().id().find(cell.page_id).is_some_and(|row| row.deleted_at.is_none())) {
         return Err(
             "Unlink this source's records before disconnecting; saved values will remain".into(),
         );
+    }
+    // Trashed rows cannot be managed from the database picker. Disconnect
+    // their links too, keeping every mapped value as a normal snapshot.
+    for cell in linked_cells {
+        set_if_changed(ctx, cell.page_id, link_id, PropertyValue::Text(String::new()))?;
     }
     configs.retain(|c| c.source_id != selected.source_id);
     let mut raw: Value = serde_json::from_str(schema.config.as_deref().unwrap_or("{}"))
@@ -1018,6 +1081,10 @@ pub fn disconnect_external_source(
     if !configs.is_empty() {
         raw["externalSource"] = serde_json::to_value(&configs[0]).unwrap();
         raw["externalSources"] = serde_json::to_value(&configs[1..]).unwrap();
+    } else {
+        let rows: Vec<_> = ctx.db.page_property_value().property_definition_id().filter(link_id).map(|v| v.page_id).collect();
+        for row_id in rows { clear_property_value(ctx, row_id, link_id)?; }
+        ctx.db.property_definition().id().delete(link_id);
     }
     if selected.source_id.is_none() {
         ctx.db
@@ -1066,13 +1133,15 @@ fn row_config(
     ))
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 struct RecordLink {
     id: String,
     label: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     source_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    synced_revision: Option<String>,
 }
 
 fn set_if_changed(
@@ -1177,7 +1246,7 @@ fn link_record_inner(
     // has missing data. Unlinking deliberately retains the last known snapshot.
     if !record_id.is_empty()
         && previous
-            .is_some_and(|old| old.id != record_id || previous_config.source_id != config.source_id)
+            .is_none_or(|old| old.id != record_id || previous_config.source_id != config.source_id)
     {
         for mapping in previous_config
             .mappings
@@ -1198,6 +1267,7 @@ fn link_record_inner(
             id: record_id,
             label,
             source_id: config.source_id.clone(),
+            synced_revision: None,
         })
         .map_err(|_| "Invalid link")?
     };
@@ -1353,6 +1423,7 @@ pub fn apply_external_record(
                 id: record_id,
                 label: label.clone(),
                 source_id: config.source_id.clone(),
+                synced_revision: Some(config.revision.clone()),
             })
             .map_err(|_| "Invalid label")?,
         ),

@@ -535,6 +535,9 @@ pub fn reorder_property(
 #[reducer]
 pub fn delete_property(ctx: &ReducerContext, property_definition_id: u64) -> Result<(), String> {
     require_property_write(ctx, property_definition_id)?;
+    if crate::external_sources::is_connected_link_column(ctx, property_definition_id) {
+        return Err("Disconnect external sources before deleting their link column".into());
+    }
     ctx.db
         .property_definition()
         .id()
@@ -573,9 +576,15 @@ pub fn rename_property(
 pub fn update_property_config(
     ctx: &ReducerContext,
     property_definition_id: u64,
-    config: String,
+    mut config: String,
 ) -> Result<(), String> {
     require_property_write(ctx, property_definition_id)?;
+    if crate::external_sources::is_connected_link_column(ctx, property_definition_id) {
+        let mut value: serde_json::Value = serde_json::from_str(&config).map_err(|_| "Invalid column configuration")?;
+        if !value.is_object() { return Err("Column configuration must be an object".into()); }
+        value["externalSource"] = serde_json::json!(true);
+        config = value.to_string();
+    }
     let prop = ctx
         .db
         .property_definition()
@@ -617,6 +626,10 @@ pub fn update_property_type(
     property_type: PropertyType,
 ) -> Result<(), String> {
     require_property_write(ctx, property_definition_id)?;
+    let is_link = crate::external_sources::is_connected_link_column(ctx, property_definition_id);
+    if is_link && property_type != PropertyType::Text {
+        return Err("Disconnect external sources before changing their link column type".into());
+    }
     let prop = ctx
         .db
         .property_definition()
@@ -683,6 +696,7 @@ pub fn update_property_type(
         }
     }
     let config = match &property_type {
+        _ if is_link => serde_json::json!({ "externalSource": true }).to_string(),
         PropertyType::Select | PropertyType::MultiSelect if !distinct.is_empty() => {
             serde_json::json!({ "options": distinct }).to_string()
         }
@@ -1206,6 +1220,11 @@ pub fn clear_property_value(
     property_definition_id: u64,
 ) -> Result<(), String> {
     require_page_write(ctx, page_id)?;
+    let current: Vec<_> = ctx.db.page_property_value_history().page_id().filter(page_id)
+        .filter(|h| h.property_definition_id == property_definition_id && h.is_current).collect();
+    for history in current {
+        ctx.db.page_property_value_history().id().update(PagePropertyValueHistory { is_current: false, ..history });
+    }
     let existing: Option<PagePropertyValue> = ctx
         .db
         .page_property_value()

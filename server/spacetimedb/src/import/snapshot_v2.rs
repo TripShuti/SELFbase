@@ -113,6 +113,9 @@ pub struct ImportSessionCount {
 /// `{"format":"selfbase-snapshot-v2"}` from the export header.
 #[reducer]
 pub fn import_v2_begin(ctx: &ReducerContext, header_json: String) -> Result<(), String> {
+    if !sender_is_admin(ctx) && !crate::module_install::sender_is_module_publisher(ctx) {
+        return Err("Only workspace admins may import a snapshot".into());
+    }
     if ctx.db.page().iter().next().is_some() {
         return Err(
             "Import refused: database already has pages. Use an empty database (new module DB)."
@@ -154,6 +157,14 @@ pub fn import_v2_begin(ctx: &ReducerContext, header_json: String) -> Result<(), 
     if format != FORMAT {
         return Err(format!("unsupported format: {format}"));
     }
+
+    // A portable snapshot never carries credentials. Do not let restored IDs
+    // pick up credentials left in an otherwise empty workspace.
+    use crate::external_sources::{external_source_secret, shared_external_source_secret};
+    let legacy: Vec<_> = ctx.db.external_source_secret().iter().map(|s| s.database_id).collect();
+    for id in legacy { ctx.db.external_source_secret().database_id().delete(id); }
+    let shared: Vec<_> = ctx.db.shared_external_source_secret().iter().map(|s| s.source_id).collect();
+    for id in shared { ctx.db.shared_external_source_secret().source_id().delete(id); }
 
     ctx.db.import_session().insert(ImportSession {
         id: IMPORT_SESSION_ID,

@@ -15,6 +15,14 @@ const ACTIVE_KEY = "selfbase_active_workspace_id";
 
 const LEGACY_TOKEN_KEY = "selfbase_spacetimedb_token";
 
+// OIDC credentials stay in memory. A null value explicitly blocks fallback to
+// a previously saved native identity while OIDC is loading or signed out.
+const sessionTokens = new Map<string, string | null>();
+export function setWorkspaceSessionToken(connectionId: string, token: string | null | undefined): void {
+  if (token === undefined) sessionTokens.delete(connectionId);
+  else sessionTokens.set(connectionId, token);
+}
+
 export function tokenStorageKey(connectionId: string): string {
   return `selfbase_spacetimedb_token__${connectionId}`;
 }
@@ -165,6 +173,7 @@ export function readActiveWorkspaceToken(): string | null {
     const { list, activeId } = loadWorkspaces();
     const current = list.find((w) => w.id === activeId) ?? list[0];
     if (!current) return null;
+    if (sessionTokens.has(current.id)) return sessionTokens.get(current.id) ?? null;
     return localStorage.getItem(tokenStorageKey(current.id));
   } catch {
     return null;

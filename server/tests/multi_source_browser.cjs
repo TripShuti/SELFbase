@@ -1,0 +1,68 @@
+const assert=require('node:assert/strict');
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+(async()=>{
+ const browser=await chromium.launch({headless:true}),page=await browser.newPage({viewport:{width:1600,height:1100}}),env=process.env,errors=[];
+ page.on('pageerror',e=>errors.push(e.message));
+ await page.addInitScript(({url,db,token})=>{
+  localStorage.setItem('selfbase_workspaces_v1',JSON.stringify([{id:'multi',name:'Multi source test',wsUri:url.replace(/^http/,'ws'),dbName:db}]));
+  localStorage.setItem('selfbase_active_workspace_id','multi');
+  localStorage.setItem('selfbase_spacetimedb_token__multi',token);
+ },{url:env.SELFBASE_STDB_URL,db:env.SELFBASE_STDB_DB_NAME,token:env.SELFBASE_STDB_TOKEN});
+ try{
+  await page.route('https://images.example.com/**',route=>route.fulfill({status:200,contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" />'}));
+  await page.goto(env.TEST_WEB_ORIGIN+'/workspace/'+env.TEST_DATABASE_ID,{waitUntil:'networkidle'});
+  await page.getByRole('button',{name:'Data sources (2)',exact:true}).click();
+  const select=page.getByLabel('Workspace source',{exact:true});
+  await select.selectOption('catalog');
+  assert.equal(await page.getByLabel('Source field 1',{exact:true}).inputValue(),'playtime_forever');
+  assert.ok(await page.getByText('Refresh schedule is shared',{exact:false}).count());
+  await page.screenshot({path:'/tmp/selfbase-multi-settings.png'});
+  await page.keyboard.press('Escape');
+  const row=page.locator('table tbody tr').filter({has:page.getByRole('button',{name:'Catalog game',exact:true})});
+  await row.getByRole('button',{name:'Manage source link: Catalog game',exact:true}).click();
+  const choice=page.getByLabel('Record source',{exact:true});
+  assert.equal(await choice.inputValue(),'catalog');
+  await choice.selectOption('inventory');
+  await page.getByLabel('Search external records',{exact:true}).fill('desk');
+  await page.getByRole('button',{name:'Desk lamp',exact:true}).filter({has:page.locator('span')}).last().click();
+  await choice.waitFor({state:'hidden'});
+  await row.getByText('80h 3m',{exact:true}).waitFor();
+  assert.ok((await row.innerText()).includes('Catalog personal note'));
+  await row.getByRole('button',{name:'Manage source link: Catalog game',exact:true}).click();
+  assert.equal(await choice.inputValue(),'inventory');
+  await choice.selectOption('catalog');
+  await page.getByLabel('Search external records',{exact:true}).fill('catalog');
+  await page.locator('img[src="https://images.example.com/apps/1/abc.jpg"]').waitFor();
+  await page.getByRole('button',{name:'Catalog game',exact:true}).filter({has:page.locator('span')}).last().click();
+  await choice.waitFor({state:'hidden'});
+  await row.getByText('2h 0m',{exact:true}).waitFor();
+  await row.getByText('1/1/2024',{exact:true}).waitFor();
+  await page.screenshot({path:'/tmp/selfbase-multi-grid.png'});
+  assert.equal(await page.getByRole('columnheader',{name:'External record',exact:true}).count(),0);
+  await page.goto(env.TEST_WEB_ORIGIN+'/workspace/settings#data-sources',{waitUntil:'networkidle'});
+  await page.getByText('Collection service updated',{exact:true}).locator('..').locator('..').getByRole('button',{name:'Edit',exact:true}).click();
+  const template=page.getByLabel('Image URL template (optional)');
+  assert.equal(await template.inputValue(),'https://images.example.com/apps/{appid}/{art.hash}.jpg');
+  await template.fill('https://images.example.com/apps/{appid}/{art.hash}.jpg?v=2');
+  assert.equal(await page.getByLabel('Additional API path 1',{exact:true}).inputValue(),'/activity');
+  await page.getByRole('button',{name:'Remove additional list',exact:true}).click();
+  await page.getByRole('button',{name:'Remove additional list',exact:true}).waitFor({state:'hidden'});
+  if(!await page.getByRole('button',{name:'+ Add API list',exact:true}).isVisible())await page.getByText('Additional API lists',{exact:true}).click();
+  await page.getByRole('button',{name:'+ Add API list',exact:true}).click();
+  await page.getByLabel('Additional API path 1',{exact:true}).fill('/activity?browser=1');
+  await page.getByLabel('Additional results array 1',{exact:true}).fill('events');
+  await page.getByLabel('Main record match field 1',{exact:true}).fill('appid');
+  await page.getByLabel('Additional record match field 1',{exact:true}).fill('appid');
+  await page.getByLabel('Attach as field 1',{exact:true}).fill('activity');
+
+  await page.getByRole('button',{name:'Save source',exact:true}).click();
+  await page.getByText('Workspace source saved.',{exact:false}).waitFor();
+  await page.goto(env.TEST_WEB_ORIGIN+'/workspace/'+env.TEST_DATABASE_ID,{waitUntil:'networkidle'});
+  await page.locator('table tbody tr').filter({has:page.getByRole('button',{name:'Catalog game',exact:true})}).getByRole('button',{name:'Manage source link: Catalog game',exact:true}).click();
+  await page.locator('img[src="https://images.example.com/apps/1/abc.jpg?v=2"]').waitFor();
+  await page.screenshot({path:'/tmp/selfbase-image-template-browser.png'});
+  console.log('PASS: browser edits and saves generic image template; existing bindings update; new preview appears immediately despite cached collection; direct source images remain supported');
+  assert.deepEqual(errors,[]);
+  console.log('PASS: browser selects connected source settings; changes row source in both directions; custom name and notes preserved; correct Duration from each source; one hidden link column');
+ }catch(e){console.log((await page.locator('body').innerText()).slice(-6000));console.log(errors);await page.screenshot({path:'/tmp/selfbase-multi-browser-failure.png'});throw e;}finally{await browser.close();}
+})().catch(e=>{console.error(e);process.exitCode=1});

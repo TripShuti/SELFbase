@@ -44,6 +44,11 @@ export async function authorizeBlobRequest(
   if (!isValidDbName(dbName)) {
     return NextResponse.json({ error: "Invalid db" }, { status: 400 });
   }
+  const configuredDb = process.env.SELFBASE_STDB_DB_NAME?.trim()
+    || process.env.NEXT_PUBLIC_SPACETIMEDB_DB_NAME?.trim() || "selfbase";
+  if (dbName !== configuredDb) {
+    return NextResponse.json({ error: "Different workspace" }, { status: 403 });
+  }
   const auth = request.headers.get("authorization");
   const token =
     auth?.startsWith("Bearer ") && auth.length > 7 ? auth.slice(7) : null;
