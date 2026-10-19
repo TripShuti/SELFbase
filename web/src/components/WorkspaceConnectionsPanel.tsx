@@ -12,7 +12,7 @@ import {
 import {
   SELFBASE_SNAPSHOT_FORMAT_V2,
   buildSelfbaseSnapshotV2,
-  chunkSelfbaseSnapshotV2,
+  restoreSelfbaseSnapshotV2,
   downloadSelfbaseSnapshotJson,
   parseSelfbaseSnapshotJson,
   type SelfbaseSnapshotV2,
@@ -188,27 +188,10 @@ export function WorkspaceConnectionsPanel() {
     const conn = getConnection();
     if (!conn) throw new Error("Not connected.");
     const importV2 = getImportV2Reducers(conn);
-    const { header, chunks, manifest } = chunkSelfbaseSnapshotV2(snapshot);
-
-    setImportProgress({ done: 0, total: chunks.length });
     try {
-      await importV2.importV2Begin({ headerJson: JSON.stringify(header) });
-      for (const chunk of chunks) {
-        await importV2.importV2Chunk({
-          seq: chunk.seq,
-          tableName: chunk.tableName,
-          rowsJson: chunk.rowsJson,
-        });
-        setImportProgress({ done: chunk.seq, total: chunks.length });
-      }
-      await importV2.importV2Commit({ manifestJson: JSON.stringify(manifest) });
-    } catch (e) {
-      try {
-        await importV2.importV2Abort();
-      } catch {
-        // best-effort abort; surface the original error
-      }
-      throw e;
+      await restoreSelfbaseSnapshotV2(snapshot, importV2, {
+        onProgress: (done, total) => setImportProgress({ done, total }),
+      });
     } finally {
       setImportProgress(null);
     }

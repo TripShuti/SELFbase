@@ -1,3 +1,4 @@
+import { validateSelfbaseSnapshotV2 } from "./validate";
 import { SELFBASE_SNAPSHOT_FORMAT_V2, type SelfbaseSnapshotV2 } from "./v2";
 
 export type ParsedSelfbaseSnapshot = {
@@ -22,12 +23,7 @@ export function parseSelfbaseSnapshotJson(text: string): ParsedSelfbaseSnapshot 
   const o = v as Record<string, unknown>;
 
   if (o.format === SELFBASE_SNAPSHOT_FORMAT_V2) {
-    if (!o.tables || typeof o.tables !== "object") {
-      throw new Error("Invalid selfbase-snapshot-v2 file: missing tables");
-    }
-    if (!o.counts || typeof o.counts !== "object") {
-      throw new Error("Invalid selfbase-snapshot-v2 file: missing counts");
-    }
+    validateSelfbaseSnapshotV2(o);
     return { format: SELFBASE_SNAPSHOT_FORMAT_V2, snapshot: o as SelfbaseSnapshotV2 };
   }
 
