@@ -1,3 +1,4 @@
+import { createServer } from "node:http";
 import { describe, expect, test, vi } from "vitest";
 import { HttpStdbTransport } from "./http-transport";
 const reply = (name: string, value: unknown) => new Response(JSON.stringify([
@@ -48,4 +49,53 @@ describe("caller-scoped HTTP reads", () => {
         await expect(create(fetchImpl as typeof fetch).sql("SELECT id FROM migration_state")).resolves.toEqual([{ id: 4 }]);
         expect(fetchImpl).toHaveBeenCalledTimes(1);
     });
+});
+
+// Bodies deliberately ignore fetch's AbortSignal: timeout must cover consumers,
+// including injected fetch implementations, rather than only native fetch.
+describe("full-response deadline", () => {
+    const timed = (fetchImpl: typeof fetch) => new HttpStdbTransport({
+        baseUrl: "http://localhost:3098", dbName: "fixture", token: "actor", timeoutMs: 20, fetchImpl,
+    });
+    test.each([200, 503])("times out a stalled SQL body after HTTP %i headers", async status => {
+        const transport = timed((async () => new Response(new ReadableStream({ start(c) {
+            c.enqueue(new TextEncoder().encode("["));
+        } }), { status })) as typeof fetch);
+        await expect(transport.sql("SELECT * FROM migration_state")).rejects.toMatchObject({ status: 504, code: "stdb_timeout" });
+    });
+    test("times out a stalled reducer error body", async () => {
+        const transport = timed((async () => new Response(new ReadableStream(), { status: 503 })) as typeof fetch);
+        await expect(transport.call("change", [])).rejects.toMatchObject({ status: 504, code: "stdb_timeout" });
+    });
+    test("cancels an unused successful reducer body", async () => {
+        const cancel = vi.fn();
+        const transport = timed((async () => new Response(new ReadableStream({ cancel }))) as typeof fetch);
+        await expect(transport.call("change", [])).resolves.toBeUndefined();
+        expect(cancel).toHaveBeenCalledOnce();
+    });
+    test("bounds a fetch that never resolves", async () => {
+        await expect(timed((() => new Promise(() => {})) as typeof fetch).call("change", []))
+            .rejects.toMatchObject({ status: 504, code: "stdb_timeout" });
+    });
+});
+
+
+test("native fetch closes a real stalled response when its body deadline expires", async () => {
+    let bodyClosed!: () => void;
+    const closed = new Promise<void>(resolve => { bodyClosed = resolve; });
+    const server = createServer((_request, response) => {
+        response.on("close", bodyClosed);
+        response.writeHead(200, { "Content-Type": "application/json" });
+        response.write("[");
+    });
+    await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+    try {
+        const address = server.address() as { port: number };
+        const transport = new HttpStdbTransport({ baseUrl: `http://127.0.0.1:${address.port}`, dbName: "fixture", token: "actor", timeoutMs: 200 });
+        await expect(transport.sql("SELECT * FROM migration_state")).rejects.toMatchObject({ status: 504, code: "stdb_timeout" });
+        await closed;
+    } finally {
+        server.closeAllConnections();
+        await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+    }
 });

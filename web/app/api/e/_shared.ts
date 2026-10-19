@@ -43,7 +43,7 @@ function getTransport(): StdbTransport {
       "SELFBASE_STDB_TOKEN is not set. Set it in your environment so the API handler can authenticate to SpacetimeDB.",
     );
   }
-  cachedTransport = new HttpStdbTransport({ baseUrl, dbName, token });
+  cachedTransport = new HttpStdbTransport({ baseUrl, dbName, token, timeoutMs: 15_000 });
   return cachedTransport;
 }
 

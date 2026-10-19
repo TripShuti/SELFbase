@@ -64,3 +64,28 @@ describe("external HTTP source", () => {
     expect(transport.call).toHaveBeenCalledWith("apply_external_record", [1, JSON.stringify(config), "abc", "Lamp", JSON.stringify([{ propertyId: "10", kind: "Number", value: 12 }])]);
   });
 });
+
+
+describe("external response cleanup", () => {
+  it("does not wait for a stalled cancellation after exceeding the size cap", async () => {
+    const cancel = vi.fn(() => new Promise<void>(() => {}));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(new ReadableStream({
+      start(c) { c.enqueue(new Uint8Array(2_000_001)); }, cancel,
+    }))));
+    await expect(fetchRecord(source, "abc")).rejects.toThrow("2 MB");
+    expect(cancel).toHaveBeenCalledOnce();
+  });
+
+  it("bounds a stalled body after successful headers", async () => {
+    const controller = new AbortController();
+    const deadline = vi.spyOn(AbortSignal, "timeout").mockReturnValue(controller.signal);
+    const cancel = vi.fn();
+    try {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(new ReadableStream({ cancel }))));
+      const result = fetchRecord(source, "abc");
+      controller.abort(new DOMException("Deadline", "TimeoutError"));
+      await expect(result).rejects.toThrow("connection or timeout");
+      expect(cancel).toHaveBeenCalledOnce();
+    } finally { deadline.mockRestore(); }
+  });
+});
