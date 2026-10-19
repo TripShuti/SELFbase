@@ -55,8 +55,8 @@ import {
  * mounting, every `RichText` has two render modes:
  *
  *   1. **Static** — renders the `Y.Doc` through `yDocToHtml`. No
- *      ProseMirror, no event handlers, no IndexedDB handle. Cheap, used
- *      for off-screen blocks.
+ *      ProseMirror or editor event handlers. Used for off-screen blocks;
+ *      document persistence and autosave remain active.
  *   2. **Live** — full `y-prosemirror` mount via `<RichTextEditor>`. Used
  *      for blocks in the viewport plus a one-viewport preload band.
  *
