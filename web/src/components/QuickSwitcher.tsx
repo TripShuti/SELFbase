@@ -49,7 +49,7 @@ function Highlighted({
         set.has(i) ? (
           <mark
             key={i}
-            className="bg-transparent text-blue-600 dark:text-blue-400 font-semibold"
+            className="bg-transparent text-accent-700 dark:text-accent-400 font-semibold"
           >
             {ch}
           </mark>
@@ -243,7 +243,7 @@ export function QuickSwitcher({ open, onClose }: QuickSwitcherProps) {
                   onMouseEnter={() => setSelectedIdx(i)}
                   className={`w-full text-left flex items-center gap-3 px-4 py-2 transition-colors ${
                     i === selectedIdx
-                      ? "bg-blue-50 dark:bg-blue-900/30"
+                      ? "bg-accent-50 dark:bg-accent-900/30"
                       : "hover:bg-neutral-50 dark:hover:bg-neutral-800/60"
                   }`}
                 >

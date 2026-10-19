@@ -63,7 +63,7 @@ export function PageHistoryPanel({ pageId, onClose, onRestore }: PageHistoryPane
         <div className="flex items-center gap-2">
           <button
             onClick={handleSaveVersion}
-            className="text-xs px-2 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 transition-colors"
+            className="text-xs px-2 py-1 rounded bg-accent-500 text-neutral-950 hover:bg-accent-600 transition-colors"
           >
             Save version
           </button>
@@ -93,7 +93,7 @@ export function PageHistoryPanel({ pageId, onClose, onRestore }: PageHistoryPane
                     <span className="text-sm font-medium text-neutral-900 dark:text-white truncate">
                       {snap.title || "Untitled"}
                     </span>
-                    <span className="text-xs text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    <span className="text-xs text-accent-700 dark:text-accent-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                       Restore
                     </span>
                   </div>

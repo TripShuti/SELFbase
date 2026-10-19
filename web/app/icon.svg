@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" fill="none">
+  <style>path{stroke:#171717}@media(prefers-color-scheme:dark){path{stroke:#fafafa}}</style>
+  <g transform="translate(4 2)">
+    <path d="M25 12V8a5 5 0 0 0-5-5H9a5 5 0 0 0-5 5v4a5 5 0 0 0 5 5h3M20 19h3a5 5 0 0 1 5 5v4a5 5 0 0 1-5 5H12a5 5 0 0 1-5-5v-4" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="13" y="15" width="6" height="6" rx="1.3" fill="#e8ad39"/>
+  </g>
+</svg>

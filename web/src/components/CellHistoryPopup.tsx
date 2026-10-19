@@ -130,7 +130,7 @@ export function CellHistoryPopup({
                   {!isCurrent && (
                     <button
                       onClick={() => void handleRestore(h.value)}
-                      className="flex-shrink-0 text-xs px-2 py-0.5 rounded text-blue-600 dark:text-blue-400 opacity-0 group-hover:opacity-100 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all"
+                      className="flex-shrink-0 text-xs px-2 py-0.5 rounded text-accent-700 dark:text-accent-400 opacity-0 group-hover:opacity-100 hover:bg-accent-50 dark:hover:bg-accent-900/30 transition-all"
                       title="Restore this value"
                     >
                       Restore
