@@ -28,7 +28,7 @@ export function serviceTransport(): HttpStdbTransport {
   if (!env.token) throw new Error("A database-owner service token is required on the SELFbase server");
   return callerTransport(env.token);
 }
-interface Schema { page_id: string | number; config: unknown }
+interface Schema { page_id: string | number; config: unknown; deleted_at?: unknown }
 interface Row { id: string | number; parent_id: unknown; deleted_at: unknown }
 interface Cell { page_id: string | number; value: unknown }
 export function configFromSchema(schema: Schema) {
@@ -50,8 +50,8 @@ function listSignature(rules: SourceEnrichment[] = []): string {
   return JSON.stringify(rules.map(rule => [rule.path, rule.resultsPath, rule.recordMatchPath, rule.matchPath, rule.targetField]));
 }
 export async function loadSource(transport: StdbTransport, databaseId: string, sourceId?: string): Promise<LoadedSource> {
-  const [schema] = await transport.sql<Schema>("SELECT page_id, config FROM database_schema WHERE page_id = ?", [BigInt(databaseId)]);
-  const configs = schema ? configsFromSchema(schema) : [];
+  const [schema] = await transport.sql<Schema>("SELECT database_schema.page_id, database_schema.config, page.deleted_at FROM database_schema JOIN page ON database_schema.page_id = page.id WHERE database_schema.page_id = ?", [BigInt(databaseId)]);
+  const configs = schema && unwrapScalar(schema.deleted_at) == null ? configsFromSchema(schema) : [];
   const config = sourceId == null || sourceId === "" ? configs[0] : configs.find(c => c.sourceId === sourceId);
   if (!config?.enabled) throw new Error("Enable an external data source in this database first");
   let secret = "";
@@ -287,7 +287,7 @@ export async function syncExternalRow(transport: StdbTransport, source: LoadedSo
 }
 
 export async function loadRowSource(transport: StdbTransport, databaseId: string, rowId: string): Promise<LoadedSource> {
-  const [schema] = await transport.sql<Schema>("SELECT page_id, config FROM database_schema WHERE page_id = ?", [BigInt(databaseId)]);
+  const [schema] = await transport.sql<Schema>("SELECT database_schema.page_id, database_schema.config, page.deleted_at FROM database_schema JOIN page ON database_schema.page_id = page.id WHERE database_schema.page_id = ?", [BigInt(databaseId)]);
   const primary = schema && configFromSchema(schema);
   if (!primary) throw new Error("No source connected");
   const [cell] = await transport.sql<Cell>("SELECT page_id, value FROM page_property_value WHERE page_id = ? AND property_definition_id = ?", [BigInt(rowId), BigInt(primary.linkPropertyId)]);
@@ -333,10 +333,10 @@ export async function syncSourceDatabase(transport: StdbTransport, databaseId: s
   return { updated, failed };
 }
 export async function runSourceWorkerCycle(transport: StdbTransport, now = Date.now()) {
-  const schemas = await transport.sql<Schema>("SELECT page_id, config FROM database_schema");
+  const schemas = await transport.sql<Schema>("SELECT database_schema.page_id, database_schema.config, page.deleted_at FROM database_schema JOIN page ON database_schema.page_id = page.id");
   const groups = new Map<string, { databaseId: string; config: SourceConfig; primarySourceKey: string }[]>();
   const activeBindings = new Set<string>();
-  for (const schema of schemas) for (const config of configsFromSchema(schema)) {
+  for (const schema of schemas.filter(s => unwrapScalar(s.deleted_at) == null)) for (const config of configsFromSchema(schema)) {
     const databaseId = String(schema.page_id), key = config.sourceId || "legacy:" + databaseId;
     activeBindings.add(bindingKey(databaseId, config.sourceId));
     if (!config.enabled) {

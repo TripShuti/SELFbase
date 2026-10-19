@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EMPTY_SOURCE, parseSourceConfigs, sourceForLink, type SourceConfig } from "./types";
-import { fetchRecord, invalidateSourceCache, runSourceWorkerCycle, searchSource, workerStatus, type LoadedSource } from "./server";
+import { fetchRecord, invalidateSourceCache, loadSource, runSourceWorkerCycle, searchSource, workerStatus, type LoadedSource } from "./server";
 import { mappedValues } from "./mapping";
 import type { StdbTransport } from "../api-endpoint/types";
 let seq = 0;
@@ -211,5 +211,46 @@ describe("one refresh schedule per shared source", () => {
     await runSourceWorkerCycle(transport, now + 10_800_003);
     expect(fetch).toHaveBeenCalledTimes(6);
     expect(transport.call).toHaveBeenCalledTimes(4);
+  });
+});
+
+
+describe("deleted source databases", () => {
+  it("drops polling state and never fetches or applies records for a trashed database", async () => {
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    const transport: StdbTransport = {
+      sql: vi.fn(async () => [{ page_id: 1, config: JSON.stringify({ externalSource: source().config }), deleted_at: { some: [1] } }]) as StdbTransport["sql"],
+      call: vi.fn(),
+    };
+    await runSourceWorkerCycle(transport);
+    expect(fetch).not.toHaveBeenCalled();
+    expect(transport.call).not.toHaveBeenCalled();
+    expect(transport.sql).toHaveBeenCalledTimes(1);
+  });
+  it("pauses an existing schedule in trash and resumes after restore", async () => {
+    const { transport, configs } = workerFixture();
+    const query = transport.sql.bind(transport);
+    let trashed = false;
+    transport.sql = (async (sql: string, args?: unknown[]) => {
+      const rows = await query<Record<string, unknown>>(sql, args);
+      return sql.includes("database_schema") ? rows.map(row => ({ ...row, deleted_at: trashed ? { some: [1] } : { none: [] } })) : rows;
+    }) as StdbTransport["sql"];
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json(body())));
+    const now = Date.now();
+    await runSourceWorkerCycle(transport, now);
+    expect(transport.call).toHaveBeenCalledTimes(2);
+    trashed = true;
+    await runSourceWorkerCycle(transport, now + 1);
+    expect(transport.call).toHaveBeenCalledTimes(2);
+    expect(workerStatus("1", configs[0].sourceId).lastRun).toBeNull();
+    trashed = false;
+    await runSourceWorkerCycle(transport, now + 2);
+    expect(transport.call).toHaveBeenCalledTimes(4);
+  });
+  it("refuses a direct source load from a trashed database", async () => {
+    const transport = { sql: async () => [{ page_id: 1, config: JSON.stringify({ externalSource: source().config }), deleted_at: { some: [1] } }], call: vi.fn() } as unknown as StdbTransport;
+    await expect(loadSource(transport, "1")).rejects.toThrow();
+    expect(transport.call).not.toHaveBeenCalled();
   });
 });

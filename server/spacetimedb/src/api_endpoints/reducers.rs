@@ -182,6 +182,13 @@ pub fn delete_api_endpoint(ctx: &ReducerContext, endpoint_id: u64) -> Result<(),
 
     require_creator_or_admin(ctx, endpoint.created_by, "delete this endpoint")?;
 
+    purge_api_endpoint(ctx, endpoint_id);
+    Ok(())
+}
+
+/// Internal cascade for a permanently removed database. Authorization belongs
+/// to the calling operation; endpoint ownership cannot retain orphaned keys.
+pub(crate) fn purge_api_endpoint(ctx: &ReducerContext, endpoint_id: u64) {
     // Remove all field mappings
     let mapping_ids: Vec<u64> = ctx
         .db
@@ -206,8 +213,17 @@ pub fn delete_api_endpoint(ctx: &ReducerContext, endpoint_id: u64) -> Result<(),
         ctx.db.api_endpoint_key().id().delete(kid);
     }
 
+    let log_ids: Vec<_> = ctx
+        .db
+        .api_call_log()
+        .endpoint_id()
+        .filter(endpoint_id)
+        .map(|r| r.id)
+        .collect();
+    for id in log_ids {
+        ctx.db.api_call_log().id().delete(id);
+    }
     ctx.db.api_endpoint().id().delete(endpoint_id);
-    Ok(())
 }
 
 /// Add or customize a field mapping on a custom API endpoint.

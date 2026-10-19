@@ -23,7 +23,7 @@ rich text.
 
 ## Features
 
-- **Pages & documents** — nesting, icons, breadcrumbs, trash with restore, snapshot history with one-click restore, audio/image/code blocks.
+- **Pages & documents** — nesting, icons, breadcrumbs, trash with restore ([deletion lifecycle](./docs/DATA_LIFECYCLE.md)), snapshot history with one-click restore, audio/image/code blocks.
 - **Databases** — grid, list & board views; Text, Number, Date, Duration, Select, Multi-select, Checkbox, URL, Relation, Person, File, Formula, Rollup columns; inline editing, filters, sorts; any row opens as a full page with its own URL.
 - **Column calculations** — per-column footer aggregations (Sum, Average, Min, Max, Range, Count…), stored per view; `Duration` columns sum as `Xh Ym`.
 - **Cell history** — every value change is kept append-only; right-click a cell → History → one-click restore.

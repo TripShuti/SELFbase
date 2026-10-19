@@ -160,6 +160,9 @@ def main():
                         fields = [] if count is None else [dict(propertyId=str(props["Count"]), kind="Number", value=count)]
                         call("apply_external_record", [row, json.dumps(config), record, record, json.dumps(fields)])
 
+                    call("delete_page", [database])
+                    assert "Database is deleted" in call("apply_external_record", [row, json.dumps(config), "A", "A", "[]"], fail=True)
+                    call("restore_page", [database])
                     apply("A", 111)
                     call("link_external_record", [row, "", ""])
                     call("link_external_record", [row, "B", "B"])
@@ -182,6 +185,12 @@ def main():
                     call("configure_external_source", [database, json.dumps(dict(config, linkPropertyId="")), {"some": SECRET}])
                     assert len(sql("SELECT id FROM property_definition")) == 3
                     print("PASS: unlink/relink clears stale data; history is retired; successful links are marked; enriched images save; trash disconnect keeps values without hidden columns", flush=True)
+
+                    stale_config = source(database)
+                    call("delete_property", [props["Count"]])
+                    assert source(database)["mappings"] == []
+                    assert "configuration changed" in call("apply_external_record", [row, json.dumps(stale_config), "C", "C", "[]"], fail=True)
+                    print("PASS: deleting a mapped column removes stale source mappings", flush=True)
 
                     call("register", ["admin@example.test", "Admin", "regression-password-long"])
                     call("create_local_user", ["member@example.test", "Member", "regression-password-long"])
