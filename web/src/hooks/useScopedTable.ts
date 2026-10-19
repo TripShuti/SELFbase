@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -112,14 +113,17 @@ export function useScopedTable<Row>(
   const callbacksRef = useRef(callbacks);
   callbacksRef.current = callbacks;
 
-  // Track WHICH sql is currently applied rather than a boolean, so changing
-  // scope (e.g. navigating surfaces) reads as not-ready in the very same
-  // render instead of flashing stale readiness over an empty cache.
-  const [appliedSql, setAppliedSql] = useState<string | null>(null);
-  const ready = appliedSql === sql;
+  // Readiness belongs to this subscription lifecycle, not just its SQL.
+  // Reconnecting with the same query must be not-ready in the first render,
+  // before the passive subscription effect has a chance to rebuild it.
+  const subscription = useMemo(() => ({ sql, sourceName, connectionState }),
+    [sql, sourceName, connectionState]);
+  const [applied, setApplied] = useState<typeof subscription | null>(null);
+  const ready = connectionState.isActive && applied === subscription;
 
   const latestTransactionEventId = useRef<string | null>(null);
   const lastSnapshotRef = useRef<Snapshot<Row> | null>(null);
+  const snapshotComputeRef = useRef<(() => Snapshot<Row>) | null>(null);
 
   const computeSnapshot = useCallback((): Snapshot<Row> => {
     const connection = connectionState.getConnection();
@@ -138,13 +142,6 @@ export function useScopedTable<Row>(
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sql invalidates the snapshot when the scope changes; filter is intentionally a ref
   }, [connectionState, accessorName, sql, ready]);
 
-  // Invalidate the cached snapshot when computeSnapshot changes (e.g. when
-  // `ready` flips or `sql` changes) so getSnapshot() recomputes on the next
-  // read instead of returning a stale tuple — same trick as useTable.
-  useEffect(() => {
-    lastSnapshotRef.current = null;
-  }, [computeSnapshot]);
-
   // Per-instance subscription: subscribe on mount / when `sql` changes,
   // unsubscribe on cleanup. Overlapping subscriptions are safe — the client
   // cache refcounts rows per query set (spacetimedb/src/sdk/table_cache.ts).
@@ -158,7 +155,7 @@ export function useScopedTable<Row>(
     const scopedHandle: SubscriptionHandle = connection
       .subscriptionBuilder()
       .onApplied(() => {
-        if (!disposed) setAppliedSql(sql);
+        if (!disposed) setApplied(subscription);
       })
       .onError((ctx) => {
         // Server rejected the scoped query (bad SQL, unsupported join shape,
@@ -171,12 +168,14 @@ export function useScopedTable<Row>(
           ctx.event,
         );
         if (disposed) return;
+        setApplied(null);
         fallbackHandle = connection
           .subscriptionBuilder()
           .onApplied(() => {
-            if (!disposed) setAppliedSql(sql);
+            if (!disposed) setApplied(subscription);
           })
           .onError((fallbackCtx) => {
+            if (!disposed) setApplied(null);
             console.warn(
               `[useScopedTable] Fallback full-table subscription failed for "${sourceName}".`,
               fallbackCtx.event,
@@ -204,7 +203,7 @@ export function useScopedTable<Row>(
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sql, sourceName, connectionState.isActive, connectionState]);
+  }, [sql, sourceName, connectionState.isActive, connectionState, subscription]);
 
   // Row-event wiring for useSyncExternalStore, mirroring useTable: run
   // callbacks per row (filtered / membership-classified), but rebuild the
@@ -220,6 +219,7 @@ export function useScopedTable<Row>(
         if (ctx.event.id !== latestTransactionEventId.current) {
           latestTransactionEventId.current = ctx.event.id;
           lastSnapshotRef.current = computeSnapshot();
+          snapshotComputeRef.current = computeSnapshot;
           onStoreChange();
         }
       };
@@ -271,8 +271,9 @@ export function useScopedTable<Row>(
   );
 
   const getSnapshot = useCallback((): Snapshot<Row> => {
-    if (!lastSnapshotRef.current) {
+    if (!lastSnapshotRef.current || snapshotComputeRef.current !== computeSnapshot) {
       lastSnapshotRef.current = computeSnapshot();
+      snapshotComputeRef.current = computeSnapshot;
     }
     return lastSnapshotRef.current;
   }, [computeSnapshot]);
