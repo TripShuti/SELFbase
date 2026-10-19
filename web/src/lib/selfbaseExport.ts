@@ -14,6 +14,7 @@ export {
   SNAPSHOT_EXCLUDED_TABLES_V2,
   buildSelfbaseSnapshotV2,
   chunkSelfbaseSnapshotV2,
+  restoreSelfbaseSnapshotV2,
   resolveSnapshotTableAccessors,
   parseSelfbaseSnapshotJson,
 } from "@selfbase/snapshot-core";

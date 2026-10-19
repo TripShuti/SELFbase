@@ -205,7 +205,9 @@ def main():
                     assert not sql("SELECT source_id FROM shared_external_source_secret")
                     call("import_v_2_chunk", [1, "page", json.dumps([page])])
                     call("import_v_2_chunk", [2, "database_schema", json.dumps([restored_schema])])
-                    call("import_v_2_commit", [json.dumps({"counts": {"page": 1, "database_schema": 1}})])
+                    manifest_counts = dict.fromkeys(json.loads((ROOT / "server/spacetimedb/snapshot_tables_v2.json").read_text())["include"], 0)
+                    manifest_counts.update(page=1, database_schema=1)
+                    call("import_v_2_commit", [json.dumps({"counts": manifest_counts})])
                     probe_env = dict(os.environ, SELFBASE_STDB_URL=base, SELFBASE_STDB_DB_NAME="source-regressions", SELFBASE_STDB_TOKEN=token, TEST_DATABASE_ID=str(database))
                     probe = "import {serviceTransport,loadSource,searchSource} from './web/src/lib/external-sources/server'; async function main(){await searchSource(await loadSource(serviceTransport(),process.env.TEST_DATABASE_ID!), '');} main().catch(()=>{process.exitCode=1});"
                     result = subprocess.run([str(ROOT / "web/node_modules/.bin/tsx"), "-e", probe], cwd=ROOT, env=probe_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)

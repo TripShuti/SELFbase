@@ -6,7 +6,7 @@ vi.mock("../../app/api/upload/_auth", () => ({ authorizeBlobRequest: mocks.autho
 import { PUT } from "../../app/api/upload/put/route";
 
 function request(body: BodyInit, headers: Record<string, string> = {}, signal?: AbortSignal) {
-  const init = { method: "PUT", body, headers, signal, duplex: "half" };
+  const init = { method: "PUT", body, headers, signal, duplex: "half" as const };
   return new NextRequest("http://localhost/api/upload/put?db=selfbase&key=pages/1/file.bin", init);
 }
 beforeEach(() => { mocks.send.mockReset().mockResolvedValue({}); mocks.authorize.mockReset().mockResolvedValue(null); });

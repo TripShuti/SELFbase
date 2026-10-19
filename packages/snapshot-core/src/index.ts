@@ -25,3 +25,7 @@ export type {
 
 export { parseSelfbaseSnapshotJson } from "./parse";
 export type { ParsedSelfbaseSnapshot } from "./parse";
+
+export { validateSelfbaseSnapshotV2 } from "./validate";
+export { restoreSelfbaseSnapshotV2 } from "./restore";
+export type { SnapshotRestoreReducers } from "./restore";

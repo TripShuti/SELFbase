@@ -1,3 +1,4 @@
+import { validateSelfbaseSnapshotV2 } from "./validate";
 import { encodeSnapshotValue } from "./encodeSnapshotValue";
 import { SNAPSHOT_TABLES_V2 } from "./tablePolicy";
 
@@ -203,10 +204,12 @@ export function chunkSelfbaseSnapshotV2(
     throw new Error(`chunkSelfbaseSnapshotV2: maxBytes must be a finite number >= 2, got ${maxBytes}`);
   }
 
+  validateSelfbaseSnapshotV2(snapshot);
   const chunks: SelfbaseSnapshotV2Chunk[] = [];
   let seq = 1;
 
-  for (const [tableName, rows] of Object.entries(snapshot.tables)) {
+  for (const tableName of SNAPSHOT_TABLES_V2) {
+    const rows = snapshot.tables[tableName];
     let pending: string[] = [];
     let pendingRowBytes = 0; // sum of UTF-8 lengths of pending row JSON strings
 
@@ -251,10 +254,10 @@ export function chunkSelfbaseSnapshotV2(
     header: {
       format: snapshot.format,
       exportedAt: snapshot.exportedAt,
-      workspace: snapshot.workspace,
+      workspace: { ...snapshot.workspace },
       ...(snapshot.moduleVersion !== undefined ? { moduleVersion: snapshot.moduleVersion } : {}),
     },
     chunks,
-    manifest: { counts: snapshot.counts },
+    manifest: { counts: { ...snapshot.counts } },
   };
 }
