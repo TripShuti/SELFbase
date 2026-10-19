@@ -699,6 +699,11 @@ fn purge_trashed_page(
         if !to_purge.insert(id) {
             continue;
         }
+        // Scheduled retention is workspace-wide; interactive purges must
+        // authorize every node before any mutation takes place.
+        if cutoff.is_none() && !can_write_page(ctx, id, ctx.sender()) {
+            return Err("Cannot purge a subtree containing pages you cannot write".into());
+        }
         for child in ctx.db.page().parent_pk().filter(id) {
             if eligible_for_purge(child.deleted_at, cutoff) {
                 queue.push(child.id);

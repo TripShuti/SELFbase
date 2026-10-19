@@ -14,6 +14,7 @@ MODULE_WASM = repo_path(os.environ.get('TEST_MODULE_WASM', str(TARGET_DIR / 'was
 
 # Reachable historical fixtures used to demonstrate pre-fix behavior.
 BASELINES = {
+    'access_control': '6954f54309d3cb23bffdc5bfe32796a2e92257d2',
     'external_sources': '79e9317',
     'snapshots': '139085ade52534c8f8bea31370b844d1ee459c25',
     'deletion': '84a26b0',

@@ -32,7 +32,7 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "server" / "tests"))
-from regression_config import BIN, MODULE_WASM  # noqa: E402
+from regression_config import BASELINES, BIN, MODULE_WASM  # noqa: E402
 
 POLICY = json.loads(
     (ROOT / "server/spacetimedb/snapshot_tables_v2.json").read_text()
@@ -235,6 +235,57 @@ def main():
                 assert materialized, "moved page lost its inherited rule"
                 print("ok  #4 move_page preserves the inherited restriction", flush=True)
 
+                call("set_user_profile", ["Forged owner", "owner@example.test"], credential=bob_tok)
+                assert sql("SELECT email FROM user WHERE email = 'bob@example.test'")
+                call("set_user_admin", [["0x" + alice_id], True])
+                call("set_user_admin", [["0x" + alice_id], False])
+                call("set_workspace_setting", ["ai.max_hops", "5"], fail=True, credential=alice_tok)
+                print("ok  native profile cannot spoof account; admin promotion/demotion applied", flush=True)
+
+                # Shared schema mutations must authorize inherited cells too.
+                for database_id in (200, 201):
+                    call("create_database_schema", [database_id, str(database_id)])
+                schemas = {row["page_id"]: row["id"] for row in sql("SELECT id, page_id FROM database_schema")}
+                call("add_property", [schemas[200], "Shared", {"text": []}, "{}"])
+                prop_id = sql("SELECT id FROM property_definition WHERE name = 'Shared'")[0]["id"]
+                call("add_property", [schemas[200], "Shared", {"text": []}, "{}"], fail=True)
+                call("set_schema_parent", [schemas[201], {"some": schemas[200]}])
+                call("create_database_row", [201, "Restricted row", [], "restricted-row"], credential=alice_tok)
+                row_id = sql("SELECT page_id FROM database_row_marker WHERE client_request_id = 'restricted-row'")[0]["page_id"]
+                call("set_property_value", [row_id, prop_id, {"text": "keep me"}], credential=alice_tok)
+                call("delete_property", [prop_id], fail=True, credential=bob_tok)
+                call("update_property_type", [prop_id, {"number": []}], fail=True, credential=bob_tok)
+                assert sql(f"SELECT id FROM property_definition WHERE id = {prop_id}")
+                call("update_property_type", [prop_id, {"number": []}])
+                call("delete_property", [prop_id])
+                print("ok  inherited cells protected from schema writer; admin succeeds; duplicate rejected", flush=True)
+
+                # Readers can inspect content but cannot create version-history rows.
+                call("set_page_access_rule", [101, ["0x" + bob_id], {"read": []}])
+                call("authorize_blob_access", [101, False], credential=bob_tok)
+                call("take_snapshot", [101, {"manual": []}], fail=True, credential=bob_tok)
+                call("take_snapshot", [101, {"manual": []}], credential=alice_tok)
+                call("move_page", [100, 100, None], fail=True)
+                print("ok  snapshots require write; valid writer succeeds; cycles rejected", flush=True)
+
+                # Personal view ownership is checked in addition to page write.
+                call("create_view", [100, "Alice view", {"grid": []}, {"some": alice_id}], credential=alice_tok)
+                view_id = sql("SELECT id FROM database_view WHERE page_id = 100")[0]["id"]
+                call("set_page_access_rule", [100, ["0x" + bob_id], {"write": []}])
+                call("rename_view", [view_id, "Bob rename"], fail=True, credential=bob_tok)
+                call("rename_view", [view_id, "Alice rename"], credential=alice_tok)
+                call("rename_view", [view_id, "Admin rename"])
+                print("ok  personal view owner/admin allowed; unrelated writer rejected", flush=True)
+
+                # A former endpoint creator cannot manage it after page access is revoked.
+                call("create_api_endpoint", [200, "revoked-creator", "Test", "", [{"get": []}], True], credential=bob_tok)
+                endpoint_id = sql("SELECT id FROM api_endpoint WHERE slug = 'revoked-creator'")[0]["id"]
+                call("set_page_access_rule", [200, ["0x" + alice_id], {"write": []}])
+                call("delete_api_endpoint", [endpoint_id], fail=True, credential=bob_tok)
+                call("delete_api_endpoint", [endpoint_id])
+                call("clear_page_access_rule", [200, ["0x" + alice_id]])
+                print("ok  revoked endpoint creator denied; admin succeeds", flush=True)
+
                 # #5: an open ancestor cannot trash a restricted child.
                 denied = call("authorize_blob_access", [201, True],
                               fail=True, credential=bob_tok)
@@ -254,6 +305,38 @@ def main():
                 assert not is_none(by_id.get(200)), by_id
                 assert is_none(by_id.get(201)), by_id
                 print("ok  #5 delete_page_subtree skips unwritable descendants", flush=True)
+
+                # A restricted descendant already in trash must survive both
+                # explicit purge and empty_trash by an unauthorized ancestor writer.
+                call("delete_page", [201], credential=alice_tok)
+                call("purge_page", [200], fail=True, credential=bob_tok)
+                assert sql("SELECT id FROM page WHERE id = 201")
+                call("empty_trash", [], credential=bob_tok)
+                assert sql("SELECT id FROM page WHERE id = 201")
+                call("purge_page", [200])
+                assert not sql("SELECT id FROM page WHERE id = 201")
+                print("ok  purge checks descendants; admin purge still succeeds", flush=True)
+
+                # Upgrade the exact PR base with real account/page state intact.
+                baseline = temp / "main.wasm"
+                baseline.write_bytes(subprocess.check_output(
+                    ["git", "show", f"{BASELINES['access_control']}:server/docker/server.wasm"], cwd=ROOT))
+                db = "access-control-main-upgrade"
+                publish(baseline, db)
+                call("register", ["upgrade-owner@example.test", "Owner", "upgrade-owner-password"])
+                call("create_local_user", ["upgrade-member@example.test", "Member", "upgrade-member-password"])
+                call("create_page", [None, {"doc": []}, "Preserved main page"])
+                pages_before = sql("SELECT id, title, parent_pk FROM page")
+                users_before = sql("SELECT identity, email, is_admin, is_authenticated FROM user")
+                publish(MODULE_WASM, db)
+                call("run_pending_migrations", [])
+                assert sql("SELECT id, title, parent_pk FROM page") == pages_before
+                assert sql("SELECT identity, email, is_admin, is_authenticated FROM user") == users_before
+                _, member_token = new_identity()
+                call("login", ["upgrade-member@example.test", "upgrade-member-password"], credential=member_token)
+                call("authorize_blob_access", [pages_before[0]["id"], True], credential=member_token)
+                call("set_workspace_setting", ["ai.max_hops", "5"], fail=True, credential=member_token)
+                print("ok  exact main upgrade preserves pages/admin; native member can log in and edit", flush=True)
 
                 print("PASS: access-control regressions (isolated)", flush=True)
             finally:

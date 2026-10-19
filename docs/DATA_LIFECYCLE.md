@@ -8,7 +8,9 @@ its original deletion timestamp. `delete_page_subtree` trashes descendants;
 ## Permanent deletion
 
 Manual purge requires a trashed page and write access. It removes the root and
-its trashed descendants. Active descendants survive and move to the root's
+its trashed descendants. Every page being removed must be writable by the
+caller; an unauthorized trashed descendant refuses the whole manual purge
+before any changes. Empty-trash skips such roots. Active descendants survive and move to the root's
 parent. Grants from the removed ancestors are copied before detaching them, so
 removing a restricted parent does not make surviving content public within the
 workspace. Grants from surviving ancestors remain inherited, so later changes

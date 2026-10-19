@@ -179,7 +179,12 @@ export async function serveEndpointRequest(opts: ServeOptions): Promise<Response
     return errorJson(e);
   }
 
-  const body = await readJsonBody(request);
+  let body: unknown;
+  try {
+    body = await readJsonBody(request);
+  } catch (error) {
+    return errorJson(error);
+  }
   const callerIp =
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     request.headers.get("cf-connecting-ip") ||

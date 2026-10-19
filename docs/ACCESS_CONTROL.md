@@ -106,6 +106,33 @@ rows are rewritten or deleted by this release. Views recompute from existing
 identity, page, ACL, and participant rows. This is a page/conversation boundary
 change, not a workspace-wide audit of unrelated operational tables.
 
+## Snapshot and management boundaries
+
+Creating a saved page version changes its history and requires write access,
+just like saving a version with client-supplied content. Read access still
+allows reading existing history. Endpoint management also requires current
+write access to its database, even for the original endpoint creator.
+A schema writer cannot delete or change a column's type when its current or
+historical values belong to pages that writer cannot modify.
+
+Personal view configuration, names and deletion require both page write and
+ownership (or admin/publisher authority). The current grid creates shared
+views (`owner_identity = None`), so its shared-view workflows keep page-write
+authorization.
+
+Snapshot imports preserve existing identities' live authentication/admin flags;
+new identities receive neither privilege. Imported API endpoints require auth,
+and imported API keys are skipped. Reissue keys after restore and explicitly
+reopen endpoints intended for public use. OIDC profile email requires the
+trusted issuer's `email_verified = true`; client-supplied profile fields cannot
+replace verified account data.
+
+Workspace deep links may automatically select only the current host, the
+configured public SpacetimeDB host, or hosts explicitly listed in
+`ALLOWED_WORKSPACE_HOSTS` for Compose builds
+(`NEXT_PUBLIC_ALLOWED_WORKSPACE_HOSTS` for direct web builds). This restricts
+automatic adoption from links; manually configured connections remain available.
+
 ## Validation
 
 The access-control regression suite is self-contained: it starts a throwaway
