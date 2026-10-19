@@ -68,6 +68,17 @@ services:
     entrypoint: ["/bin/sh", "/entrypoint.sh"]
     environment:
       STDB_DB_NAME: ${SPACETIMEDB_DB_NAME:-selfbase}
+      STDB_STARTUP_TIMEOUT: ${STDB_STARTUP_TIMEOUT:-120}
+      STDB_PUBLISH_TIMEOUT: ${STDB_PUBLISH_TIMEOUT:-120}
+      STDB_MIGRATION_TIMEOUT: ${STDB_MIGRATION_TIMEOUT:-120}
+    healthcheck:
+      test: ["CMD-SHELL", 'test "$$(cat /tmp/selfbase-ready 2>/dev/null)" = ready && curl --fail --silent --max-time 3 http://localhost:3000/v1/ping > /dev/null']
+      interval: 5s
+      timeout: 4s
+      retries: 3
+      # Allow the three bounded startup phases (120 seconds each). A
+      # successful probe becomes healthy immediately during this window.
+      start_period: 6m
     user: root
     restart: unless-stopped
     networks:
@@ -104,8 +115,10 @@ services:
       # Reach HTTP services published on the Docker host on Linux too.
       - "host.docker.internal:host-gateway"
     depends_on:
-      - spacetimedb
-      - garage
+      spacetimedb:
+        condition: service_healthy
+      garage:
+        condition: service_started
     environment:
       # Internal SpacetimeDB HTTP origin for server-side auth checks
       # (blob routes). Override only for non-compose setups.

@@ -741,6 +741,11 @@ pub fn backfill_credential_admin(ctx: &ReducerContext) -> Result<(), String> {
     if !crate::module_install::sender_is_module_publisher(ctx) {
         return Err("Only the publisher may migrate admin authority".into());
     }
+    backfill_credential_admin_inner(ctx);
+    Ok(())
+}
+
+pub(crate) fn backfill_credential_admin_inner(ctx: &ReducerContext) {
     let mut admin_emails: Vec<String> = Vec::new();
     for user in ctx.db.user().iter().filter(|u| u.is_admin) {
         let email = user.email.trim().to_lowercase();
@@ -754,7 +759,7 @@ pub fn backfill_credential_admin(ctx: &ReducerContext) -> Result<(), String> {
             ctx.db.user_credential().email().update(UserCredential { is_admin: true, ..cred });
         }
     }
-    Ok(())
+
 }
 
 /// Re-grant admin access when every admin identity has been lost.

@@ -59,8 +59,9 @@ pub struct MigrationState {
 //     `run_pending_migrations` below.
 //
 // Failure of any step short-circuits the whole reducer — the next scheduled
-// or manual retry will run again. State is committed per-step, so a
-// partial failure doesn't roll back already-completed migrations.
+// or manual retry will run again. The entire reducer is one transaction:
+// a failure rolls back every step and completion marker from this invocation.
+// Markers committed by an earlier successful invocation remain unchanged.
 
 /// Standardised post-publish hook: call after each successful
 /// `publish_module`. Idempotent and safe to call repeatedly. Adds new
@@ -221,18 +222,28 @@ pub fn run_pending_migrations(ctx: &ReducerContext) -> Result<(), String> {
         }
     );
     run_step!(ctx, "external_source_credential_scope_v1", crate::external_sources::migrate_legacy_credentials);
+    // v1 skipped trashed pages; deletion traversal now relies on parent_pk
+    // for those pages too. A new key repairs already-migrated databases.
+    run_step!(ctx, "page_parent_pk_backfill_v2", backfill_page_parent_pk_inner);
+    run_step!(ctx, "credential_admin_backfill_v1", |ctx: &ReducerContext| {
+        crate::auth::backfill_credential_admin_inner(ctx);
+        Ok::<(), String>(())
+    });
+    run_step!(ctx, "trash_retention_schedule_v1", |ctx: &ReducerContext| {
+        crate::pages::ensure_trash_purge_tick(ctx);
+        Ok::<(), String>(())
+    });
     Ok(())
 }
 
 /// Backfill `Page.parent_pk` from `Page.parent_id` for rows that predate
-/// the field. Skips soft-deleted pages (the API gateway never queries
-/// them) so the on-disk diff stays small.
+/// the field, including trash needed by subtree deletion and retention.
 fn backfill_page_parent_pk_inner(ctx: &ReducerContext) -> Result<(), String> {
     let stale: Vec<Page> = ctx
         .db
         .page()
         .iter()
-        .filter(|p| p.deleted_at.is_none() && p.parent_pk != p.parent_id.unwrap_or(0))
+        .filter(|p| p.parent_pk != p.parent_id.unwrap_or(0))
         .collect();
 
     let n = stale.len();
@@ -240,6 +251,6 @@ fn backfill_page_parent_pk_inner(ctx: &ReducerContext) -> Result<(), String> {
         let parent_pk = page.parent_id.unwrap_or(0);
         ctx.db.page().id().update(Page { parent_pk, ..page });
     }
-    log::info!("page_parent_pk_backfill_v1: updated {n} rows");
+    log::info!("page_parent_pk backfill: updated {n} rows");
     Ok(())
 }
