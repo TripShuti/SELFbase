@@ -20,7 +20,13 @@ Every database row is also a page: open a record to write notes, attach files,
 and add context. View the same collection as a grid, list, or board, with
 real-time sync across clients.
 
-![SELFbase in dark mode, showing a database with an open sidebar](docs/assets/branding-dark.png)
+| Your collections, your fields | Every record is a page |
+|:---:|:---:|
+| [![Database grid with custom fields](docs/assets/preview-database.png)](docs/assets/preview-database.png) | [![Record page with properties and notes](docs/assets/preview-page.png)](docs/assets/preview-page.png) |
+| **Find records in connected sources** | **See your collection as a board** |
+| [![Searching a connected external source](docs/assets/preview-source.png)](docs/assets/preview-source.png) | [![Board view grouped by status](docs/assets/preview-board.png)](docs/assets/preview-board.png) |
+
+<sub>Running SELFbase with a demo workspace and a local example API. Click any screenshot to view it at full size.</sub>
 
 ## Make it your workspace
 
